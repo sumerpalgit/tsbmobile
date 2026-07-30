@@ -66,6 +66,10 @@ yarn-error.log
 # testing
 /coverage
 
+# Claude Code
+.claude/settings.local.json
+.claude/settings.local.json.tmp.*
+
 # Yarn
 .yarn/*
 !.yarn/patches

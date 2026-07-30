@@ -1,0 +1,678 @@
+================================================================
+TSB MOBILE APP - BUILD PLAN
+================================================================
+
+Build the TSB website as a mobile app for Android and iPhone.
+Server already exists. We build screens only.
+
+Reference: webSrc folder (website code).
+
+
+----------------------------------------------------------------
+PHASES AND TIME - TOTAL 49 WORKING DAYS
+----------------------------------------------------------------
+
+    PHASE                                DAYS   DAY NO.
+    --------------------------------------------------------
+    PHASE 0   Project setup                 1      1
+    PHASE 1   Login and sign up             3      2 - 4
+    PHASE 2   The 8 role forms              6      5 - 10
+    PHASE 3   Home screen (feed)            7     11 - 17
+    PHASE 4   Create post and deal flows    6     18 - 23
+    PHASE 5   Profile and matches           7     24 - 30
+    PHASE 6   Chat and notifications        6     31 - 36
+    PHASE 7   Remaining screens             8     37 - 44
+    PHASE 8   Testing and launch            5     45 - 49
+    --------------------------------------------------------
+    TOTAL                                  49
+
+    Team: 1 developer + Claude
+    Full functionality. Nothing removed.
+
+    NOTE ON PHASE 3
+        Phase 3 is the largest and riskiest part of the app
+        (17 post types). It builds the card system that
+        Phase 4 and Phase 5 both reuse. Do not rush it -
+        time saved here comes back as rework in Phase 4.
+
+    THIS PLAN HAS NO SPARE DAYS. It works only if:
+        - Designs are ready before each phase starts
+        - Developer reviews work daily, not weekly
+        - Backend is stable and answers come same day
+        Any delay in these moves the end date directly.
+
+
+----------------------------------------------------------------
+CURRENT SETUP - CHECKED
+----------------------------------------------------------------
+
+    ALREADY INSTALLED
+        React Native 0.83.1, React 19.2, TypeScript 5.8
+        Navigation: native, native-stack, bottom-tabs
+        gesture-handler, safe-area-context, screens
+        iOS and Android folders ready
+
+    TO ADD IN PHASE 0
+        Drawer menu, animations, data layer, secure storage,
+        icons, app config, toast, fast lists, image and file
+        picker, chat connection, forms and validation
+
+    CODE WRITTEN SO FAR
+        None. 3 sample screens only. Clean start.
+
+
+----------------------------------------------------------------
+THE 8 USER ROLES
+----------------------------------------------------------------
+
+    1. Searcher        5. Lender
+    2. Investor        6. Operator
+    3. Advisor         7. Intermediary
+    4. Seller          8. Student
+
+
+----------------------------------------------------------------
+DECISIONS NEEDED
+----------------------------------------------------------------
+
+    DONE
+    1   Login method       BEARER TOKEN - decided
+    2   Scope              FULL VERSION - nothing removed
+
+    STILL OPEN
+    NO  DECISION                              NEEDED BY
+    ------------------------------------------------------
+    3   Who makes the designs?                Phase 2
+        Only 1 screen designed so far. This is the
+        biggest risk to the 49 day plan.
+    4   Does server support push alerts?      Phase 6
+        (Ask backend team now - if no, they must
+        build it before Phase 6 starts)
+
+
+================================================================
+PHASE 0 - PROJECT SETUP                      1 DAY   (day 1)
+================================================================
+
+BUILD
+    1. Colours, fonts, light mode and dark mode
+    2. Server connection file
+    3. App menu
+           Bottom bar:  Home, Directory, Post, Matches, Messages
+           Side menu:   ETA Chapters, AI Assist, My Activities,
+                        My Events, My Resources, Ad Management,
+                        Settings, Suggest a Feature, Sign Out
+           Top bar:     Logo, notification bell, profile picture
+    4. Loading and error handling
+    5. Settings file for server address and keys
+    6. Code quality tools
+
+DONE WHEN
+    - App opens on Android and iPhone
+    - Light and dark mode work
+    - Every menu item opens a blank screen
+
+NEEDS
+    Nothing. Can start now.
+
+
+================================================================
+PHASE 1 - LOGIN AND SIGN UP                  3 DAYS  (day 2-4)
+================================================================
+
+Login uses BEARER TOKEN. Token is kept in the phone's secure
+storage. No cookies.
+
+BUILD
+    1. Login screen (email, password, Google, LinkedIn)
+    2. Sign up screen
+    3. Email verification screen
+    4. Forgot password screen
+    5. Reset password screen
+    6. Splash screen
+    7. Save token securely, auto log in, log out
+    8. Sign-in error messages shown on the login screen
+       (no separate error screen needed on mobile)
+           - No account found with this email
+           - Sign-in failed, please try again
+           - This link has expired
+
+DONE WHEN
+    - Real login works
+    - Still logged in after closing and reopening the app
+    - Google and LinkedIn sign-in work
+    - Log out clears everything
+
+NEEDS
+    Phase 0 finished
+    Google and LinkedIn sign-in IDs
+    Test account on staging server
+    Confirm from backend: does the token expire, and is there
+    a way to renew it without asking the user to log in again
+
+
+================================================================
+PHASE 2 - THE 8 ROLE FORMS                   6 DAYS  (day 5-10)
+================================================================
+
+BUILD
+    1. Role picker screen (8 role cards)
+    2. Sign up form for each of the 8 roles
+    3. Edit mode for the same forms
+    4. Interests screen
+    5. Location picker (country, state, city)
+    6. Document upload
+    7. Profile progress bar
+    8. Shared UI parts used by all later screens
+       (buttons, inputs, dropdowns, tabs, pop-ups, cards,
+        badges, sliders, date picker, multi-select - about 20)
+
+WHAT IS IN EACH ROLE FORM
+    All 8 forms share the same 4 sections. Only the questions
+    inside change per role.
+
+        1. ORGANIZATION DETAILS
+           Role at the organization, organization name,
+           education level, field of study, years of experience
+
+        2. ROLE PREFERENCES  (different for each role)
+           Searcher      search stage, time commitment, equity
+                         status, debt status, deal size range,
+                         revenue and EBITDA range, background
+           Investor      investment stage, ticket size,
+                         investment preference, past deals
+           Lender        loan types (term loan, revolving,
+                         cash flow, acquisition, bridge,
+                         refinancing, equipment, real estate,
+                         working capital, mezzanine),
+                         deal stage they fund
+           Advisor       seniority, services offered (M&A,
+                         due diligence, valuation, tax, legal,
+                         integration), client types
+           Operator      area of expertise, role type,
+                         how they prefer to engage
+           Seller        reason for sale, transition type,
+                         involvement level, preferred buyer
+                         type, transaction details
+           Student       areas of interest (deal sourcing,
+                         modeling, due diligence, research,
+                         operations, marketing, legal)
+           Intermediary  seniority, deal types handled
+
+        3. INDUSTRIES AND GEOGRAPHY  (same for all 8)
+           Industries of interest, geography focus,
+           country / state / region
+
+        4. MATCHMAKING
+           Interests, matching preferences
+
+    NOTE - checked the website code:
+    8 sign-up forms are full forms.
+    Only 3 edit forms are real (Advisor, Intermediary, and
+    the shared one). The other 5 edit forms are 22-line
+    wrappers that reuse the sign-up form.
+    So this is 8 full forms, not 16.
+
+    Build one form engine with 8 question lists, not 8
+    separate screens.
+
+DONE WHEN
+    - Sign up, pick role, fill form, pick interests, reach
+      home screen - working for all 8 roles
+    - User can edit answers later
+    - Document upload works
+
+NEEDS
+    Phase 1 finished
+    Designs for role picker and forms
+
+
+================================================================
+PHASE 3 - HOME SCREEN (FEED)                 7 DAYS  (day 11-17)
+================================================================
+
+Main screen. Scrolling list of posts.
+
+BUILD
+    1. Feed screen (endless scroll, pull to refresh,
+       loading placeholders, empty state)               0.5 day
+    2. Card system - one card plus the shared parts
+       (header, body, media, tags, detail strip,
+        buttons row, footer)                            2 days
+    3. The 3 hardest post types first
+       (Deal, Investor Corner, Search Capital)          2 days
+    4. The remaining 14 post types                      3 days
+
+    THIS PHASE IS ABOUT HOW EACH POST TYPE DISPLAYS.
+    What to ASK when creating a post is Phase 4.
+    Same 17 types, two different jobs.
+
+    NOT IN THIS PHASE - moved to Phase 4:
+        Search and filter panel
+        Single post screen with comments
+        Like, save, comment, share, report, hide, delete
+        Mini cards (built in Phase 5)
+
+THE 17 POST TYPES
+    1   Ask the Community        10  Find a Connection
+    2   Deal                     11  ...for Investor
+    3   Event                    12  ...for Advisor
+    4   Job                      13  ...for Lender
+    5   Poll                     14  ...for Operator
+    6   Investor Corner          15  ...for Seller
+    7   Search Capital           16  ...for Student
+    8   General Post             17  ...for Intermediary
+    9   FAE (find an expert)
+
+    Build ONE card that reads a settings list, with 17 entries.
+    Not 17 separate card files.
+
+    BUILD ORDER: Deal, Investor Corner, Find a Connection
+    first. Then the other 14.
+
+    NOTE - the feed has only 8 card layouts, not 17.
+    All 8 Find My Match versions share ONE layout and
+    change by role inside it.
+
+    WATCH THE TYPE CODES - they are different for
+    creating and for listing. A post created as "fai"
+    comes back from the server as "find_a_connection"
+    with a role field. Map both sets, or posts will save
+    correctly but show blank in the feed.
+
+DONE WHEN
+    - All 17 post types show correctly with the right
+      fields for each type
+    - Endless scroll and pull to refresh work
+    - FEED IS VISIBLE AND SHOWABLE
+      (still read only - buttons come in Phase 4)
+
+NEEDS
+    Phase 2 finished
+    Home screen design - file HomeFV.html
+    (must be opened in a web browser to view)
+
+
+================================================================
+PHASE 4 - CREATE POST AND DEAL FLOWS         6 DAYS  (day 18-23)
+================================================================
+
+BUILD
+    MOVED FROM PHASE 3                               2 days
+    1. Search and filter panel
+    2. Single post screen with comments and replies
+    3. All post buttons - like, save, comment, reply,
+       share, report, hide, delete
+       (Share to chat is NOT here. It needs chat to
+        exist, so it is built in Phase 6.)
+
+    CREATE POST                                      2 days
+    4. Create post screen - what to ASK when creating
+       each of the 17 post types
+    5. Attach photos and files
+    6. Save as draft
+    7. Post anonymously
+
+    DEAL AND ACTION FLOWS                            2 days
+    8.  Poll    - vote, change vote, see results
+    9.  Event   - RSVP, cancel RSVP
+    10. Job     - apply, track status, withdraw,
+                  accept or reject applicants
+    11. NDA     - request, send, sign, decline, withdraw
+    12. PPM     - request, send, sign, decline, withdraw
+    13. CIM     - send document
+    14. Express interest button
+
+    HOW 6 DAYS WORKS - BUILD IT THIS WAY
+
+    1. Create post reuses the settings list from Phase 3.
+       Phase 3 already lists the fields for each post type.
+       Here we only add what kind of input each field needs
+       and its options. Not 17 new forms.
+
+    2. NDA, PPM and CIM are ONE flow, not three.
+       All three are the same 5 steps:
+           request -> send -> sign
+           (or decline, or withdraw)
+       Build one flow and pass the document type into it.
+
+    3. Poll, RSVP and Job apply are separate small pieces.
+
+    IF THIS SLIPS, IT WILL BE THE NDA AND PPM FLOW.
+    Each has 5 states and must show the correct screen to
+    BOTH sides - the person who asked and the person who
+    must respond. Test with two accounts, not one.
+
+    ROLE RULES - checked in the website code:
+    8 post types are the same for every role (Ask the
+    Community, Investor Corner, Search Capital, Deal, Job,
+    Event, Poll, FAE).
+    Only "Find My Match" is role-specific. It has 8 versions
+    and each user sees ONLY the one for their role.
+    Build it as one form with 8 question lists.
+    The composer must hide post types the user's role cannot
+    create, or the server will reject the post.
+
+DONE WHEN
+    - Search and filter work on the feed
+    - Tapping a post opens it with comments and replies
+    - Like, save, comment, share, report, hide, delete work
+    - All 17 post types can be created and appear in the feed
+    - Photos and files upload
+    - Poll, RSVP, job apply all work
+    - NDA and PPM flows work end to end, both sides
+
+NEEDS
+    Phase 3 finished and card system working
+    Designs for create post forms, filter panel and
+    post detail screen
+
+
+================================================================
+PHASE 5 - PROFILE AND MATCHES                7 DAYS  (day 24-30)
+================================================================
+
+This phase builds where a member's identity lives, and the
+matching system that connects them to other people.
+Four parts.
+
+----------------------------------------------------------------
+PART A - MY PROFILE                                       2 days
+----------------------------------------------------------------
+
+WHAT THE USER SEES
+    Cover photo, profile photo, name, role, headline, and
+    their own posts listed below.
+
+WHAT THE USER CAN FILL IN
+    1. Profile photo and cover photo
+    2. Education        - add, edit, delete
+    3. Work experience  - add, edit, delete
+    4. Current organisation
+    5. Testimonials     - ask another member for a
+                          recommendation, and show the ones
+                          received
+    6. Follow and unfollow, followers list, following list
+
+WHY 2 DAYS IS ENOUGH - FOUR REUSES
+    Own-posts list      = the Phase 3 feed component,
+                          filtered to this user. Do not
+                          rebuild it.
+    Education, work experience and organisation
+                        = ONE list-and-form component with
+                          3 question lists. All three are the
+                          same shape: a list plus add, edit
+                          and delete. Do not build 3 times.
+    Followers and following
+                        = the same list twice
+    Mini cards          = the Phase 3 card system
+
+NO SEPARATE EDIT SCREENS
+    The website has 4 extra edit pages. We do not need them:
+        Pictures                - photo upload is above
+        Account details         - in Settings, Phase 7
+        Criteria and interests  - Phase 2 screen
+        Dual profile management - Part C below
+    Editing happens on the profile screen itself. That is
+    the normal pattern on a phone.
+
+----------------------------------------------------------------
+PART B - THE 8 THESIS TABS                                3 days
+----------------------------------------------------------------
+
+WHAT A THESIS IS
+    A detailed statement of what that person is looking for.
+    Each of the 8 roles has its own version.
+
+EXAMPLE - THE SEARCHER TAB ASKS
+        Search type
+        Search fund name
+        Search fund website
+        Incorporation year
+        Years of experience
+        Ownership preference
+        Search thesis document (file upload)
+        Search thesis summary
+        Industry focus
+        Geography focus
+
+    The other 7 roles each have their own set.
+    About 90 fields across all 8 tabs.
+
+HOW TO BUILD IT
+    ONE form engine with 8 question lists. Same as the role
+    forms in Phase 2. Do NOT write 8 separate screens.
+    On the website this is 9,259 lines. It only fits in
+    3 days because the pattern repeats 8 times.
+
+    The engine does not write the question lists. Someone
+    must open each of the 8 website tabs, read every field,
+    note its input type and options, and match it to the
+    server. Roughly half a day per two roles.
+
+    Each tab also has a file upload and its own completion
+    percentage.
+
+----------------------------------------------------------------
+PART C - DUAL PROFILE                                     1 day
+----------------------------------------------------------------
+
+    Some members hold two roles - for example a Searcher who
+    is also an Investor. They create a second profile and
+    switch between them.
+
+    Build: create, switch, delete.
+
+    The switch is the fiddly part. Every screen has to reload
+    as the other identity.
+
+----------------------------------------------------------------
+PART D - MATCHES                                          1 day
+----------------------------------------------------------------
+
+MY MATCHES - 3 TABS
+        Suggested        people the system picks for you
+        From My Posts    people who fit what you posted
+        Where I'm a Fit  posts where you fit what they need
+
+ALSO BUILD
+    1. Match card - fit score and match status
+       (New Match, Interest Expressed)
+    2. Match detail screen - your fit for this post,
+       pass button, send message
+    3. Passed matches list
+    4. Match settings - tune who appears in Suggested
+       (minimum, maximum, accredited only,
+        confidential posters)
+    5. AI match analysis - generate and regenerate
+    6. Other member's profile screen
+
+WHY 1 DAY IS ENOUGH - THREE REUSES
+    Passed list             = same list, different endpoint
+    Other member's profile  = Part A profile in read-only
+    Match settings          = the form engine again
+
+    Genuinely new work is only the 3-tab list, the match
+    card with fit score, and the match detail screen.
+
+----------------------------------------------------------------
+RISK IN THIS PHASE
+----------------------------------------------------------------
+
+    Every number above depends on something built earlier
+    still working on day 24 - the card system, the form
+    engine, the list component, the profile screen.
+
+    If any of them needs rework, this phase has no room to
+    absorb it.
+
+    Matches at 1 day breaks first.
+    The 8 thesis tabs are the largest item, so a wrong form
+    engine hurts most there.
+
+DONE WHEN
+    - Profile saves and reloads correctly for all 8 roles
+    - All 8 thesis tabs save with no data loss
+    - Photo upload works
+    - Dual profile create and switch work
+    - All 3 match tabs load correctly
+
+NEEDS
+    Phase 4 finished and the card system working
+    (the profile screen shows the user's own posts)
+    Designs for profile and match screens
+
+
+================================================================
+PHASE 6 - CHAT AND NOTIFICATIONS             6 DAYS  (day 31-36)
+================================================================
+
+BUILD
+    1. Chat list screen
+    2. Chat screen (send, scroll history, read receipts, emoji)
+    3. Start new chat
+    4. Share a post to chat (moved from Phase 4 -
+       needs chat to exist first)
+    5. Notifications screen
+    6. Notification badge on bell icon
+    7. Notification settings
+    8. My Activities screen - 4 tabs
+            Liked Posts
+            Commented Posts
+            Received Requests
+            Sent Requests
+    9. Push notifications
+            permission, device registration, alerts when app
+            is open and closed, open correct screen on tap
+    10. Reconnect chat when app returns from background
+
+DONE WHEN
+    - Messages arrive instantly
+    - Messages arrive after app was minimised
+    - Push notification arrives on a real phone
+    - Tapping push opens the correct screen
+    - All 4 activity tabs load correctly
+
+NEEDS
+    Phase 5 finished
+    DECISION 4 answered (ask backend team early)
+    Firebase access (Android)
+    Apple push certificate (iPhone)
+
+
+================================================================
+PHASE 7 - REMAINING SCREENS                  8 DAYS  (day 37-44)
+================================================================
+
+Independent areas. Can be built in parallel.
+28 screens in total.
+
+BUILD
+
+    DIRECTORY
+    1.  Directory - search all members
+    2.  Filter panel - role, location, industry
+    3.  Saved contacts
+
+    ETA CHAPTERS
+    4.  Chapters list
+    5.  Chapter detail
+    6.  Chapter preview
+    7.  Add a chapter
+    8.  Join a chapter
+    9.  Chapter groups
+    10. Chapter notification preferences
+    11. Invite others by email
+    12. Chapter events panel
+    13. Community guidelines
+    14. Edit chapter
+    15. Request a new city
+
+    MY EVENTS
+    16. My events - tabs: Upcoming, Past, Saved
+    17. Event form - create and edit, same form
+
+    MY RESOURCES
+    18. Resources list - tabs: All, Saved
+    19. Add a resource
+
+    SETTINGS - 6 tabs
+    20. Profile settings
+    21. Account - details, change password, change email,
+                  active sessions, log out all devices
+    22. Notifications - what alerts to receive
+    23. Matching - matching preferences
+    24. Privacy - profile visibility, data export
+    25. Support - support ticket
+        Also: pause account and delete account confirmations
+        (Billing tab is NOT built - no payment in this app)
+
+    AI ASSIST
+    26. AI chat - answers appear word by word
+        Conversation history and document upload live
+        inside this screen
+
+    AD MANAGEMENT
+    27. Campaign list
+    28. Campaign detail
+        Campaign form - create and edit, same form
+        Campaign insights - charts and numbers
+
+    CREATE AND EDIT USE THE SAME FORM
+        Campaigns and events: one form each, with a create
+        mode and an edit mode. Not two screens.
+        Same pattern as the role forms in Phase 2.
+
+    NOT SEPARATE SCREENS
+        Verify email change - handled inside Settings.
+        Billing and payment - not in this app.
+
+    WATCH THESE TWO
+        AI Assist needs answers to appear word by word as
+        they are generated, plus document upload.
+        Campaign insights needs charts.
+        These two are not simple list screens. If this
+        phase runs late, it will be because of them.
+
+DONE WHEN
+    - Every website dashboard screen exists in the app
+
+NEEDS
+    Phase 6 finished
+    Designs
+
+
+================================================================
+PHASE 8 - TESTING AND LAUNCH                 5 DAYS  (day 45-49)
+================================================================
+
+BUILD
+    1. Links that open the app on the correct screen
+    2. Share to WhatsApp, email, and others
+    3. Offline handling and retry
+    4. Accessibility - screen reader, font size, contrast
+    5. Speed - scrolling, image loading, app startup
+    6. App icon, splash screen, store description,
+       screenshots, privacy declarations
+    7. Automated test: log in, feed, create post, log out
+    8. Beta release, fix, public release
+
+DONE WHEN
+    - Beta runs without frequent crashes
+    - Apple approves the build
+    - Google approves the build
+    - App is live
+
+NEEDS
+    Phase 7 finished
+    Apple Developer account
+    Google Play Developer account
+    App icon and store artwork
+    Test account for Apple reviewers
+    Terms and privacy pages live on the website
+
+
+
+
+
+
