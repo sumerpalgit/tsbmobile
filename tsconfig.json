@@ -4,5 +4,11 @@
     "types": ["jest"],
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["**/node_modules", "**/Pods"]
+  "exclude": [
+    "**/node_modules",
+    "**/Pods",
+    // Reference copy of the website (Next.js). Read-only material for porting
+    // screens — it is not part of the app and cannot compile against this config.
+    "webSrc",
+  ],
 }

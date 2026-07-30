@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Native pre-JS window background — shown for the brief window between the
+  app process starting and the JS bundle mounting SplashScreen.tsx. Matches
+  it exactly (same navy fill, same icon) so the two don't visibly flash
+  between different screens on cold start.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/splashBackground" />
+    <item
+        android:width="112dp"
+        android:height="112dp"
+        android:gravity="center">
+        <bitmap
+            android:src="@drawable/splash_icon"
+            android:gravity="fill" />
+    </item>
+</layer-list>

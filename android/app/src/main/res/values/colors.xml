@@ -1,0 +1,4 @@
+<resources>
+  <!-- Matches colors.authPanel in src/theme/colors.ts — fixed navy, same in both themes. -->
+  <color name="splashBackground">#182E43</color>
+</resources>
