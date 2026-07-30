@@ -49,7 +49,11 @@ function ForgotPasswordScreen() {
     mode: 'onSubmit',
   });
 
-  const goLogin = () => navigation.navigate('Login');
+  // Reached only as a modal pushed from Login, so goBack() properly
+  // dismisses it — navigate('Login') would push a duplicate Login on top
+  // instead, the same stack-growth bug this screen's sibling links just got
+  // fixed for.
+  const goLogin = () => navigation.goBack();
 
   const onValid = async ({ email }: ForgotPasswordFormValues) => {
     setSentEmail(email);

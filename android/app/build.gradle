@@ -3,6 +3,23 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 /**
+ * Release signing credentials — kept out of this file (and out of git; see
+ * .gitignore) in android/keystore.properties. That file, and the keystore it
+ * points at, are the app's permanent upload identity: back both up somewhere
+ * safe, since losing either means you can never ship an update under the
+ * same signature again. Falls back to the debug config below if the
+ * properties file isn't present (e.g. a fresh checkout without it yet).
+ */
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+def hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+} else {
+    logger.warn("⚠ android/keystore.properties not found — release builds will be signed with the debug key. See android/README-signing.md.")
+}
+
+/**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
@@ -84,6 +101,13 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        // react-native-app-auth's OAuth redirect intent-filter — the scheme
+        // LinkedIn (and any other AppAuth-driven provider) redirects back
+        // into the app on, e.g. com.tsb://oauthredirect. Must match whatever
+        // redirect URI gets registered in the LinkedIn Developer Portal app.
+        manifestPlaceholders = [
+            appAuthRedirectScheme: "com.tsb"
+        ]
     }
     signingConfigs {
         debug {
@@ -92,15 +116,24 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (hasReleaseKeystore) {
+            release {
+                storeFile file(keystoreProperties['MYAPP_RELEASE_STORE_FILE'])
+                storePassword keystoreProperties['MYAPP_RELEASE_STORE_PASSWORD']
+                keyAlias keystoreProperties['MYAPP_RELEASE_KEY_ALIAS']
+                keyPassword keystoreProperties['MYAPP_RELEASE_KEY_PASSWORD']
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Falls back to the debug key with a loud warning if
+            // keystore.properties is missing, rather than silently shipping
+            // a debug-signed "release" build.
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }

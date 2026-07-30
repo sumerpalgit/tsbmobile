@@ -205,7 +205,7 @@ function LoginScreen() {
             <Text style={[fonts.regular, { fontSize: fontSize.authFootnote, color: colors.authBody }]}>
               Don&apos;t have an account?{' '}
             </Text>
-            <Pressable onPress={() => navigation.navigate('Signup')} hitSlop={8}>
+            <Pressable onPress={() => navigation.replace('Signup')} hitSlop={8}>
               <Text style={[fonts.bold, { fontSize: fontSize.authFootnote, color: colors.gold }]}>
                 Create an account
               </Text>

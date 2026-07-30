@@ -269,7 +269,7 @@ function SignupScreen() {
             <Text style={[fonts.regular, { fontSize: fontSize.authFootnote, color: colors.authBody }]}>
               Already have an account?{' '}
             </Text>
-            <Pressable onPress={() => navigation.navigate('Login')} hitSlop={8}>
+            <Pressable onPress={() => navigation.replace('Login')} hitSlop={8}>
               <Text style={[fonts.bold, { fontSize: fontSize.authFootnote, color: colors.gold }]}>Login</Text>
             </Pressable>
           </View>
