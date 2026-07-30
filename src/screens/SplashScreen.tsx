@@ -38,9 +38,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mark: {
-    width: 112,
-    height: 112,
-    borderRadius: 24,
+    // Matches the size Android's own SplashScreen API renders the app icon
+    // at (measured ~1.69x this screen's own earlier 112dp) — the OS doesn't
+    // let that size be configured, so this screen matches it instead.
+    width: 190,
+    height: 190,
+    borderRadius: 56,
   },
   tagline: {
     marginTop: 20,

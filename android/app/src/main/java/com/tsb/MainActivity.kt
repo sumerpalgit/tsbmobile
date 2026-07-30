@@ -2,6 +2,7 @@ package com.tsb
 
 import android.os.Build
 import android.os.Bundle
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
@@ -23,6 +24,10 @@ class MainActivity : ReactActivity() {
       DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    // Must run before super.onCreate() — installs the Theme.App.Starting
+    // splash (styles.xml) and hands off to AppTheme (postSplashScreenTheme)
+    // once the activity is ready, per the androidx.core.splashscreen contract.
+    installSplashScreen()
     super.onCreate(savedInstanceState)
     // RN's edge-to-edge setup (WindowUtil.enableEdgeToEdge, run inside the
     // super.onCreate() above) leaves isNavigationBarContrastEnforced = true —

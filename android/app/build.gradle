@@ -116,4 +116,8 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // Android 12+'s mandatory pre-JS SplashScreen API — lets us set the same
+    // navy/icon as our own splash_screen.xml so the two don't visibly differ.
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }

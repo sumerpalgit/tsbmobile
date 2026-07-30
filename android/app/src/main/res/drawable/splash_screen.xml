@@ -8,8 +8,8 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splashBackground" />
     <item
-        android:width="112dp"
-        android:height="112dp"
+        android:width="190dp"
+        android:height="190dp"
         android:gravity="center">
         <bitmap
             android:src="@drawable/splash_icon"

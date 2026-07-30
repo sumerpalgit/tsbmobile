@@ -8,4 +8,24 @@
         <item name="android:windowBackground">@drawable/splash_screen</item>
     </style>
 
+    <!--
+      Android 12+'s mandatory pre-JS SplashScreen (androidx.core:core-splashscreen).
+      Same navy fill and icon as AppTheme's own windowBackground and
+      SplashScreen.tsx, so the two no longer look like different screens.
+      Installed via SplashScreen.installSplashScreen() in MainActivity.kt,
+      called before super.onCreate() there.
+
+      windowSplashScreenAnimatedIcon needs a transparent glyph-only asset (the
+      system composites it over windowSplashScreenIconBackgroundColor itself)
+      — ic_launcher_foreground is exactly that, already used by the adaptive
+      launcher icon. Our own flat, opaque splash_icon.png is the wrong shape
+      for this specific attribute and renders visibly broken if used here.
+    -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splashBackground</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/ic_launcher_background</item>
+        <item name="postSplashScreenTheme">@style/AppTheme</item>
+    </style>
+
 </resources>
