@@ -17,7 +17,7 @@ import { useTheme } from '../../theme';
 import { PrimaryButton } from '../../components';
 import { useAuth } from '../../store/AuthContext';
 import { CITIES, LINKEDIN_PATTERN, Step, STEP_LABELS, SUB_CATEGORIES } from './constants';
-import { CategoryTrigger, LinkedInGlyph, RoleSheet, SelectSheet, SelectTrigger } from './components';
+import { CategoryTrigger, FieldDropdown, LinkedInGlyph, RoleSheet } from './components';
 
 const AUTH_LOGO = require('../../assets/images/AuthLogo.png');
 
@@ -35,10 +35,10 @@ const AUTH_LOGO = require('../../assets/images/AuthLogo.png');
  * cards for now so the Back/Continue mechanics and stepper are testable
  * end-to-end, to be filled in next.
  *
- * Two adaptations forced by the design using native `<select>` dropdowns,
- * which don't exist in RN: Sub Category and City reuse the same bottom-sheet
- * single-select pattern the design already uses for the (richer) Category
- * picker, rather than a real inline dropdown.
+ * The design's native `<select>` dropdowns for Sub Category and City are
+ * ported via `FieldDropdown` (react-native-element-dropdown), an inline
+ * floating-list dropdown — not the bottom-sheet pattern used for the
+ * (richer) Category picker.
  *
  * The role picker, sub-category/city sheets, and their pieces (cards,
  * headers, triggers) each live in their own file under `./components`,
@@ -62,8 +62,6 @@ function OnboardingScreen() {
   const [city, setCity] = useState('');
 
   const [roleSheetOpen, setRoleSheetOpen] = useState(false);
-  const [subSheetOpen, setSubSheetOpen] = useState(false);
-  const [citySheetOpen, setCitySheetOpen] = useState(false);
 
   const canBack = step > 1;
   const inFlow = step < 5;
@@ -84,9 +82,6 @@ function OnboardingScreen() {
     setError('');
     setStep(step < 4 ? ((step + 1) as Step) : 5);
   };
-
-  const selectedSub = SUB_CATEGORIES.find(s => s.value === sub);
-  const selectedCity = CITIES.find(c => c.value === city);
 
   return (
     <KeyboardAvoidingView
@@ -190,10 +185,14 @@ function OnboardingScreen() {
                 <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.obInk }]}>
                   Sub Category <Text style={{ color: colors.obRequired }}>*</Text>
                 </Text>
-                <SelectTrigger
-                  value={selectedSub?.label}
+                <FieldDropdown
+                  value={sub}
                   placeholder="Select sub category"
-                  onPress={() => setSubSheetOpen(true)}
+                  options={SUB_CATEGORIES}
+                  onChange={v => {
+                    setSub(v);
+                    setError('');
+                  }}
                 />
               </View>
 
@@ -222,10 +221,14 @@ function OnboardingScreen() {
                 <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.obInk }]}>
                   City <Text style={{ color: colors.obRequired }}>*</Text>
                 </Text>
-                <SelectTrigger
-                  value={selectedCity?.label}
+                <FieldDropdown
+                  value={city}
                   placeholder="Select your city"
-                  onPress={() => setCitySheetOpen(true)}
+                  options={CITIES}
+                  onChange={v => {
+                    setCity(v);
+                    setError('');
+                  }}
                 />
               </View>
             </View>
@@ -301,30 +304,6 @@ function OnboardingScreen() {
           setError('');
         }}
         onClose={() => setRoleSheetOpen(false)}
-      />
-      <SelectSheet
-        visible={subSheetOpen}
-        title="Sub category"
-        options={SUB_CATEGORIES}
-        selected={sub}
-        onSelect={v => {
-          setSub(v);
-          setSubSheetOpen(false);
-          setError('');
-        }}
-        onClose={() => setSubSheetOpen(false)}
-      />
-      <SelectSheet
-        visible={citySheetOpen}
-        title="City"
-        options={CITIES}
-        selected={city}
-        onSelect={v => {
-          setCity(v);
-          setCitySheetOpen(false);
-          setError('');
-        }}
-        onClose={() => setCitySheetOpen(false)}
       />
     </KeyboardAvoidingView>
   );
