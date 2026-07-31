@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 import { SplashScreen } from './src/screens';
 import { RootNavigator } from './src/navigation';
 import { AuthProvider } from './src/store/AuthContext';
@@ -53,6 +54,7 @@ function App() {
       <ThemeProvider>
         <SafeAreaProvider>
           <AppContent />
+          <Toast />
         </SafeAreaProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

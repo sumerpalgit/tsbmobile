@@ -13,11 +13,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Controller, useForm } from 'react-hook-form';
+import axios from 'axios';
+import Toast from 'react-native-toast-message';
 import { Check, Eye, EyeOff, Lock, Mail } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { useAuth } from '../../store/AuthContext';
 import { FormField, PrimaryButton } from '../../components';
 import { AuthStackParamList } from '../../navigation/types';
+import { login as loginApi } from '../../api/auth';
 import { AuthDivider, AuthHero, EMAIL_PATTERN, SocialSignIn, authStyles } from './authShared';
 
 /**
@@ -62,9 +65,16 @@ function LoginScreen() {
     mode: 'onSubmit',
   });
 
-  const onValid = async (_data: LoginFormValues) => {
-    // Phase 1 placeholder — no backend yet, so any valid-shaped input signs in.
-    login();
+  const onValid = async (data: LoginFormValues) => {
+    try {
+      await loginApi({ email: data.email, password: data.password });
+      login();
+    } catch (err) {
+      const message = axios.isAxiosError(err)
+        ? err.response?.data?.error ?? err.message
+        : 'Something went wrong. Please try again.';
+      Toast.show({ type: 'error', text1: 'Login failed', text2: message });
+    }
   };
 
   return (
