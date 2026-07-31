@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ForgotPasswordScreen, LoginScreen, SignupScreen } from '../screens/auth';
+import { OnboardingScreen } from '../screens/onboarding';
 import { useTheme } from '../theme';
 import { AuthStackParamList } from './types';
 
@@ -28,6 +29,12 @@ function AuthNavigator() {
         name="ForgotPassword"
         component={ForgotPasswordScreen}
         options={{ presentation: 'modal' }}
+      />
+      {/* Light card, not the dark auth-hero navy the navigator defaults to. */}
+      <Stack.Screen
+        name="Onboarding"
+        component={OnboardingScreen}
+        options={{ contentStyle: { backgroundColor: colors.obPage } }}
       />
     </Stack.Navigator>
   );

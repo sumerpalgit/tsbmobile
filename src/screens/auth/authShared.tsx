@@ -1,8 +1,12 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { ChevronLeft } from 'lucide-react-native';
 import { useTheme } from '../../theme';
+
+const PROFESSIONAL_1 = require('../../assets/images/professional1.jpg');
+const PROFESSIONAL_2 = require('../../assets/images/professional2.jpg');
+const AUTH_LOGO = require('../../assets/images/AuthLogo.png');
 
 /**
  * Pieces shared by the auth screens (`LoginScreen`, `SignupScreen`,
@@ -13,19 +17,6 @@ import { useTheme } from '../../theme';
  */
 
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** Bowtie glyph + window, copied from the design file's inline SVG (viewBox 0 0 36 32). */
-function LogoMark({ color }: { color: string }) {
-  return (
-    <Svg width={26} height={23} viewBox="0 0 36 32" fill="none">
-      <Path d="M2 6 L14 16 L2 26 Z" fill={color} />
-      <Path d="M34 6 L22 16 L34 26 Z" fill={color} />
-      <Rect x="14" y="11" width="8" height="10" rx="1" fill="#FFFFFF" />
-      <Line x1="15" y1="14" x2="21" y2="14" stroke={color} strokeWidth={0.7} />
-      <Line x1="15" y1="18" x2="21" y2="18" stroke={color} strokeWidth={0.7} />
-    </Svg>
-  );
-}
 
 /** Google "G" mark, copied verbatim from the design file's inline SVG (viewBox 0 0 18 18). */
 export function GoogleIcon() {
@@ -152,7 +143,7 @@ export function AuthHero({ topInset }: { topInset: number }) {
       }}
     >
       <View style={authStyles.heroLogoRow}>
-        <LogoMark color={colors.goldLight} />
+        <Image source={AUTH_LOGO} resizeMode="contain" style={authStyles.logoMark} />
         <Text style={[fonts.semibold, { fontSize: fontSize.subtitle, color: colors.onAccent }]}>
           The Search Bridge
         </Text>
@@ -192,20 +183,18 @@ export function AuthHero({ topInset }: { topInset: number }) {
 
       <View style={authStyles.socialProofRow}>
         <View style={authStyles.avatarRow}>
-          <View style={[authStyles.avatarDot, { backgroundColor: colors.authAvatarRing1, borderColor: colors.authPanel }]} />
-          <View
-            style={[
-              authStyles.avatarDot,
-              authStyles.avatarOverlap,
-              { backgroundColor: colors.authAvatarRing2, borderColor: colors.authPanel },
-            ]}
+          <Image source={PROFESSIONAL_1} resizeMode="cover" style={[authStyles.avatarDot, { borderColor: colors.authPanel }]} />
+          <Image
+            source={PROFESSIONAL_2}
+            resizeMode="cover"
+            style={[authStyles.avatarDot, authStyles.avatarOverlap, { borderColor: colors.authPanel }]}
           />
-          <View
-            style={[
-              authStyles.avatarDot,
-              authStyles.avatarOverlap,
-              { backgroundColor: colors.authMuted, borderColor: colors.authPanel },
-            ]}
+          {/* Reuses the first photo — the design file's actual 3rd avatar is a
+              copyrighted Disney still, which isn't going in here. */}
+          <Image
+            source={PROFESSIONAL_1}
+            resizeMode="cover"
+            style={[authStyles.avatarDot, authStyles.avatarOverlap, { borderColor: colors.authPanel }]}
           />
         </View>
         <Text style={[fonts.semibold, { fontSize: fontSize.small, color: 'rgba(255,255,255,0.8)' }]}>
@@ -221,6 +210,10 @@ export const authStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
+  },
+  logoMark: {
+    width: 26,
+    height: 23,
   },
   taglineLine: {
     lineHeight: 37,

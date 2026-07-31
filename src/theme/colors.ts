@@ -111,12 +111,33 @@ export type ThemeColors = {
   authErrorBorder: string;
   /** Error banner text (`#9B4436`). */
   authErrorText: string;
-  /** First of three overlapping "10k+ professionals" avatar dots (`#3D5A73`) — fixed, sits on `authPanel`. */
-  authAvatarRing1: string;
-  /** Second avatar dot (`#6E5A32`) — fixed; the third reuses `authMuted`. */
-  authAvatarRing2: string;
   /** "Check your inbox" icon badge fill on Forgot Password (`#F3ECD8`). */
   authIconBadgeBg: string;
+
+  /**
+   * Onboarding wizard (`TSBOnboarding.html`, repo root) — its own light-mode
+   * palette, distinct from both the general tokens and the `auth*` ones:
+   * near-black ink instead of navy, a more muted gold. `obSurface` isn't
+   * listed separately — it's an exact match for `surface`, so call sites
+   * just reuse that; same for `obLine` and `borderSoft`, and `obOnFill` and
+   * `onAccent`. Dark-mode values below are ours, following the same
+   * invert-lightness-keep-hue approach as the rest of this file.
+   */
+  obPage: string;
+  obSurface2: string;
+  obSunken: string;
+  obInk: string;
+  obInk2: string;
+  obInk3: string;
+  obLine2: string;
+  obGold: string;
+  obGoldLight: string;
+  obGoldDark: string;
+  obChip: string;
+  /** Required-field asterisk / validation red (`#D5453B`). */
+  obRequired: string;
+  /** "Joined" / success state (`#3F6B45`). */
+  obSuccess: string;
 };
 
 /** `:root` in globals.css — TSB Design Tokens, Light Mode. */
@@ -176,9 +197,21 @@ export const lightColors: ThemeColors = {
   authErrorBg: '#FDF1EF',
   authErrorBorder: '#F3D6D1',
   authErrorText: '#9B4436',
-  authAvatarRing1: '#3D5A73',
-  authAvatarRing2: '#6E5A32',
   authIconBadgeBg: '#F3ECD8',
+
+  obPage: '#F5F2EC',
+  obSurface2: '#F7F5F0',
+  obSunken: '#F1EEE7',
+  obInk: '#171717',
+  obInk2: '#4A5560',
+  obInk3: '#8B949E',
+  obLine2: '#E1DCD1',
+  obGold: '#8A6D1E',
+  obGoldLight: '#BFAE8C',
+  obGoldDark: '#6E5616',
+  obChip: '#F6F1E3',
+  obRequired: '#D5453B',
+  obSuccess: '#3F6B45',
 };
 
 /** `.dark` in globals.css — TSB Design Tokens, Dark Mode. */
@@ -245,7 +278,19 @@ export const darkColors: ThemeColors = {
   authErrorBg: '#2a1a1a',
   authErrorBorder: '#4a2c2a',
   authErrorText: '#e07a86',
-  authAvatarRing1: '#3D5A73',
-  authAvatarRing2: '#6E5A32',
   authIconBadgeBg: '#3d3520',
+
+  obPage: '#121212',
+  obSurface2: '#1c1c1c',
+  obSunken: '#171717',
+  obInk: '#F2F0EC',
+  obInk2: '#B8C0C6',
+  obInk3: '#7D8790',
+  obLine2: 'rgba(255,255,255,0.14)',
+  obGold: '#C9A84C',
+  obGoldLight: '#D9C9A3',
+  obGoldDark: '#A88A3A',
+  obChip: '#2A2519',
+  obRequired: '#E67C73',
+  obSuccess: '#6FA37A',
 };

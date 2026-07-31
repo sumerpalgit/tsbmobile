@@ -15,7 +15,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Controller, useForm } from 'react-hook-form';
 import { Check, Eye, EyeOff, Lock, Mail, User } from 'lucide-react-native';
 import { useTheme } from '../../theme';
-import { useAuth } from '../../store/AuthContext';
 import { FormField, PrimaryButton } from '../../components';
 import { AuthStackParamList } from '../../navigation/types';
 import { AuthDivider, AuthHero, EMAIL_PATTERN, SocialSignIn, authStyles } from './authShared';
@@ -24,9 +23,9 @@ import { AuthDivider, AuthHero, EMAIL_PATTERN, SocialSignIn, authStyles } from '
  * Signup — mobile port of the "SIGN UP SHEET" screen in the auth redesign,
  * `TSBAuthSign up · Login · Forgot.html` (repo root). Same hero/social/field
  * chrome as `LoginScreen` (shared via `authShared.tsx`), plus full name,
- * confirm-password, and a terms checkbox. Submit is a Phase 1 placeholder
- * like the login screen: it just signs the user in, since there's no signup
- * API yet.
+ * confirm-password, and a terms checkbox. Submit is a Phase 1 placeholder —
+ * no signup API yet, so any valid-shaped input hands off straight to
+ * Onboarding.
  */
 
 type SignupFormValues = {
@@ -37,7 +36,6 @@ type SignupFormValues = {
 };
 
 function SignupScreen() {
-  const { login } = useAuth();
   const { colors, fonts, fontSize, elevation } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
@@ -62,8 +60,10 @@ function SignupScreen() {
       return;
     }
     setAgreeError(false);
-    // Phase 1 placeholder — no signup API yet, so any valid-shaped input signs in.
-    login();
+    // Phase 1 placeholder — no signup API yet, so any valid-shaped input
+    // moves straight to onboarding (email verification is deferred pending
+    // client input, see AuthNavigator/OnboardingScreen).
+    navigation.replace('Onboarding');
   };
 
   return (
