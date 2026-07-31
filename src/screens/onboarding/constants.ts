@@ -30,3 +30,22 @@ export const CITIES = [
 export const STEP_LABELS = ['Basic Information', 'Select ETAs', 'Business Details'];
 
 export const LINKEDIN_PATTERN = /linkedin\.com/;
+
+export type EtaChapter = {
+  name: string;
+  region: string;
+  members: number;
+  /** Absent until the real "get ETA Chapters" API lands — `EtaChapterCard` falls back to an icon
+   * placeholder when this is missing. */
+  imageUrl?: string;
+};
+
+/** Same placeholder set as the design file — real chapters come from a "get ETA Chapters" API later. */
+export const ETA_CHAPTERS: EtaChapter[] = [
+  { name: 'Mumbai', region: 'Mumbai, MH, IN', members: 51 },
+  { name: 'Pune', region: 'Pune, MH, IN', members: 28 },
+  { name: 'Jaipur', region: 'Jaipur, RJ, IN', members: 9 },
+  { name: 'Agra', region: 'Agra, UP, IN', members: 19 },
+];
+
+export const MAX_ETA_CHAPTERS = 3;

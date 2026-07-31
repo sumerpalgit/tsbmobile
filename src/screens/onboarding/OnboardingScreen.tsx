@@ -1,25 +1,23 @@
 import React, { useState } from 'react';
-import {
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '../../theme';
 import { PrimaryButton } from '../../components';
 import { useAuth } from '../../store/AuthContext';
-import { CITIES, LINKEDIN_PATTERN, Step, STEP_LABELS, SUB_CATEGORIES } from './constants';
-import { CategoryTrigger, FieldDropdown, LinkedInGlyph, RoleSheet } from './components';
+import { ETA_CHAPTERS, LINKEDIN_PATTERN, MAX_ETA_CHAPTERS, Step, STEP_LABELS } from './constants';
+import { RoleSheet, Step1Fields, Step2Fields } from './components';
 
 const AUTH_LOGO = require('../../assets/images/AuthLogo.png');
+
+/** Per-step heading + subtitle, as in the design's `titles` map — steps without an entry fall
+ * back to the generic "Step N · Label" heading (still true for the Step 3/4 stubs). */
+const STEP_COPY: Partial<Record<Step, [string, string]>> = {
+  1: ['What brings you to The Search Bridge?', "We'll personalize your experience based on your role."],
+  2: ['Step Into a City That Thinks Ahead', "Pick your preferred cities — we'll customize accordingly."],
+};
 
 /**
  * Onboarding — mobile port of `TSBOnboarding.html` (repo root), reached
@@ -31,25 +29,33 @@ const AUTH_LOGO = require('../../assets/images/AuthLogo.png');
  * from over-using navigation for what's really just view-state).
  *
  * Building this "one step at a time" per request: the shell + Step 1 (role
- * picker, sub-category, LinkedIn, city) are real; Steps 2-4 are placeholder
- * cards for now so the Back/Continue mechanics and stepper are testable
- * end-to-end, to be filled in next.
+ * picker, sub-category, LinkedIn, city) and Step 2 (search + join ETA
+ * chapters) are real; Steps 3-4 are placeholder cards for now so the
+ * Back/Continue mechanics and stepper are testable end-to-end, to be filled
+ * in next.
  *
  * The design's native `<select>` dropdowns for Sub Category and City are
  * ported via `FieldDropdown` (react-native-element-dropdown), an inline
  * floating-list dropdown — not the bottom-sheet pattern used for the
  * (richer) Category picker.
  *
- * The role picker, sub-category/city sheets, and their pieces (cards,
- * headers, triggers) each live in their own file under `./components`,
- * each with its own styles — matching how every other screen in this app
- * keeps its `StyleSheet.create` local to itself. Shared data (roles, cities,
- * sub-categories, the `Step` type) lives in `./constants` since it's a
- * single source of truth several of those files read from.
+ * Step 2's chapter list (`ETA_CHAPTERS` in `./constants`) is a static
+ * placeholder matching the design's mock data — a real "get ETA Chapters"
+ * API call replaces it later; the UI (search, cap-at-3 join/leave, chip
+ * list) is otherwise final.
+ *
+ * Each step's body (`Step1Fields`, `Step2Fields`), the role picker, sub-category/city sheets,
+ * ETA chapter cards, and their pieces (cards, headers, triggers) each live in their own file
+ * under `./components`, each with its own styles — matching how every other screen in this app
+ * keeps its `StyleSheet.create` local to itself, and keeping this file from growing into one
+ * giant render as Steps 3-4 get filled in. This screen still owns all the step state/handlers;
+ * the step components are dumb — they render and forward onChange. Shared data (roles, cities,
+ * sub-categories, ETA chapters, the `Step` type) lives in `./constants` since it's a single
+ * source of truth several of those files read from.
  */
 
 function OnboardingScreen() {
-  const { colors, fonts, fontSize } = useTheme();
+  const { colors, fonts, fontSize, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { login } = useAuth();
 
@@ -61,7 +67,26 @@ function OnboardingScreen() {
   const [linkedin, setLinkedin] = useState('');
   const [city, setCity] = useState('');
 
+  const [etaQuery, setEtaQuery] = useState('');
+  const [joinedEtas, setJoinedEtas] = useState<string[]>([]);
+
   const [roleSheetOpen, setRoleSheetOpen] = useState(false);
+
+  const filteredEtas = ETA_CHAPTERS.filter(
+    c => !etaQuery.trim() || c.name.toLowerCase().includes(etaQuery.trim().toLowerCase()),
+  );
+
+  const toggleEta = (name: string) => {
+    setJoinedEtas(prev => {
+      if (prev.includes(name)) return prev.filter(n => n !== name);
+      if (prev.length >= MAX_ETA_CHAPTERS) {
+        Toast.show({ type: 'info', text1: `You can select up to ${MAX_ETA_CHAPTERS} cities.` });
+        return prev;
+      }
+      return [...prev, name];
+    });
+    setError('');
+  };
 
   const canBack = step > 1;
   const inFlow = step < 5;
@@ -79,6 +104,9 @@ function OnboardingScreen() {
       if (!LINKEDIN_PATTERN.test(linkedin)) return setError('Add your LinkedIn profile URL.');
       if (!city) return setError('Select your city.');
     }
+    if (step === 2) {
+      if (!joinedEtas.length) return setError('Join at least one city ETA.');
+    }
     setError('');
     setStep(step < 4 ? ((step + 1) as Step) : 5);
   };
@@ -86,9 +114,12 @@ function OnboardingScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.obPage }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      // Android already resizes the window for the keyboard via `windowSoftInputMode="adjustResize"`
+      // in the manifest — stacking `behavior="height"` on top of that double-compensates and leaves a
+      // large residual gap under the footer even with no keyboard visible.
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar barStyle="dark-content" backgroundColor={colors.obPage} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.obPage} />
 
       {/* Header — logo + stepper, stays put across steps */}
       <View
@@ -127,10 +158,14 @@ function OnboardingScreen() {
                     ]}
                   >
                     {done ? (
-                      <Check size={11} color={colors.onAccent} strokeWidth={2.5} />
+                      // `obInk` inverts between themes (near-black in light, near-white in
+                      // dark) — `obPage` inverts the same way in the opposite direction, so it
+                      // stays readable against this dot's fill in both themes, unlike `onAccent`
+                      // (always white — correct for the gold buttons, wrong here).
+                      <Check size={11} color={colors.obPage} strokeWidth={2.5} />
                     ) : (
                       <Text
-                        style={[fonts.bold, styles.dotLabel, { color: active ? colors.onAccent : colors.obInk3 }]}
+                        style={[fonts.bold, styles.dotLabel, { color: active ? colors.obPage : colors.obInk3 }]}
                       >
                         {n}
                       </Text>
@@ -155,86 +190,59 @@ function OnboardingScreen() {
         </View>
       </View>
 
-      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
+      {/* Plain `ScrollView` never scrolls a focused input into view on its own — a lower field
+          like LinkedIn ends up hidden behind the keyboard. `enableOnAndroid` is required since
+          this library only auto-scrolls on Android when explicitly told to. */}
+      <KeyboardAwareScrollView
+        style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+        enableOnAndroid
+        extraScrollHeight={20}
+        keyboardOpeningTime={0}
+      >
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.obLine2 }]}>
           {inFlow && (
             <View style={{ marginBottom: 16 }}>
               <Text style={[fonts.authDisplay, styles.title, { color: colors.obInk }]}>
-                {step === 1
-                  ? 'What brings you to The Search Bridge?'
-                  : `Step ${step} · ${STEP_LABELS[Math.min(stepIndex, 3) - 1]}`}
+                {STEP_COPY[step]?.[0] ?? `Step ${step} · ${STEP_LABELS[Math.min(stepIndex, 3) - 1]}`}
               </Text>
               <Text style={[fonts.regular, styles.subtitle, { color: colors.obInk3 }]}>
-                {step === 1 ? "We'll personalize your experience based on your role." : ''}
+                {STEP_COPY[step]?.[1] ?? ''}
               </Text>
             </View>
           )}
 
           {step === 1 && (
-            <View style={{ gap: 16 }}>
-              {/* Category */}
-              <View style={{ gap: 8 }}>
-                <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.obInk }]}>
-                  Category <Text style={{ color: colors.obRequired }}>*</Text>
-                </Text>
-                <CategoryTrigger role={role} onPress={() => setRoleSheetOpen(true)} />
-              </View>
-
-              {/* Sub Category */}
-              <View style={{ gap: 8 }}>
-                <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.obInk }]}>
-                  Sub Category <Text style={{ color: colors.obRequired }}>*</Text>
-                </Text>
-                <FieldDropdown
-                  value={sub}
-                  placeholder="Select sub category"
-                  options={SUB_CATEGORIES}
-                  onChange={v => {
-                    setSub(v);
-                    setError('');
-                  }}
-                />
-              </View>
-
-              {/* LinkedIn */}
-              <View style={{ gap: 7 }}>
-                <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.obInk }]}>
-                  LinkedIn <Text style={{ color: colors.obRequired }}>*</Text>
-                </Text>
-                <View style={[styles.inputWrap, { backgroundColor: colors.obSurface2, borderColor: colors.obLine2 }]}>
-                  <LinkedInGlyph />
-                  <TextInput
-                    style={[styles.plainInput, { color: colors.obInk }]}
-                    value={linkedin}
-                    onChangeText={setLinkedin}
-                    placeholder="https://www.linkedin.com/in/…"
-                    placeholderTextColor={colors.obInk3}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="url"
-                  />
-                </View>
-              </View>
-
-              {/* City */}
-              <View style={{ gap: 8 }}>
-                <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.obInk }]}>
-                  City <Text style={{ color: colors.obRequired }}>*</Text>
-                </Text>
-                <FieldDropdown
-                  value={city}
-                  placeholder="Select your city"
-                  options={CITIES}
-                  onChange={v => {
-                    setCity(v);
-                    setError('');
-                  }}
-                />
-              </View>
-            </View>
+            <Step1Fields
+              role={role}
+              sub={sub}
+              linkedin={linkedin}
+              city={city}
+              onRolePress={() => setRoleSheetOpen(true)}
+              onSubChange={v => {
+                setSub(v);
+                setError('');
+              }}
+              onLinkedinChange={setLinkedin}
+              onCityChange={v => {
+                setCity(v);
+                setError('');
+              }}
+            />
           )}
 
-          {step > 1 && step < 5 && (
+          {step === 2 && (
+            <Step2Fields
+              query={etaQuery}
+              onQueryChange={setEtaQuery}
+              joined={joinedEtas}
+              chapters={filteredEtas}
+              onToggle={toggleEta}
+            />
+          )}
+
+          {step > 2 && step < 5 && (
             <View style={styles.stubCard}>
               <Text style={[fonts.regular, { color: colors.obInk3, textAlign: 'center' }]}>
                 Step {step} — {STEP_LABELS[Math.min(stepIndex, 3) - 1]} fields go here next.
@@ -265,7 +273,7 @@ function OnboardingScreen() {
             </View>
           )}
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {error ? (
         <View style={[styles.errorBanner, { backgroundColor: colors.authErrorBg, borderColor: colors.authErrorBorder }]}>
@@ -392,23 +400,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
     marginTop: 6,
-  },
-  fieldLabel: {
-    fontSize: 12.5,
-  },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    height: 46,
-    paddingHorizontal: 13,
-    borderRadius: 13,
-    borderWidth: 1,
-  },
-  plainInput: {
-    flex: 1,
-    padding: 0,
-    fontSize: 13.5,
   },
   stubCard: {
     paddingVertical: 40,
