@@ -1,4 +1,6 @@
 export { Avatar } from './Avatar';
+export { FileUploadButton } from './FileUploadButton';
+export type { PickedFile } from './FileUploadButton';
 export { FormField } from './FormField';
 export { Logo } from './Logo';
 export { PrimaryButton } from './PrimaryButton';

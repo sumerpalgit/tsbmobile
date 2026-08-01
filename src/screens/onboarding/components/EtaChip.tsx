@@ -11,8 +11,8 @@ export function EtaChip({ name, onRemove }: { name: string; onRemove: () => void
       onPress={onRemove}
       style={[styles.chip, { backgroundColor: colors.obChip, borderColor: colors.obGoldLight }]}
     >
-      <Text style={[fonts.semibold, { fontSize: fontSize.small, color: colors.obGold }]}>{name}</Text>
-      <X size={10} color={colors.obGold} strokeWidth={1.8} />
+      <Text style={[fonts.semibold, { fontSize: fontSize.caption, color: colors.obGold }]}>{name}</Text>
+      <X size={8} color={colors.obGold} strokeWidth={1.8} />
     </Pressable>
   );
 }
@@ -21,9 +21,9 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    height: 40,
-    paddingHorizontal: 14,
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
     borderRadius: 999,
     borderWidth: 1,
   },

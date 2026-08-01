@@ -5,10 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../theme';
-import { PrimaryButton } from '../../components';
+import { PickedFile, PrimaryButton } from '../../components';
 import { useAuth } from '../../store/AuthContext';
-import { ETA_CHAPTERS, LINKEDIN_PATTERN, MAX_ETA_CHAPTERS, Step, STEP_LABELS } from './constants';
-import { RoleSheet, Step1Fields, Step2Fields } from './components';
+import { ETA_CHAPTERS, FINANCIAL_RANGES, LINKEDIN_PATTERN, MAX_ETA_CHAPTERS, Step, STEP_LABELS } from './constants';
+import { RoleSheet, Step1Fields, Step2Fields, Step3Fields, Step4Fields } from './components';
 
 const AUTH_LOGO = require('../../assets/images/AuthLogo.png');
 
@@ -19,6 +19,14 @@ const STEP_COPY: Partial<Record<Step, [string, string]>> = {
   2: ['Step Into a City That Thinks Ahead', "Pick your preferred cities — we'll customize accordingly."],
 };
 
+/** Neutral default for a Financial Criteria slider — the full range, i.e. "no constraint" —
+ * rather than the design's arbitrary pre-filled demo numbers, since this is a fresh user's
+ * onboarding, not a populated demo state. */
+function rangeDefault(key: 'rev' | 'ebitda' | 'ev'): [number, number] {
+  const r = FINANCIAL_RANGES.find(x => x.key === key)!;
+  return [r.min, r.max];
+}
+
 /**
  * Onboarding — mobile port of `TSBOnboarding.html` (repo root), reached
  * after Signup. Built as one component with a `step` state, matching the
@@ -28,30 +36,43 @@ const STEP_COPY: Partial<Record<Step, [string, string]>> = {
  * complicate (see the Login/Signup "roaming" bug this app already hit once
  * from over-using navigation for what's really just view-state).
  *
- * Building this "one step at a time" per request: the shell + Step 1 (role
- * picker, sub-category, LinkedIn, city) and Step 2 (search + join ETA
- * chapters) are real; Steps 3-4 are placeholder cards for now so the
- * Back/Continue mechanics and stepper are testable end-to-end, to be filled
- * in next.
+ * Building this "one step at a time" per request: the shell + all four steps (Step 1: role
+ * picker, sub-category, LinkedIn, city; Step 2: search + join ETA chapters; Step 3: designation,
+ * organization name, suggested interests; Step 4: education, search details, financial criteria
+ * sliders, CIM upload) are real. Step 5 is the completion screen.
  *
  * The design's native `<select>` dropdowns for Sub Category and City are
  * ported via `FieldDropdown` (react-native-element-dropdown), an inline
  * floating-list dropdown — not the bottom-sheet pattern used for the
  * (richer) Category picker.
  *
- * Step 2's chapter list (`ETA_CHAPTERS` in `./constants`) is a static
- * placeholder matching the design's mock data — a real "get ETA Chapters"
- * API call replaces it later; the UI (search, cap-at-3 join/leave, chip
- * list) is otherwise final.
+ * Step 2's chapter list and Step 3/4's designation/interest/education/search-detail/financial-range
+ * data (`ETA_CHAPTERS`, `DESIGNATIONS`, `INTERESTS`, `EDUCATION_LEVELS`, etc. in `./constants`) are
+ * static placeholders matching the design's mock data — real, role-conditional versions (mirroring
+ * the web app's `ROLE_CONFIG`) replace these now that all four steps are built and UI-verified
+ * against static data first, per how this was staged.
  *
- * Each step's body (`Step1Fields`, `Step2Fields`), the role picker, sub-category/city sheets,
- * ETA chapter cards, and their pieces (cards, headers, triggers) each live in their own file
- * under `./components`, each with its own styles — matching how every other screen in this app
- * keeps its `StyleSheet.create` local to itself, and keeping this file from growing into one
- * giant render as Steps 3-4 get filled in. This screen still owns all the step state/handlers;
- * the step components are dumb — they render and forward onChange. Shared data (roles, cities,
- * sub-categories, ETA chapters, the `Step` type) lives in `./constants` since it's a single
- * source of truth several of those files read from.
+ * `ChipMultiSelect` (Step 3's "Suggested Interests") and `DualRangeSlider`/`ScrollViewWithScrollbar`
+ * (Step 4's Financial Criteria sliders and the Suggestions box's scrollbar) are all deliberately
+ * option-list-agnostic / content-agnostic rather than built one-off — RN has no native dual-range
+ * slider or desktop-style scrollbar, so these were hand-built once (via `Gesture.Pan()` from
+ * `react-native-gesture-handler`, already a dependency for this app's drawer swipe — not the
+ * legacy `PanResponder`, which couldn't reliably win the gesture away from the page's own
+ * scrolling) and are reusable anywhere else in this app that needs the same pattern.
+ *
+ * Step 4's CIM upload uses `FileUploadButton` (`src/components`) — a real OS document/photo
+ * picker (`@react-native-documents/picker`), not onboarding-specific since every per-role Step 4
+ * variant will need the same "attach a document or image" control (resumes, credentials, pitch
+ * decks, etc. per the web app's research) with just a different accepted-types/label.
+ *
+ * Each step's body (`Step1Fields`..`Step4Fields`), the role picker, sub-category/city sheets, ETA
+ * chapter cards, and their pieces (cards, headers, triggers) each live in their own file under
+ * `./components`, each with its own styles — matching how every other screen in this app keeps its
+ * `StyleSheet.create` local to itself, and keeping this file from growing into one giant render.
+ * This screen still owns all the step state/handlers; the step components are dumb — they render
+ * and forward onChange. Shared data (roles, cities, sub-categories, ETA chapters, designations,
+ * interests, education/search-detail options, financial ranges, the `Step` type) lives in
+ * `./constants` since it's a single source of truth several of those files read from.
  */
 
 function OnboardingScreen() {
@@ -69,6 +90,24 @@ function OnboardingScreen() {
 
   const [etaQuery, setEtaQuery] = useState('');
   const [joinedEtas, setJoinedEtas] = useState<string[]>([]);
+
+  const [designation, setDesignation] = useState('');
+  const [org, setOrg] = useState('');
+  const [interests, setInterests] = useState<string[]>([]);
+
+  const [edu, setEdu] = useState('');
+  const [fieldOfStudy, setFieldOfStudy] = useState('');
+  const [institution, setInstitution] = useState('');
+  const [stage, setStage] = useState('');
+  const [commitment, setCommitment] = useState('');
+  const [equity, setEquity] = useState('');
+  const [debt, setDebt] = useState('');
+  const [background, setBackground] = useState('');
+  const [readiness, setReadiness] = useState('');
+  const [revRange, setRevRange] = useState(rangeDefault('rev'));
+  const [ebitdaRange, setEbitdaRange] = useState(rangeDefault('ebitda'));
+  const [evRange, setEvRange] = useState(rangeDefault('ev'));
+  const [cimFile, setCimFile] = useState<PickedFile | null>(null);
 
   const [roleSheetOpen, setRoleSheetOpen] = useState(false);
 
@@ -88,9 +127,27 @@ function OnboardingScreen() {
     setError('');
   };
 
+  const toggleInterest = (item: string) => {
+    setInterests(prev => (prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]));
+    setError('');
+  };
+
   const canBack = step > 1;
   const inFlow = step < 5;
   const stepIndex = step >= 4 ? 3 : step;
+
+  // Step 3-4's heading includes the role picked in Step 1 ("{role}'s Details"), per the design's
+  // `titles` map — can't live in the static `STEP_COPY` lookup since it depends on `role` state.
+  const stepTitle =
+    step === 3 || step === 4
+      ? `${role}'s Details`
+      : STEP_COPY[step]?.[0] ?? `Step ${step} · ${STEP_LABELS[Math.min(stepIndex, 3) - 1]}`;
+  const stepSubtitle =
+    step === 3
+      ? 'Tell us more about your profile — this helps us match you better.'
+      : step === 4
+      ? 'A few financial and education details to finish up.'
+      : STEP_COPY[step]?.[1] ?? '';
 
   const back = () => {
     setError('');
@@ -106,6 +163,14 @@ function OnboardingScreen() {
     }
     if (step === 2) {
       if (!joinedEtas.length) return setError('Join at least one city ETA.');
+    }
+    if (step === 3) {
+      if (!designation) return setError('Select your role / designation.');
+      if (!org.trim()) return setError('Enter your organization name.');
+      if (!interests.length) return setError('Choose at least one interest.');
+    }
+    if (step === 4) {
+      if (!stage || !commitment || !equity || !debt) return setError('Complete the required Search Details fields.');
     }
     setError('');
     setStep(step < 4 ? ((step + 1) as Step) : 5);
@@ -204,12 +269,8 @@ function OnboardingScreen() {
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.obLine2 }]}>
           {inFlow && (
             <View style={{ marginBottom: 16 }}>
-              <Text style={[fonts.authDisplay, styles.title, { color: colors.obInk }]}>
-                {STEP_COPY[step]?.[0] ?? `Step ${step} · ${STEP_LABELS[Math.min(stepIndex, 3) - 1]}`}
-              </Text>
-              <Text style={[fonts.regular, styles.subtitle, { color: colors.obInk3 }]}>
-                {STEP_COPY[step]?.[1] ?? ''}
-              </Text>
+              <Text style={[fonts.authDisplay, styles.title, { color: colors.obInk }]}>{stepTitle}</Text>
+              <Text style={[fonts.regular, styles.subtitle, { color: colors.obInk3 }]}>{stepSubtitle}</Text>
             </View>
           )}
 
@@ -242,12 +303,61 @@ function OnboardingScreen() {
             />
           )}
 
-          {step > 2 && step < 5 && (
-            <View style={styles.stubCard}>
-              <Text style={[fonts.regular, { color: colors.obInk3, textAlign: 'center' }]}>
-                Step {step} — {STEP_LABELS[Math.min(stepIndex, 3) - 1]} fields go here next.
-              </Text>
-            </View>
+          {step === 3 && (
+            <Step3Fields
+              designation={designation}
+              org={org}
+              interests={interests}
+              onDesignationChange={v => {
+                setDesignation(v);
+                setError('');
+              }}
+              onOrgChange={setOrg}
+              onInterestsToggle={toggleInterest}
+            />
+          )}
+
+          {step === 4 && (
+            <Step4Fields
+              edu={edu}
+              field={fieldOfStudy}
+              institution={institution}
+              stage={stage}
+              commitment={commitment}
+              equity={equity}
+              debt={debt}
+              background={background}
+              readiness={readiness}
+              revRange={revRange}
+              ebitdaRange={ebitdaRange}
+              evRange={evRange}
+              cimFile={cimFile}
+              onEduChange={setEdu}
+              onFieldChange={setFieldOfStudy}
+              onInstitutionChange={setInstitution}
+              onStageChange={v => {
+                setStage(v);
+                setError('');
+              }}
+              onCommitmentChange={v => {
+                setCommitment(v);
+                setError('');
+              }}
+              onEquityChange={v => {
+                setEquity(v);
+                setError('');
+              }}
+              onDebtChange={v => {
+                setDebt(v);
+                setError('');
+              }}
+              onBackgroundChange={setBackground}
+              onReadinessChange={setReadiness}
+              onRevChange={(lo, hi) => setRevRange([lo, hi])}
+              onEbitdaChange={(lo, hi) => setEbitdaRange([lo, hi])}
+              onEvChange={(lo, hi) => setEvRange([lo, hi])}
+              onCimChange={setCimFile}
+            />
           )}
 
           {step === 5 && (
@@ -285,7 +395,7 @@ function OnboardingScreen() {
         <View
           style={[
             styles.footer,
-            { paddingBottom: 12 + insets.bottom, borderTopColor: colors.obLine2, backgroundColor: colors.obPage },
+            { paddingBottom: 12 + insets.bottom, borderTopColor: colors.obLine2, backgroundColor: colors.surface },
           ]}
         >
           {canBack && (
@@ -385,7 +495,9 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
   },
   card: {
-    flexGrow: 1,
+    // No `flexGrow: 1` here — that stretched the card to fill the whole scroll viewport
+    // whenever a step's fields were shorter than the screen (e.g. Step 1), leaving a much
+    // bigger empty gap below the last field than the fixed `padding` gap above the title.
     borderRadius: 20,
     borderWidth: 1,
     padding: 18,
@@ -400,11 +512,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
     marginTop: 6,
-  },
-  stubCard: {
-    paddingVertical: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   doneWrap: {
     alignItems: 'center',
