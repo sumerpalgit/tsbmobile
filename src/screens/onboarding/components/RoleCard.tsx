@@ -1,8 +1,31 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Check } from 'lucide-react-native';
+import {
+  Banknote,
+  Briefcase,
+  Building2,
+  Check,
+  GraduationCap,
+  Settings,
+  Target,
+  TrendingUp,
+  Users,
+} from 'lucide-react-native';
 import { useTheme } from '../../../theme';
 import { ROLES } from '../constants';
+
+/** Per-role glyph, matching the design's Category grid — keyed by name since `ROLES` itself is
+ * plain data (name/desc only), and icon components don't belong in a constants file. */
+const ROLE_ICONS: Record<(typeof ROLES)[number]['name'], typeof Target> = {
+  Searcher: Target,
+  Investor: TrendingUp,
+  Lender: Banknote,
+  Advisor: Briefcase,
+  'Business Owner': Building2,
+  Operator: Settings,
+  Intermediary: Users,
+  Student: GraduationCap,
+};
 
 /** One role card inside `RoleSheet`. Its own file, same reasoning as `CategoryTrigger` — keeps the 8-item `.map` in `RoleSheet` from re-creating this JSX inline on every render. */
 export function RoleCard({
@@ -15,6 +38,7 @@ export function RoleCard({
   onPress: () => void;
 }) {
   const { colors, fonts } = useTheme();
+  const RoleIcon = ROLE_ICONS[role.name];
 
   return (
     <Pressable
@@ -25,9 +49,7 @@ export function RoleCard({
       ]}
     >
       <View style={[styles.roleIcon, { backgroundColor: selected ? colors.obGold : colors.obSunken }]}>
-        <Text style={[fonts.authDisplay, styles.triggerIconText, { color: selected ? colors.onAccent : colors.obInk2 }]}>
-          {role.name.charAt(0)}
-        </Text>
+        <RoleIcon size={17} color={selected ? colors.onAccent : colors.obInk2} strokeWidth={1.8} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={[fonts.authDisplay, styles.triggerTitle, { color: colors.obInk }]}>{role.name}</Text>
@@ -62,9 +84,6 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  triggerIconText: {
-    fontSize: 15,
   },
   triggerTitle: {
     fontSize: 14.5,

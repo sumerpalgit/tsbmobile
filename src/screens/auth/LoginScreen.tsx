@@ -67,13 +67,32 @@ function LoginScreen() {
 
   const onValid = async (data: LoginFormValues) => {
     try {
-      await loginApi({ email: data.email, password: data.password });
+      const result = await loginApi({ email: data.email, password: data.password });
+      // Matches webSrc's login page: step2 false means the profile wizard hasn't been
+      // completed yet — route there instead of into the app (Onboarding itself calls
+      // login() once its own submit lands, same as the fresh-signup path already did).
+      if (!result.step2) {
+        navigation.replace('Onboarding');
+        return;
+      }
       login();
     } catch (err) {
-      const message = axios.isAxiosError(err)
-        ? err.response?.data?.error ?? err.message
-        : 'Something went wrong. Please try again.';
-      Toast.show({ type: 'error', text1: 'Login failed', text2: message });
+      if (axios.isAxiosError(err)) {
+        const responseData = err.response?.data;
+        // Matches webSrc's login page: unverified accounts fail with either
+        // flag depending on which check the backend hits first.
+        if (responseData?.requiresVerification || responseData?.error === 'Email not verified') {
+          Toast.show({
+            type: 'error',
+            text1: 'Email not verified',
+            text2: 'Please verify your email before logging in.',
+          });
+          return;
+        }
+        Toast.show({ type: 'error', text1: 'Login failed', text2: responseData?.error ?? err.message });
+        return;
+      }
+      Toast.show({ type: 'error', text1: 'Login failed', text2: 'Something went wrong. Please try again.' });
     }
   };
 

@@ -5,6 +5,7 @@ export { EtaChapterCard } from './EtaChapterCard';
 export { EtaChip } from './EtaChip';
 export { EtaEmptyState } from './EtaEmptyState';
 export { FieldDropdown } from './FieldDropdown';
+export { GroundRuleCard } from './GroundRuleCard';
 export { RoleCard } from './RoleCard';
 export { RoleSheet } from './RoleSheet';
 export { ScrollViewWithScrollbar } from './ScrollViewWithScrollbar';

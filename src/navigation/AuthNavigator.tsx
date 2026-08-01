@@ -1,6 +1,13 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ForgotPasswordScreen, LoginScreen, SignupScreen } from '../screens/auth';
+import {
+  CheckEmailScreen,
+  ForgotPasswordScreen,
+  LoginScreen,
+  ResetPasswordScreen,
+  SignupScreen,
+  VerifyEmailScreen,
+} from '../screens/auth';
 import { OnboardingScreen } from '../screens/onboarding';
 import { useTheme } from '../theme';
 import { AuthStackParamList } from './types';
@@ -24,6 +31,9 @@ function AuthNavigator() {
     >
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Signup" component={SignupScreen} />
+      <Stack.Screen name="CheckEmail" component={CheckEmailScreen} />
+      <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       {/* Bottom-sheet-style modal over Login, not a horizontal push like Login → Signup. */}
       <Stack.Screen
         name="ForgotPassword"

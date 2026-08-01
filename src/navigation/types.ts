@@ -4,6 +4,13 @@ export type AuthStackParamList = {
   Login: undefined;
   Signup: undefined;
   ForgotPassword: undefined;
+  CheckEmail: { email: string };
+  /** Reached via the tsb://verify-email?token=...&userId=... deep link. userId isn't in the
+   * documented API contract for GET /auth/verify-email, but the real emailed link includes it
+   * alongside token, so it's captured here and passed through if present. */
+  VerifyEmail: { token?: string; userId?: string };
+  /** Reached via the tsb://reset-password?token=... deep link. */
+  ResetPassword: { token?: string };
   Onboarding: undefined;
 };
 

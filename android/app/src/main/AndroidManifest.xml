@@ -23,6 +23,16 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- Deep link target for the email-verification link (tsb://verify-email?token=...).
+             android:autoVerify is left off since that's for App Links (https://) backed by a
+             hosted assetlinks.json on the web domain, which isn't set up yet — this is the
+             plain custom-scheme form, which needs no external hosting to work. -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="tsb" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>

@@ -13,19 +13,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Controller, useForm } from 'react-hook-form';
+import axios from 'axios';
+import Toast from 'react-native-toast-message';
 import { Check, Eye, EyeOff, Lock, Mail, User } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { FormField, PrimaryButton } from '../../components';
 import { AuthStackParamList } from '../../navigation/types';
+import { register as registerApi } from '../../api/auth';
 import { AuthDivider, AuthHero, EMAIL_PATTERN, SocialSignIn, authStyles } from './authShared';
 
 /**
  * Signup — mobile port of the "SIGN UP SHEET" screen in the auth redesign,
  * `TSBAuthSign up · Login · Forgot.html` (repo root). Same hero/social/field
  * chrome as `LoginScreen` (shared via `authShared.tsx`), plus full name,
- * confirm-password, and a terms checkbox. Submit is a Phase 1 placeholder —
- * no signup API yet, so any valid-shaped input hands off straight to
- * Onboarding.
+ * confirm-password, and a terms checkbox.
+ *
+ * Register returns no token — the account needs email verification before it
+ * can log in (matches webSrc's `/register` page) — so success routes to
+ * CheckEmailScreen rather than into Onboarding. Onboarding is a post-login
+ * step gated by the login response's `step2` flag, not part of registration.
  */
 
 type SignupFormValues = {
@@ -54,16 +60,26 @@ function SignupScreen() {
     mode: 'onSubmit',
   });
 
-  const onValid = async (_data: SignupFormValues) => {
+  const onValid = async (data: SignupFormValues) => {
     if (!agreed) {
       setAgreeError(true);
       return;
     }
     setAgreeError(false);
-    // Phase 1 placeholder — no signup API yet, so any valid-shaped input
-    // moves straight to onboarding (email verification is deferred pending
-    // client input, see AuthNavigator/OnboardingScreen).
-    navigation.replace('Onboarding');
+
+    try {
+      await registerApi({
+        name: data.fullName,
+        email: data.email,
+        password: data.password,
+      });
+      navigation.replace('CheckEmail', { email: data.email });
+    } catch (err) {
+      const message = axios.isAxiosError(err)
+        ? err.response?.data?.error ?? err.message
+        : 'Something went wrong. Please try again.';
+      Toast.show({ type: 'error', text1: 'Signup failed', text2: message });
+    }
   };
 
   return (

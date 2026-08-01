@@ -49,6 +49,21 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<!-- Deep link target for the email-verification link (tsb://verify-email?token=...).
+	     This is the plain custom-scheme form — Universal Links (https://) would additionally
+	     need an Associated Domains entitlement plus a hosted apple-app-site-association file
+	     on the web domain, which isn't set up yet. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.tsb</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>tsb</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIAppFonts</key>
 	<array>
 		<string>DMSans-Regular.ttf</string>

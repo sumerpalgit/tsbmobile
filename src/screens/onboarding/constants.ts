@@ -11,6 +11,20 @@ export const ROLES = [
   { name: 'Student', desc: 'Learning about entrepreneurship through acquisition.' },
 ] as const;
 
+/** Maps this screen's role labels to the backend's `roleType` values — mirrors webSrc's
+ * `ROLE_TYPE_API_MAP` in `complete-profile/page.tsx`, keyed to this app's shorter labels
+ * instead of web's longer ones (e.g. "Business Owner" here is web's "Sellers" → `seller`). */
+export const ROLE_TYPE_MAP: Record<string, string> = {
+  Searcher: 'searcher',
+  Investor: 'investor',
+  Lender: 'lender',
+  Advisor: 'advisor',
+  'Business Owner': 'seller',
+  Operator: 'operator',
+  Intermediary: 'intermediary',
+  Student: 'student',
+};
+
 /** Static in the design file itself (not templated per-role there either). */
 export const SUB_CATEGORIES = [
   { value: 'self-funded', label: 'Self-funded searcher' },
@@ -26,6 +40,18 @@ export const CITIES = [
   { value: 'Delhi', label: 'New Delhi, DL' },
   { value: 'Jaipur', label: 'Jaipur, RJ' },
 ];
+
+/** stateCode/countryCode for each `CITIES` entry — web collects these from a live location-search
+ * autocomplete (`/api/location/cities`); this screen's city list is still the static placeholder
+ * set above, so these are hand-mapped to match rather than sourced from that API. All entries are
+ * Indian cities, hence the fixed `countryCode`. */
+export const CITY_LOCATION: Record<string, { stateCode: string; countryCode: string }> = {
+  Mumbai: { stateCode: 'MH', countryCode: 'IN' },
+  Pune: { stateCode: 'MH', countryCode: 'IN' },
+  Bengaluru: { stateCode: 'KA', countryCode: 'IN' },
+  Delhi: { stateCode: 'DL', countryCode: 'IN' },
+  Jaipur: { stateCode: 'RJ', countryCode: 'IN' },
+};
 
 export const STEP_LABELS = ['Basic Information', 'Select ETAs', 'Business Details'];
 

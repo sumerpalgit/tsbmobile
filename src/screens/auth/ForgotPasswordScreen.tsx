@@ -12,19 +12,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Controller, useForm } from 'react-hook-form';
+import axios from 'axios';
 import { Mail } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { FormField, PrimaryButton } from '../../components';
 import { AuthStackParamList } from '../../navigation/types';
+import { forgotPassword } from '../../api/auth';
 import { AuthHero, BackToLoginButton, EMAIL_PATTERN, SocialButton, authStyles } from './authShared';
 
 /**
  * Forgot Password — mobile port of the "FORGOT PASSWORD SHEET" screen in the
  * auth redesign, `TSBAuthSign up · Login · Forgot.html` (repo root). Reached
- * from Login's "Forgot password?" link. Two states, both local component
- * state (`sent`) rather than a real request — there's no reset-email API
- * yet, so submitting a valid-shaped email just flips to the "sent" view,
- * same Phase 1 placeholder pattern as Login/Signup's submit.
+ * from Login's "Forgot password?" link.
+ *
+ * Matches `webSrc/src/app/auth/forgot-password/page.tsx`: submitting calls
+ * `POST /api/auth/forgot-password` with `{ email }`, no token involved at
+ * this step. The emailed reset link itself (`.../auth/reset-password?token=...`)
+ * is the token-gated step — same "opens in browser" situation as email
+ * verification, not wired to a mobile screen yet.
  */
 
 type ForgotPasswordFormValues = {
@@ -38,7 +43,16 @@ function ForgotPasswordScreen() {
 
   const [sent, setSent] = useState(false);
   const [sentEmail, setSentEmail] = useState('');
+  const [resending, setResending] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (text: string) => {
+    setToast(text);
+    setTimeout(() => setToast(null), 2400);
+  };
+
+  const errorMessage = (err: unknown) =>
+    axios.isAxiosError(err) ? err.response?.data?.error ?? err.message : 'Something went wrong. Please try again.';
 
   const {
     control,
@@ -56,13 +70,26 @@ function ForgotPasswordScreen() {
   const goLogin = () => navigation.goBack();
 
   const onValid = async ({ email }: ForgotPasswordFormValues) => {
-    setSentEmail(email);
-    setSent(true);
+    try {
+      await forgotPassword(email);
+      setSentEmail(email);
+      setSent(true);
+    } catch (err) {
+      showToast(errorMessage(err));
+    }
   };
 
-  const resend = () => {
-    setToast('Reset link sent again.');
-    setTimeout(() => setToast(null), 2400);
+  const resend = async () => {
+    if (resending) return;
+    setResending(true);
+    try {
+      const result = await forgotPassword(sentEmail);
+      showToast(result.message);
+    } catch (err) {
+      showToast(errorMessage(err));
+    } finally {
+      setResending(false);
+    }
   };
 
   return (
@@ -118,7 +145,7 @@ function ForgotPasswordScreen() {
 
               <View style={{ gap: 10 }}>
                 <PrimaryButton label="Back to login" letterSpacing={0} onPress={goLogin} />
-                <SocialButton label="Resend email" onPress={resend} />
+                <SocialButton label={resending ? 'Resending…' : 'Resend email'} onPress={resend} />
               </View>
             </View>
           ) : (
