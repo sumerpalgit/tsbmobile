@@ -1,37 +1,43 @@
 import React from 'react';
-import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Search } from 'lucide-react-native';
 import { useTheme } from '../../../theme';
-import { EtaChapter, MAX_ETA_CHAPTERS } from '../constants';
+import { MAX_ETA_CHAPTERS } from '../constants';
+import { EtaChapter } from '../../../api/eta';
 import { EtaChapterCard } from './EtaChapterCard';
 import { EtaChip } from './EtaChip';
 import { EtaEmptyState } from './EtaEmptyState';
 
 /** Step 2 body — search, selected-chapter chips, suggested ETA list. Pulled out of
- * `OnboardingScreen` for the same reason as `Step1Fields`; parent still owns the query/joined
- * state and does the filtering, this just renders and forwards onChange/onToggle.
+ * `OnboardingScreen` for the same reason as `Step1Fields`; parent still owns the query/selection
+ * state, the fetch/search calls, and the `MAX_ETA_CHAPTERS` cap — this just renders and forwards
+ * onToggle. `selectedChapters` (not just IDs) so the "Selected Cities" chips can show a name even
+ * for a chapter that's since scrolled out of `chapters` (e.g. after a new search).
  *
- * The suggested list is a `FlatList` (data/renderItem/keyExtractor/ListEmptyComponent) rather
- * than a `.map()` in a `View`, even though `chapters` is a short static array today — once a real
- * "get ETA Chapters" API lands, swapping `chapters` for fetched data (and later adding
- * `onEndReached` pagination) is then a prop change here, not a rewrite of how the list renders.
+ * `chapters` now comes from `getSuggestedEtaChapters`/`searchEtaChapters` (`src/api/eta.ts`)
+ * instead of a static list — this component didn't need to change shape for that, only the data
+ * source did, per its own original design intent.
+ *
  * `scrollEnabled={false}` lets the parent `KeyboardAwareScrollView` (the page's only scroll
  * container) keep owning the actual scrolling — RN explicitly skips its "nested VirtualizedList"
  * warning when `scrollEnabled` is `false`, so this is a sanctioned pattern, not a workaround. */
 export function Step2Fields({
   query,
   onQueryChange,
-  joined,
+  selectedChapters,
   chapters,
+  loading,
   onToggle,
 }: {
   query: string;
   onQueryChange: (value: string) => void;
-  joined: string[];
+  selectedChapters: EtaChapter[];
   chapters: EtaChapter[];
-  onToggle: (name: string) => void;
+  loading: boolean;
+  onToggle: (chapter: EtaChapter) => void;
 }) {
   const { colors, fonts, fontSize } = useTheme();
+  const selectedIds = new Set(selectedChapters.map(c => c.id));
 
   return (
     <View style={{ gap: 16 }}>
@@ -53,19 +59,21 @@ export function Step2Fields({
       <View style={{ gap: 8 }}>
         <View style={styles.selectedHeaderRow}>
           <Text style={[fonts.semibold, styles.selectedLabel, { color: colors.obInk2 }]}>
-            Selected Cities ({joined.length}/{MAX_ETA_CHAPTERS})
+            Selected Cities ({selectedChapters.length}/{MAX_ETA_CHAPTERS})
           </Text>
           <Text style={[fonts.regular, styles.selectedHint, { color: colors.obInk3 }]}>
             Up to {MAX_ETA_CHAPTERS} cities
           </Text>
         </View>
         <View style={styles.chipRow}>
-          {joined.length === 0 ? (
+          {selectedChapters.length === 0 ? (
             <Text style={[fonts.regular, { fontSize: fontSize.small, color: colors.obInk3 }]}>
               No cities selected yet
             </Text>
           ) : (
-            joined.map(name => <EtaChip key={name} name={name} onRemove={() => onToggle(name)} />)
+            selectedChapters.map(chapter => (
+              <EtaChip key={chapter.id} name={chapter.name} onRemove={() => onToggle(chapter)} />
+            ))
           )}
         </View>
       </View>
@@ -73,16 +81,22 @@ export function Step2Fields({
       {/* Suggested */}
       <View style={{ gap: 9 }}>
         <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.obInk }]}>Suggested ETAs</Text>
-        <FlatList
-          data={chapters}
-          keyExtractor={chapter => chapter.name}
-          scrollEnabled={false}
-          contentContainerStyle={styles.suggestedList}
-          renderItem={({ item }) => (
-            <EtaChapterCard chapter={item} joined={joined.includes(item.name)} onToggle={() => onToggle(item.name)} />
-          )}
-          ListEmptyComponent={EtaEmptyState}
-        />
+        {loading && chapters.length === 0 ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="small" color={colors.obInk3} />
+          </View>
+        ) : (
+          <FlatList
+            data={chapters}
+            keyExtractor={chapter => chapter.id}
+            scrollEnabled={false}
+            contentContainerStyle={styles.suggestedList}
+            renderItem={({ item }) => (
+              <EtaChapterCard chapter={item} joined={selectedIds.has(item.id)} onToggle={() => onToggle(item)} />
+            )}
+            ListEmptyComponent={EtaEmptyState}
+          />
+        )}
       </View>
     </View>
   );
@@ -125,5 +139,9 @@ const styles = StyleSheet.create({
   },
   suggestedList: {
     gap: 9,
+  },
+  loadingWrap: {
+    paddingVertical: 28,
+    alignItems: 'center',
   },
 });

@@ -9,8 +9,12 @@ export type AuthStackParamList = {
    * documented API contract for GET /auth/verify-email, but the real emailed link includes it
    * alongside token, so it's captured here and passed through if present. */
   VerifyEmail: { token?: string; userId?: string };
-  /** Reached via the tsb://reset-password?token=... deep link. */
+  /** Reached via the tsb://reset-password?token=... deep link — kept as a fallback, not the
+   * primary path (see `ResetPasswordOtp`). */
   ResetPassword: { token?: string };
+  /** Primary password-reset path — OTP code + new password on one screen, reached right after
+   * `ForgotPasswordScreen` submits, same shape as `CheckEmail`/email verification. */
+  ResetPasswordOtp: { email: string };
   Onboarding: undefined;
 };
 

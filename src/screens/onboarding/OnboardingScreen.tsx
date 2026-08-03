@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,11 +8,9 @@ import Toast from 'react-native-toast-message';
 import { useTheme } from '../../theme';
 import { PickedFile, PrimaryButton } from '../../components';
 import { useAuth } from '../../store/AuthContext';
-import { completeProfile } from '../../api/auth';
+import { checkLinkedin, completeProfile } from '../../api/auth';
+import { batchJoinEtaChapters, EtaChapter, getSuggestedEtaChapters, searchEtaChapters } from '../../api/eta';
 import {
-  CITIES,
-  CITY_LOCATION,
-  ETA_CHAPTERS,
   FINANCIAL_RANGES,
   LINKEDIN_PATTERN,
   MAX_ETA_CHAPTERS,
@@ -20,7 +18,16 @@ import {
   Step,
   STEP_LABELS,
 } from './constants';
-import { GroundRuleCard, RoleSheet, Step1Fields, Step2Fields, Step3Fields, Step4Fields } from './components';
+import { isStep4Complete, ROLE_CONFIG } from './roleConfig';
+import {
+  CitySelection,
+  GroundRuleCard,
+  RoleSheet,
+  Step1Fields,
+  Step2Fields,
+  Step3Fields,
+  Step4Fields,
+} from './components';
 
 const AUTH_LOGO = require('../../assets/images/AuthLogo.png');
 
@@ -92,41 +99,50 @@ function rangeDefault(key: 'rev' | 'ebitda' | 'ev'): [number, number] {
  *
  * Building this "one step at a time" per request: the shell + all four steps (Step 1: role
  * picker, sub-category, LinkedIn, city; Step 2: search + join ETA chapters; Step 3: designation,
- * organization name, suggested interests; Step 4: education, search details, financial criteria
- * sliders, CIM upload) are real. Step 5 is the completion screen.
+ * organization name, suggested interests; Step 4: role-specific Business Details) are real.
+ * Step 5 is the ground-rules gate screen.
  *
- * The design's native `<select>` dropdowns for Sub Category and City are
- * ported via `FieldDropdown` (react-native-element-dropdown), an inline
- * floating-list dropdown — not the bottom-sheet pattern used for the
- * (richer) Category picker.
+ * The design's native `<select>` dropdown for Sub Category is ported via `FieldDropdown`
+ * (react-native-element-dropdown), an inline floating-list dropdown — not the bottom-sheet
+ * pattern used for the (richer) Category picker. City is a live search instead
+ * (`CitySearchField`, same library in search mode, backed by `GET /api/location/cities`) rather
+ * than a fixed list, matching web's real autocomplete.
  *
- * Step 2's chapter list and Step 3/4's designation/interest/education/search-detail/financial-range
- * data (`ETA_CHAPTERS`, `DESIGNATIONS`, `INTERESTS`, `EDUCATION_LEVELS`, etc. in `./constants`) are
- * static placeholders matching the design's mock data — real, role-conditional versions (mirroring
- * the web app's `ROLE_CONFIG`) replace these now that all four steps are built and UI-verified
- * against static data first, per how this was staged.
+ * LinkedIn also validates live against the backend (`check-linkedin`, debounced 600ms, mirroring
+ * web's `complete-profile` page exactly) — Step 1's "Continue" is blocked until that check comes
+ * back available, not just regex-shaped.
  *
- * `ChipMultiSelect` (Step 3's "Suggested Interests") and `DualRangeSlider`/`ScrollViewWithScrollbar`
- * (Step 4's Financial Criteria sliders and the Suggestions box's scrollbar) are all deliberately
- * option-list-agnostic / content-agnostic rather than built one-off — RN has no native dual-range
- * slider or desktop-style scrollbar, so these were hand-built once (via `Gesture.Pan()` from
+ * Step 4 is config-driven off `./roleConfig`'s `ROLE_CONFIG`, mirroring web's `UnifiedRoleForm`:
+ * one `Step4Fields` component renders whichever fields/sections/uploads the selected role's
+ * config declares, instead of 8 hand-built forms. `fieldValues`/`chipValues`/`uploads` below are
+ * therefore generic `Record<key, ...>` maps keyed by each field's config key, not individual
+ * named state per field — the config is the single source of truth for which keys exist per
+ * role. `INDUSTRIES`/`GEOGRAPHIES`/`INTERESTS` (`./constants`) are still static placeholders —
+ * real per-role/location-scoped lookups (web's `useIndustries`/`useGeographies`/
+ * `useInterestSuggestions`) replace them later, same as Step 2's ETA chapters already got
+ * (`src/api/eta.ts`) and Step 1's LinkedIn/city already got (`check-linkedin`/`location/cities`).
+ *
+ * `ChipMultiSelect` (Step 3's "Suggested Interests", Step 4's Industries/Geography/chip-type
+ * fields) and `DualRangeSlider`/`ScrollViewWithScrollbar` (Step 4's Financial Criteria sliders
+ * and the Suggestions box's scrollbar) are all deliberately option-list-agnostic /
+ * content-agnostic rather than built one-off — RN has no native dual-range slider or
+ * desktop-style scrollbar, so these were hand-built once (via `Gesture.Pan()` from
  * `react-native-gesture-handler`, already a dependency for this app's drawer swipe — not the
  * legacy `PanResponder`, which couldn't reliably win the gesture away from the page's own
  * scrolling) and are reusable anywhere else in this app that needs the same pattern.
  *
- * Step 4's CIM upload uses `FileUploadButton` (`src/components`) — a real OS document/photo
- * picker (`@react-native-documents/picker`), not onboarding-specific since every per-role Step 4
- * variant will need the same "attach a document or image" control (resumes, credentials, pitch
- * decks, etc. per the web app's research) with just a different accepted-types/label.
+ * Step 4's uploads use `FileUploadButton` (`src/components`) — a real OS document/photo picker
+ * (`@react-native-documents/picker`), one instance per upload key a role's config declares
+ * (CIM, pitch deck, resume, etc. — several roles declare none).
  *
  * Each step's body (`Step1Fields`..`Step4Fields`), the role picker, sub-category/city sheets, ETA
  * chapter cards, and their pieces (cards, headers, triggers) each live in their own file under
  * `./components`, each with its own styles — matching how every other screen in this app keeps its
  * `StyleSheet.create` local to itself, and keeping this file from growing into one giant render.
  * This screen still owns all the step state/handlers; the step components are dumb — they render
- * and forward onChange. Shared data (roles, cities, sub-categories, ETA chapters, designations,
- * interests, education/search-detail options, financial ranges, the `Step` type) lives in
- * `./constants` since it's a single source of truth several of those files read from.
+ * and forward onChange. Shared data (roles, cities, sub-categories, ETA chapters, interests,
+ * financial ranges, the `Step` type) lives in `./constants`; per-role Step 4 field/upload
+ * definitions live in `./roleConfig`.
  */
 
 function OnboardingScreen() {
@@ -136,48 +152,182 @@ function OnboardingScreen() {
 
   const [step, setStep] = useState<Step>(1);
   const [error, setError] = useState('');
-  const [submittingStep1, setSubmittingStep1] = useState(false);
+  // Shared by Step 1's complete-profile call and Step 2's batch-join call — only one can be
+  // mid-flight at a time in this linear wizard.
+  const [submitting, setSubmitting] = useState(false);
 
   const [role, setRole] = useState('');
   const [sub, setSub] = useState('');
   const [linkedin, setLinkedin] = useState('');
-  const [city, setCity] = useState('');
+  const [linkedinStatus, setLinkedinStatus] = useState<{
+    checking: boolean;
+    valid: boolean | null;
+    message: string;
+  }>({ checking: false, valid: null, message: '' });
+  const [citySelection, setCitySelection] = useState<CitySelection | null>(null);
+
+  // Live `check-linkedin` validation, debounced 600ms — matches webSrc's `complete-profile`
+  // page exactly (same debounce, same endpoint).
+  useEffect(() => {
+    const trimmed = linkedin.trim();
+    if (!trimmed) {
+      setLinkedinStatus({ checking: false, valid: null, message: '' });
+      return;
+    }
+    if (!LINKEDIN_PATTERN.test(trimmed)) {
+      setLinkedinStatus({ checking: false, valid: false, message: 'Enter a valid LinkedIn profile URL.' });
+      return;
+    }
+
+    setLinkedinStatus({ checking: true, valid: null, message: '' });
+    const timer = setTimeout(async () => {
+      try {
+        const result = await checkLinkedin(trimmed);
+        setLinkedinStatus({
+          checking: false,
+          valid: result.available,
+          message: result.available
+            ? 'LinkedIn profile is available.'
+            : result.message ?? 'This LinkedIn profile is already in use.',
+        });
+      } catch {
+        setLinkedinStatus({ checking: false, valid: false, message: 'Could not verify LinkedIn URL. Try again.' });
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [linkedin]);
 
   const [etaQuery, setEtaQuery] = useState('');
-  const [joinedEtas, setJoinedEtas] = useState<string[]>([]);
+  const [etaChaptersLoading, setEtaChaptersLoading] = useState(true);
+  const [suggestedChapters, setSuggestedChapters] = useState<EtaChapter[]>([]);
+  const [otherChapters, setOtherChapters] = useState<EtaChapter[]>([]);
+  const [etaSearchResults, setEtaSearchResults] = useState<EtaChapter[] | null>(null);
+  const [etaSearching, setEtaSearching] = useState(false);
+  const [selectedChapters, setSelectedChapters] = useState<Record<string, EtaChapter>>({});
+  const etaSearchCache = useRef<Map<string, EtaChapter[]>>(new Map());
+
+  // Suggestions fetch, once on mount — matches webSrc's `fetchEtaChapters` (suggestions,
+  // falling back to the flat all-chapters list inside `getSuggestedEtaChapters` itself).
+  useEffect(() => {
+    let cancelled = false;
+    getSuggestedEtaChapters()
+      .then(({ suggested, others }) => {
+        if (cancelled) return;
+        setSuggestedChapters(suggested);
+        setOtherChapters(others);
+      })
+      .catch(() => {
+        if (!cancelled) Toast.show({ type: 'error', text1: 'Failed to load ETA chapters. Try again.' });
+      })
+      .finally(() => {
+        if (!cancelled) setEtaChaptersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Debounced 150ms search, matching webSrc's `join-eta-chapter` page exactly — shows an
+  // instant local substring match from what's already loaded while the API call is in flight,
+  // then swaps in the server's results; a query-string cache avoids re-hitting the API for a
+  // query already searched this session (same as web's `searchCache`).
+  useEffect(() => {
+    const trimmed = etaQuery.trim();
+    if (!trimmed) {
+      setEtaSearchResults(null);
+      return;
+    }
+
+    const cacheKey = trimmed.toLowerCase();
+    const cached = etaSearchCache.current.get(cacheKey);
+    if (cached) {
+      setEtaSearchResults(cached);
+      return;
+    }
+
+    const localMatch = [...suggestedChapters, ...otherChapters].filter(c =>
+      c.name.toLowerCase().includes(cacheKey),
+    );
+    if (localMatch.length > 0) setEtaSearchResults(localMatch);
+
+    const timer = setTimeout(async () => {
+      setEtaSearching(true);
+      try {
+        const results = await searchEtaChapters(trimmed);
+        etaSearchCache.current.set(cacheKey, results);
+        setEtaSearchResults(results);
+      } catch {
+        if (localMatch.length === 0) setEtaSearchResults([]);
+      } finally {
+        setEtaSearching(false);
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [etaQuery, suggestedChapters, otherChapters]);
+
+  // Matches webSrc's `join-eta-chapter` `renderContent` exactly: `suggested` only by default;
+  // if the user's Step 1 city/country is known and there's no active search, re-sort
+  // `[...suggested, ...others]` so chapters whose name/description mention that city (or whose
+  // name mentions the country) sort first — same asymmetric match web uses (country is only
+  // checked against the chapter name, not its description). Always capped to the top 4 outside
+  // of an active search; an active search replaces the list with `searchResults` entirely.
+  const displayedEtaChapters = (() => {
+    if (etaSearchResults !== null) return etaSearchResults;
+
+    let list = suggestedChapters;
+    if (citySelection) {
+      const city = citySelection.city.toLowerCase();
+      const country = citySelection.countryName.toLowerCase();
+      list = [...suggestedChapters, ...otherChapters].sort((a, b) => {
+        const aMatches =
+          a.name.toLowerCase().includes(city) ||
+          a.description.toLowerCase().includes(city) ||
+          a.name.toLowerCase().includes(country);
+        const bMatches =
+          b.name.toLowerCase().includes(city) ||
+          b.description.toLowerCase().includes(city) ||
+          b.name.toLowerCase().includes(country);
+        if (aMatches && !bMatches) return -1;
+        if (!aMatches && bMatches) return 1;
+        return 0;
+      });
+    }
+    return list.slice(0, 4);
+  })();
 
   const [designation, setDesignation] = useState('');
   const [org, setOrg] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
 
-  const [edu, setEdu] = useState('');
-  const [fieldOfStudy, setFieldOfStudy] = useState('');
-  const [institution, setInstitution] = useState('');
-  const [stage, setStage] = useState('');
-  const [commitment, setCommitment] = useState('');
-  const [equity, setEquity] = useState('');
-  const [debt, setDebt] = useState('');
-  const [background, setBackground] = useState('');
-  const [readiness, setReadiness] = useState('');
+  // Generic per-role Step 4 state — keyed by whatever field keys the selected role's
+  // `ROLE_CONFIG` entry declares (see ./roleConfig), not individual named fields, since the
+  // field set itself varies by role.
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [chipValues, setChipValues] = useState<Record<string, string[]>>({});
+  const [industries, setIndustries] = useState<string[]>([]);
+  const [geographyFocus, setGeographyFocus] = useState<string[]>([]);
+  const [orgWebsite, setOrgWebsite] = useState('');
   const [revRange, setRevRange] = useState(rangeDefault('rev'));
   const [ebitdaRange, setEbitdaRange] = useState(rangeDefault('ebitda'));
   const [evRange, setEvRange] = useState(rangeDefault('ev'));
-  const [cimFile, setCimFile] = useState<PickedFile | null>(null);
+  const [uploads, setUploads] = useState<Record<string, PickedFile | null>>({});
 
   const [roleSheetOpen, setRoleSheetOpen] = useState(false);
 
-  const filteredEtas = ETA_CHAPTERS.filter(
-    c => !etaQuery.trim() || c.name.toLowerCase().includes(etaQuery.trim().toLowerCase()),
-  );
-
-  const toggleEta = (name: string) => {
-    setJoinedEtas(prev => {
-      if (prev.includes(name)) return prev.filter(n => n !== name);
-      if (prev.length >= MAX_ETA_CHAPTERS) {
+  const toggleEta = (chapter: EtaChapter) => {
+    setSelectedChapters(prev => {
+      if (prev[chapter.id]) {
+        const next = { ...prev };
+        delete next[chapter.id];
+        return next;
+      }
+      if (Object.keys(prev).length >= MAX_ETA_CHAPTERS) {
         Toast.show({ type: 'info', text1: `You can select up to ${MAX_ETA_CHAPTERS} cities.` });
         return prev;
       }
-      return [...prev, name];
+      return { ...prev, [chapter.id]: chapter };
     });
     setError('');
   };
@@ -185,6 +335,34 @@ function OnboardingScreen() {
   const toggleInterest = (item: string) => {
     setInterests(prev => (prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]));
     setError('');
+  };
+
+  const setFieldValue = (key: string, value: string) => {
+    setFieldValues(prev => ({ ...prev, [key]: value }));
+    setError('');
+  };
+
+  const toggleChipValue = (key: string, option: string) => {
+    setChipValues(prev => {
+      const current = prev[key] ?? [];
+      const next = current.includes(option) ? current.filter(o => o !== option) : [...current, option];
+      return { ...prev, [key]: next };
+    });
+    setError('');
+  };
+
+  const toggleIndustry = (option: string) => {
+    setIndustries(prev => (prev.includes(option) ? prev.filter(o => o !== option) : [...prev, option]));
+    setError('');
+  };
+
+  const toggleGeography = (option: string) => {
+    setGeographyFocus(prev => (prev.includes(option) ? prev.filter(o => o !== option) : [...prev, option]));
+    setError('');
+  };
+
+  const setUpload = (key: string, file: PickedFile | null) => {
+    setUploads(prev => ({ ...prev, [key]: file }));
   };
 
   const canBack = step > 1;
@@ -201,7 +379,7 @@ function OnboardingScreen() {
     step === 3
       ? 'Tell us more about your profile — this helps us match you better.'
       : step === 4
-      ? 'A few financial and education details to finish up.'
+      ? 'A few details specific to your role to finish up.'
       : STEP_COPY[step]?.[1] ?? '';
 
   const back = () => {
@@ -214,32 +392,65 @@ function OnboardingScreen() {
       if (!role) return setError('Pick the category that describes you.');
       if (!sub) return setError('Select a sub category.');
       if (!LINKEDIN_PATTERN.test(linkedin)) return setError('Add your LinkedIn profile URL.');
-      if (!city) return setError('Select your city.');
+      if (linkedinStatus.checking) return setError('Still checking your LinkedIn URL — one moment.');
+      if (linkedinStatus.valid !== true) {
+        return setError(linkedinStatus.message || 'Enter a valid, available LinkedIn URL.');
+      }
+      if (!citySelection) return setError('Select your city.');
 
       setError('');
-      setSubmittingStep1(true);
+      setSubmitting(true);
       try {
-        const location = CITY_LOCATION[city];
         await completeProfile({
           linkedinUrl: linkedin,
           roleType: ROLE_TYPE_MAP[role] ?? role,
           subCategory: sub,
-          userSelectedLocation: CITIES.find(c => c.value === city)?.label ?? city,
-          stateCode: location?.stateCode ?? '',
-          countryCode: location?.countryCode ?? '',
+          userSelectedLocation: citySelection.city,
+          stateCode: citySelection.stateCode,
+          countryCode: citySelection.countryCode,
         });
       } catch (err) {
         const message = axios.isAxiosError(err)
           ? err.response?.data?.error ?? err.message
           : 'Something went wrong. Please try again.';
         Toast.show({ type: 'error', text1: 'Could not save profile', text2: message });
-        setSubmittingStep1(false);
+        setSubmitting(false);
         return;
       }
-      setSubmittingStep1(false);
+      setSubmitting(false);
     }
     if (step === 2) {
-      if (!joinedEtas.length) return setError('Join at least one city ETA.');
+      const chapterIds = Object.keys(selectedChapters);
+      if (!chapterIds.length) return setError('Join at least one city ETA.');
+
+      setError('');
+      setSubmitting(true);
+      try {
+        const result = await batchJoinEtaChapters(chapterIds);
+        if (result.error && !result.joinedChapters?.length && !result.pendingChapters?.length) {
+          Toast.show({ type: 'error', text1: result.error || result.message || 'Failed to join chapters.' });
+          setSubmitting(false);
+          return;
+        }
+        if (result.failedChapters?.length) {
+          Toast.show({
+            type: 'info',
+            text1: `${result.failedChapters.length} chapter(s) couldn't be joined`,
+            text2: result.failedChapters[0]?.error,
+          });
+        }
+        if (result.pendingChapters?.length) {
+          Toast.show({ type: 'info', text1: `${result.pendingChapters.length} chapter(s) pending approval` });
+        }
+      } catch (err) {
+        const message = axios.isAxiosError(err)
+          ? err.response?.data?.error ?? err.message
+          : 'Something went wrong. Please try again.';
+        Toast.show({ type: 'error', text1: 'Could not join chapters', text2: message });
+        setSubmitting(false);
+        return;
+      }
+      setSubmitting(false);
     }
     if (step === 3) {
       if (!designation) return setError('Select your role / designation.');
@@ -247,7 +458,9 @@ function OnboardingScreen() {
       if (!interests.length) return setError('Choose at least one interest.');
     }
     if (step === 4) {
-      if (!stage || !commitment || !equity || !debt) return setError('Complete the required Search Details fields.');
+      if (!isStep4Complete(role, fieldValues, chipValues, industries, geographyFocus)) {
+        return setError('Complete the required fields for your role.');
+      }
     }
     setError('');
     setStep(step < 4 ? ((step + 1) as Step) : 5);
@@ -356,15 +569,15 @@ function OnboardingScreen() {
               role={role}
               sub={sub}
               linkedin={linkedin}
-              city={city}
+              linkedinStatus={linkedinStatus}
               onRolePress={() => setRoleSheetOpen(true)}
               onSubChange={v => {
                 setSub(v);
                 setError('');
               }}
               onLinkedinChange={setLinkedin}
-              onCityChange={v => {
-                setCity(v);
+              onCitySelect={city => {
+                setCitySelection(city);
                 setError('');
               }}
             />
@@ -374,8 +587,9 @@ function OnboardingScreen() {
             <Step2Fields
               query={etaQuery}
               onQueryChange={setEtaQuery}
-              joined={joinedEtas}
-              chapters={filteredEtas}
+              selectedChapters={Object.values(selectedChapters)}
+              chapters={displayedEtaChapters}
+              loading={etaChaptersLoading || etaSearching}
               onToggle={toggleEta}
             />
           )}
@@ -383,6 +597,7 @@ function OnboardingScreen() {
           {step === 3 && (
             <Step3Fields
               designation={designation}
+              designationOptions={ROLE_CONFIG[role]?.designationOptions ?? []}
               org={org}
               interests={interests}
               onDesignationChange={v => {
@@ -396,44 +611,25 @@ function OnboardingScreen() {
 
           {step === 4 && (
             <Step4Fields
-              edu={edu}
-              field={fieldOfStudy}
-              institution={institution}
-              stage={stage}
-              commitment={commitment}
-              equity={equity}
-              debt={debt}
-              background={background}
-              readiness={readiness}
+              role={role}
+              fieldValues={fieldValues}
+              onFieldChange={setFieldValue}
+              chipValues={chipValues}
+              onChipToggle={toggleChipValue}
+              industries={industries}
+              onIndustriesToggle={toggleIndustry}
+              geographyFocus={geographyFocus}
+              onGeographyToggle={toggleGeography}
+              orgWebsite={orgWebsite}
+              onOrgWebsiteChange={setOrgWebsite}
               revRange={revRange}
               ebitdaRange={ebitdaRange}
               evRange={evRange}
-              cimFile={cimFile}
-              onEduChange={setEdu}
-              onFieldChange={setFieldOfStudy}
-              onInstitutionChange={setInstitution}
-              onStageChange={v => {
-                setStage(v);
-                setError('');
-              }}
-              onCommitmentChange={v => {
-                setCommitment(v);
-                setError('');
-              }}
-              onEquityChange={v => {
-                setEquity(v);
-                setError('');
-              }}
-              onDebtChange={v => {
-                setDebt(v);
-                setError('');
-              }}
-              onBackgroundChange={setBackground}
-              onReadinessChange={setReadiness}
               onRevChange={(lo, hi) => setRevRange([lo, hi])}
               onEbitdaChange={(lo, hi) => setEbitdaRange([lo, hi])}
               onEvChange={(lo, hi) => setEvRange([lo, hi])}
-              onCimChange={setCimFile}
+              uploads={uploads}
+              onUploadChange={setUpload}
             />
           )}
 
@@ -490,11 +686,11 @@ function OnboardingScreen() {
           )}
           <Pressable
             onPress={next}
-            disabled={submittingStep1}
-            style={[styles.nextButton, { backgroundColor: colors.obGold, opacity: submittingStep1 ? 0.6 : 1 }]}
+            disabled={submitting}
+            style={[styles.nextButton, { backgroundColor: colors.obGold, opacity: submitting ? 0.6 : 1 }]}
           >
             <Text style={[fonts.bold, { color: colors.onAccent, fontSize: fontSize.ui }]}>
-              {submittingStep1 ? 'Saving…' : step === 4 ? 'Complete' : 'Continue'}
+              {submitting ? 'Saving…' : step === 4 ? 'Complete' : 'Continue'}
             </Text>
             <ChevronRight size={15} color={colors.onAccent} strokeWidth={1.7} />
           </Pressable>

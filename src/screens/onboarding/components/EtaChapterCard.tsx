@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import { Building2, MapPin, Users } from 'lucide-react-native';
 import { useTheme } from '../../../theme';
-import { EtaChapter } from '../constants';
+import { EtaChapter } from '../../../api/eta';
 
 /** One suggested ETA chapter row in Step 2. Its own file, same reasoning as `RoleCard` — keeps
  * the chapter `.map` from re-creating this JSX inline on every render.
@@ -11,9 +11,9 @@ import { EtaChapter } from '../constants';
  * The design's thumbnail is a diagonal-striped placeholder photo (`repeating-linear-gradient`)
  * with a "{NAME} PHOTO" caption — RN has no built-in gradient, and pulling in a gradient library
  * for a placeholder swatch isn't worth it, so this falls back to a flat, muted icon tile whenever
- * `chapter.imageUrl` is absent (i.e. always, until the real chapters API lands). Once a chapter
- * does carry a real photo URL, it renders via `FastImage` for its disk/memory caching instead of
- * RN's plain `Image` — matters once this list is backed by a real, possibly large, chapter set. */
+ * `chapter.groupImageUrl` is empty. Renders via `FastImage` (disk/memory caching) instead of RN's
+ * plain `Image` when a real photo URL is present — this list is now backed by the real, possibly
+ * large, chapter set from `getSuggestedEtaChapters`/`searchEtaChapters`. */
 export function EtaChapterCard({
   chapter,
   joined,
@@ -33,9 +33,9 @@ export function EtaChapterCard({
       ]}
     >
       <View style={[styles.thumb, { backgroundColor: colors.obSunken }]}>
-        {chapter.imageUrl ? (
+        {chapter.groupImageUrl ? (
           <FastImage
-            source={{ uri: chapter.imageUrl, priority: FastImage.priority.normal }}
+            source={{ uri: chapter.groupImageUrl, priority: FastImage.priority.normal }}
             style={styles.thumbImage}
             resizeMode={FastImage.resizeMode.cover}
           />
@@ -45,13 +45,15 @@ export function EtaChapterCard({
       </View>
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={[fonts.authDisplay, styles.name, { color: colors.obInk }]}>{chapter.name}</Text>
-        <View style={styles.metaRow}>
-          <MapPin size={11} color={colors.obInk3} strokeWidth={1.6} />
-          <Text style={[fonts.regular, styles.metaText, { color: colors.obInk3 }]}>{chapter.region}</Text>
-        </View>
+        {chapter.location ? (
+          <View style={styles.metaRow}>
+            <MapPin size={11} color={colors.obInk3} strokeWidth={1.6} />
+            <Text style={[fonts.regular, styles.metaText, { color: colors.obInk3 }]}>{chapter.location}</Text>
+          </View>
+        ) : null}
         <View style={styles.metaRow}>
           <Users size={11} color={colors.obInk3} strokeWidth={1.6} />
-          <Text style={[fonts.regular, styles.metaText, { color: colors.obInk3 }]}>{chapter.members} members</Text>
+          <Text style={[fonts.regular, styles.metaText, { color: colors.obInk3 }]}>{chapter.memberCount} members</Text>
         </View>
       </View>
       <Pressable

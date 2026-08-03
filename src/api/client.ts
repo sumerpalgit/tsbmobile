@@ -86,7 +86,7 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError, null);
-      await AsyncStorage.removeMany(['accessToken', 'refreshToken']);
+      await AsyncStorage.removeMany(['accessToken', 'refreshToken', 'onboardingComplete']);
       onAuthFailure?.();
       return Promise.reject(refreshError);
     } finally {

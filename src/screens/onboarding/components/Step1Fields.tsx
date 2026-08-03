@@ -1,32 +1,41 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../../../theme';
-import { CITIES, SUB_CATEGORIES } from '../constants';
+import { SUB_CATEGORIES } from '../constants';
 import { CategoryTrigger } from './CategoryTrigger';
+import { CitySearchField, CitySelection } from './CitySearchField';
 import { FieldDropdown } from './FieldDropdown';
 import { LinkedInGlyph } from './LinkedInGlyph';
 
+export type LinkedinStatus = {
+  checking: boolean;
+  valid: boolean | null;
+  message: string;
+};
+
 /** Step 1 body — category, sub category, LinkedIn, city. Pulled out of `OnboardingScreen` so that
  * file doesn't keep growing into one giant render as Steps 3-4 get filled in; parent still owns
- * all the values/state, this just renders and forwards onChange. */
+ * all the values/state, this just renders and forwards onChange. City is a live search
+ * (`CitySearchField`) rather than a fixed list, and LinkedIn shows the parent's debounced
+ * `check-linkedin` result — both match webSrc's real `complete-profile` behavior now. */
 export function Step1Fields({
   role,
   sub,
   linkedin,
-  city,
+  linkedinStatus,
   onRolePress,
   onSubChange,
   onLinkedinChange,
-  onCityChange,
+  onCitySelect,
 }: {
   role: string;
   sub: string;
   linkedin: string;
-  city: string;
+  linkedinStatus: LinkedinStatus;
   onRolePress: () => void;
   onSubChange: (value: string) => void;
   onLinkedinChange: (value: string) => void;
-  onCityChange: (value: string) => void;
+  onCitySelect: (city: CitySelection) => void;
 }) {
   const { colors, fonts } = useTheme();
 
@@ -65,7 +74,19 @@ export function Step1Fields({
             autoCorrect={false}
             keyboardType="url"
           />
+          {linkedinStatus.checking && <ActivityIndicator size="small" color={colors.obInk3} />}
         </View>
+        {!linkedinStatus.checking && linkedinStatus.message ? (
+          <Text
+            style={[
+              fonts.medium,
+              styles.statusText,
+              { color: linkedinStatus.valid ? colors.obSuccess : colors.obRequired },
+            ]}
+          >
+            {linkedinStatus.message}
+          </Text>
+        ) : null}
       </View>
 
       {/* City */}
@@ -73,7 +94,7 @@ export function Step1Fields({
         <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.obInk }]}>
           City <Text style={{ color: colors.obRequired }}>*</Text>
         </Text>
-        <FieldDropdown value={city} placeholder="Select your city" options={CITIES} onChange={onCityChange} />
+        <CitySearchField placeholder="Search for your city" onSelect={onCitySelect} />
       </View>
     </View>
   );
@@ -96,5 +117,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 0,
     fontSize: 13.5,
+  },
+  statusText: {
+    fontSize: 11.5,
+    marginTop: 5,
   },
 });

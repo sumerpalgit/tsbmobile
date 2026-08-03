@@ -1,16 +1,18 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../../../theme';
-import { DESIGNATIONS, INTERESTS } from '../constants';
+import { INTERESTS } from '../constants';
 import { ChipMultiSelect } from './ChipMultiSelect';
 import { FieldDropdown } from './FieldDropdown';
 
 /** Step 3 body — "Organization & Profile", part 1 of the 2-part Business Details flow (Step 4 is
- * part 2). Static `DESIGNATIONS`/`INTERESTS` for now, same phasing as `Step1Fields`'s
- * `SUB_CATEGORIES`/`CITIES` — a real per-role designation list + role-scoped interest
- * suggestions replace these once this step (and Step 4's slider/upload) are verified working. */
+ * part 2). `designationOptions` comes from the selected role's `ROLE_CONFIG` entry
+ * (`../roleConfig`) — this screen just renders whatever list it's given. `INTERESTS` is still
+ * static, same phasing as `Step1Fields`'s `SUB_CATEGORIES` — role-scoped interest suggestions
+ * replace it once role-conditional Step 4 is verified working. */
 export function Step3Fields({
   designation,
+  designationOptions,
   org,
   interests,
   onDesignationChange,
@@ -18,6 +20,7 @@ export function Step3Fields({
   onInterestsToggle,
 }: {
   designation: string;
+  designationOptions: { value: string; label: string }[];
   org: string;
   interests: string[];
   onDesignationChange: (value: string) => void;
@@ -52,7 +55,7 @@ export function Step3Fields({
         <FieldDropdown
           value={designation}
           placeholder="Select your designation"
-          options={DESIGNATIONS}
+          options={designationOptions}
           onChange={onDesignationChange}
         />
       </View>

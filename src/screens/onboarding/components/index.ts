@@ -1,6 +1,9 @@
 export { CategoryTrigger } from './CategoryTrigger';
 export { ChipMultiSelect } from './ChipMultiSelect';
+export { CitySearchField } from './CitySearchField';
+export type { CitySelection } from './CitySearchField';
 export { DualRangeSlider } from './DualRangeSlider';
+export { DynamicField } from './DynamicField';
 export { EtaChapterCard } from './EtaChapterCard';
 export { EtaChip } from './EtaChip';
 export { EtaEmptyState } from './EtaEmptyState';
