@@ -1,8 +1,20 @@
-import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { ChevronLeft } from 'lucide-react-native';
+import { GoogleSignin, isSuccessResponse, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import axios from 'axios';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '../../theme';
+import { useAuth } from '../../store/AuthContext';
+import { AuthStackParamList } from '../../navigation/types';
+import { oauthSignIn } from '../../api/auth';
+
+GoogleSignin.configure({
+  webClientId: '571675034140-q8rhmsmidot1tjeutu5hrovthu29clut.apps.googleusercontent.com',
+});
 
 const PROFESSIONAL_1 = require('../../assets/images/professional1.jpg');
 const PROFESSIONAL_2 = require('../../assets/images/professional2.jpg');
@@ -49,17 +61,20 @@ export function SocialButton({
   icon,
   label,
   onPress = () => {},
+  loading = false,
 }: {
   icon?: React.ReactNode;
   label: string;
   /** No-op by default — the Google/LinkedIn buttons have nothing to hook up to yet. */
   onPress?: () => void;
+  loading?: boolean;
 }) {
   const { colors, fonts, fontSize, borderWidth } = useTheme();
 
   return (
     <Pressable
       onPress={onPress}
+      disabled={loading}
       accessibilityRole="button"
       style={({ pressed }) => [
         authStyles.social,
@@ -67,20 +82,90 @@ export function SocialButton({
           borderWidth: borderWidth.thin,
           borderColor: colors.authFieldBorder,
           backgroundColor: pressed ? colors.surfaceSunken : colors.surface,
+          opacity: loading ? 0.7 : 1,
         },
       ]}
     >
-      {icon}
-      <Text style={[fonts.semibold, { fontSize: fontSize.authButton, color: colors.ink }]}>{label}</Text>
+      {loading ? (
+        <ActivityIndicator color={colors.ink} />
+      ) : (
+        <>
+          {icon}
+          <Text style={[fonts.semibold, { fontSize: fontSize.authButton, color: colors.ink }]}>{label}</Text>
+        </>
+      )}
     </Pressable>
   );
 }
 
 /** The Google + LinkedIn button pair, identical on every auth sheet. */
 export function SocialSignIn() {
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { login } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
+
+  async function handleGoogleSignIn() {
+    console.log('[GoogleSignIn] button pressed');
+    setGoogleLoading(true);
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      console.log('[GoogleSignIn] Play Services available');
+
+      const response = await GoogleSignin.signIn();
+      console.log('[GoogleSignIn] raw response:', JSON.stringify(response, null, 2));
+
+      if (!isSuccessResponse(response)) {
+        console.log('[GoogleSignIn] user cancelled the sign-in flow');
+        return;
+      }
+
+      console.log('[GoogleSignIn] SUCCESS — user:', response.data.user);
+      const result = await oauthSignIn(response.data.user.email);
+      console.log('[GoogleSignIn] oauth-signin result:', result);
+
+      if (!result.complete) {
+        navigation.replace('Onboarding');
+        return;
+      }
+      login();
+    } catch (error) {
+      if (isErrorWithCode(error)) {
+        console.log('[GoogleSignIn] ERROR code:', error.code);
+        switch (error.code) {
+          case statusCodes.IN_PROGRESS:
+            console.log('[GoogleSignIn] sign-in already in progress');
+            break;
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            console.log('[GoogleSignIn] Play Services not available or outdated');
+            break;
+          default:
+            console.log('[GoogleSignIn] unhandled error:', error);
+        }
+        return;
+      }
+      if (axios.isAxiosError(error)) {
+        console.log('[GoogleSignIn] backend error:', error.response?.data);
+        Toast.show({
+          type: 'error',
+          text1: 'Google sign-in failed',
+          text2: error.response?.data?.error ?? error.message,
+        });
+        return;
+      }
+      console.log('[GoogleSignIn] non-library error:', error);
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
+
   return (
     <View style={{ gap: 10 }}>
-      <SocialButton icon={<GoogleIcon />} label="Continue with Google" />
+      <SocialButton
+        icon={<GoogleIcon />}
+        label="Continue with Google"
+        onPress={handleGoogleSignIn}
+        loading={googleLoading}
+      />
       <SocialButton icon={<LinkedInIcon />} label="Continue with LinkedIn" />
     </View>
   );

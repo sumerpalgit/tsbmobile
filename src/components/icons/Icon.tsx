@@ -10,15 +10,15 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
  *   - settings / ads / sign-out → `webSrc/src/components/DashboardNavbar.tsx`
  *   - bell             → `webSrc/src/components/NotificationPanel.tsx`
  *
- * `create` is the one icon with no web counterpart — the website composes posts
- * inline instead of from a nav item, so the mobile "Post" tab needs its own
- * glyph. It is drawn in the same 20×20 / 1.5-stroke style as the rest.
+ * `toolkit`, `search`, `filter`, `docList`, `people`, `grid`, `clock`, `check`, `bookmark`,
+ * `calendar` and `trendingUp` have no web counterpart — new to the app bar/drawer/home
+ * reference (`TSB Home FV.html`, mainly its Filters panel), which has no equivalent on the
+ * website. Paths copied verbatim from there instead, same ~1.3–1.5-stroke style as the rest.
  */
 
 export type IconName =
   | 'home'
   | 'directory'
-  | 'create'
   | 'matches'
   | 'messages'
   | 'etaChapters'
@@ -29,6 +29,18 @@ export type IconName =
   | 'adManagement'
   | 'settings'
   | 'suggest'
+  | 'toolkit'
+  | 'search'
+  | 'filter'
+  | 'docList'
+  | 'people'
+  | 'grid'
+  | 'clock'
+  | 'check'
+  | 'checkmark'
+  | 'bookmark'
+  | 'calendar'
+  | 'trendingUp'
   | 'signOut'
   | 'bell'
   | 'sun'
@@ -59,6 +71,17 @@ const VIEW_BOX: Partial<Record<IconName, string>> = {
   account: '0 0 18 18',
   chevronRight: '0 0 11 11',
   close: '0 0 20 20',
+  search: '0 0 15 15',
+  filter: '0 0 15 15',
+  docList: '0 0 16 16',
+  people: '0 0 16 16',
+  grid: '0 0 16 16',
+  clock: '0 0 16 16',
+  check: '0 0 16 16',
+  checkmark: '0 0 15 15',
+  bookmark: '0 0 16 16',
+  calendar: '0 0 12 12',
+  trendingUp: '0 0 12 12',
   // The login page's field glyphs come from lucide-react, which draws on 24×24.
   mail: '0 0 24 24',
   lock: '0 0 24 24',
@@ -108,27 +131,6 @@ function renderPaths(name: IconName, stroke: string, sw: number) {
           <Circle cx="14" cy="7" r="2.8" stroke={stroke} strokeWidth={sw} />
           <Path
             d="M2 16.5c0-2.5 2.2-4.5 5-4.5M11 16.5c0-2.5 2.2-4.5 5-4.5"
-            stroke={stroke}
-            strokeWidth={sw}
-            strokeLinecap="round"
-          />
-        </>
-      );
-
-    case 'create':
-      return (
-        <>
-          <Rect
-            x="3"
-            y="3"
-            width="14"
-            height="14"
-            rx="3"
-            stroke={stroke}
-            strokeWidth={sw}
-          />
-          <Path
-            d="M10 7v6M7 10h6"
             stroke={stroke}
             strokeWidth={sw}
             strokeLinecap="round"
@@ -286,6 +288,148 @@ function renderPaths(name: IconName, stroke: string, sw: number) {
             strokeWidth={sw}
             strokeLinecap="round"
           />
+        </>
+      );
+
+    // No web counterpart (new to the app bar/drawer reference, `TSB Home FV.html`) — path
+    // copied verbatim from there instead, same convention as `create`'s doc comment above.
+    case 'toolkit':
+      return (
+        <Path
+          d="M10 2.5l1.8 4.2 4.2.5-3.1 2.9 1 4.2L10 12.2 6.1 14.3l1-4.2L4 7.2l4.2-.5z"
+          stroke={stroke}
+          strokeWidth={sw}
+          strokeLinejoin="round"
+        />
+      );
+
+    case 'search':
+      return (
+        <>
+          <Circle cx="6.5" cy="6.5" r="4.5" stroke={stroke} strokeWidth={sw} />
+          <Path d="M10 10l3.5 3.5" stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
+        </>
+      );
+
+    case 'filter':
+      return (
+        <Path
+          d="M2 4h11M4 7.5h7M6 11h3"
+          stroke={stroke}
+          strokeWidth={1.6}
+          strokeLinecap="round"
+        />
+      );
+
+    case 'docList':
+      return (
+        <>
+          <Rect x="3" y="2.5" width="10" height="11" rx="1" stroke={stroke} strokeWidth={1.2} />
+          <Path
+            d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"
+            stroke={stroke}
+            strokeWidth={1.2}
+            strokeLinecap="round"
+          />
+        </>
+      );
+
+    case 'people':
+      return (
+        <>
+          <Circle cx="6" cy="6" r="2.3" stroke={stroke} strokeWidth={1.3} />
+          <Path
+            d="M2.5 13c0-2 1.6-3.5 3.5-3.5S9.5 11 9.5 13"
+            stroke={stroke}
+            strokeWidth={1.3}
+            strokeLinecap="round"
+          />
+          <Path
+            d="M11 4.2a2.3 2.3 0 010 4.4M12 13c0-1.6-.8-2.9-2-3.4"
+            stroke={stroke}
+            strokeWidth={1.3}
+            strokeLinecap="round"
+          />
+        </>
+      );
+
+    case 'grid':
+      return (
+        <>
+          <Rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1" stroke={stroke} strokeWidth={1.3} />
+          <Rect x="9" y="2.5" width="4.5" height="4.5" rx="1" stroke={stroke} strokeWidth={1.3} />
+          <Rect x="2.5" y="9" width="4.5" height="4.5" rx="1" stroke={stroke} strokeWidth={1.3} />
+          <Rect x="9" y="9" width="4.5" height="4.5" rx="1" stroke={stroke} strokeWidth={1.3} />
+        </>
+      );
+
+    case 'clock':
+      return (
+        <>
+          <Circle cx="8" cy="8" r="6" stroke={stroke} strokeWidth={1.3} />
+          <Path d="M8 4.5V8l2.5 1.5" stroke={stroke} strokeWidth={1.3} strokeLinecap="round" />
+        </>
+      );
+
+    case 'check':
+      return (
+        <>
+          <Circle cx="8" cy="8" r="6" stroke={stroke} strokeWidth={1.3} />
+          <Path
+            d="M5.5 8l1.8 1.8L11 6"
+            stroke={stroke}
+            strokeWidth={1.3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </>
+      );
+
+    case 'checkmark':
+      return (
+        <Path
+          d="M2.5 7.5l3 3 6.5-7"
+          stroke={stroke}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      );
+
+    case 'bookmark':
+      return (
+        <Path
+          d="M3.5 2.5A1 1 0 014.5 1.5h7a1 1 0 011 1v11.5l-4.5-2.8-4.5 2.8z"
+          stroke={stroke}
+          strokeWidth={1.4}
+          strokeLinejoin="round"
+        />
+      );
+
+    case 'calendar':
+      return (
+        <>
+          <Rect x="1.5" y="2.5" width="9" height="8" rx="1" stroke={stroke} strokeWidth={1.2} />
+          <Path
+            d="M1.5 5h9M4 1.5v2M8 1.5v2"
+            stroke={stroke}
+            strokeWidth={1.2}
+            strokeLinecap="round"
+          />
+        </>
+      );
+
+    case 'trendingUp':
+      return (
+        <>
+          <Path
+            d="M2 10l3-3 2 1.5 4-5"
+            stroke={stroke}
+            strokeWidth={1.2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path d="M8 3.5h3v3" stroke={stroke} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" />
         </>
       );
 

@@ -1,10 +1,15 @@
 export { Avatar } from './Avatar';
+export { Button } from './Button';
 export { FileUploadButton } from './FileUploadButton';
 export type { PickedFile } from './FileUploadButton';
 export { FormField } from './FormField';
 export { Logo } from './Logo';
 export { OtpInput } from './OtpInput';
+export { Pill } from './Pill';
 export { PrimaryButton } from './PrimaryButton';
+export { SearchBar } from './SearchBar';
+export { SegmentedControl } from './SegmentedControl';
+export { Switch } from './Switch';
 export { TopBar } from './TopBar';
 export { Icon } from './icons/Icon';
 export type { IconName } from './icons/Icon';

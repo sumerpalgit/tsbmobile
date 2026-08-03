@@ -23,28 +23,32 @@ export type TabItem = {
 export const TAB_ITEMS: TabItem[] = [
   { name: 'Home', label: 'Home', icon: 'home', phase: 'Phase 3' },
   { name: 'Directory', label: 'Directory', icon: 'directory', phase: 'Phase 7' },
-  { name: 'Post', label: 'Post', icon: 'create', phase: 'Phase 4' },
-  { name: 'Matches', label: 'Matches', icon: 'matches', phase: 'Phase 5' },
+  { name: 'AiAssist', label: 'AI Assist', icon: 'aiAssist', phase: 'Phase 7' },
   { name: 'Messages', label: 'Messages', icon: 'messages', phase: 'Phase 6' },
+  { name: 'Profile', label: 'Profile', icon: 'account' },
 ];
 
 export type DrawerItem =
   | { kind: 'divider' }
+  /** Routes into a bottom tab (and closes the drawer) rather than a drawer-only screen —
+   * Home/Directory/Messages exist as both, matching the app bar/drawer reference. */
+  | { kind: 'tab'; name: keyof MainTabParamList; label: string; icon: IconName }
   | {
       kind: 'screen';
       name: keyof Omit<DrawerParamList, 'Tabs'>;
       label: string;
       icon: IconName;
       phase?: string;
-    }
-  | { kind: 'action'; action: 'signOut'; label: string; icon: IconName };
+    };
 
 /**
- * Dividers mirror the grouping the website uses in its sidebar
- * (`webSrc/src/app/dashboard/layout.tsx`): community, then personal, then
- * account.
+ * Item list, order, icons and labels match the app bar/drawer reference (`TSB Home FV.html`)
+ * exactly — see `DrawerParamList`'s doc comment for how that reference's item set differs from
+ * Phase 0's original plan (no dividers there either, so none here).
  */
 export const DRAWER_ITEMS: DrawerItem[] = [
+  { kind: 'tab', name: 'Home', label: 'Home', icon: 'home' },
+  { kind: 'tab', name: 'Directory', label: 'Directory', icon: 'directory' },
   {
     kind: 'screen',
     name: 'EtaChapters',
@@ -52,21 +56,15 @@ export const DRAWER_ITEMS: DrawerItem[] = [
     icon: 'etaChapters',
     phase: 'Phase 7',
   },
+  { kind: 'tab', name: 'AiAssist', label: 'AI Assist', icon: 'aiAssist' },
   {
     kind: 'screen',
-    name: 'AiAssist',
-    label: 'AI Assist',
-    icon: 'aiAssist',
-    phase: 'Phase 7',
+    name: 'MyMatches',
+    label: 'My Matches',
+    icon: 'matches',
+    phase: 'Phase 5',
   },
-  { kind: 'divider' },
-  {
-    kind: 'screen',
-    name: 'MyActivities',
-    label: 'My Activities',
-    icon: 'activities',
-    phase: 'Phase 6',
-  },
+  { kind: 'tab', name: 'Messages', label: 'Messages', icon: 'messages' },
   {
     kind: 'screen',
     name: 'MyEvents',
@@ -76,17 +74,9 @@ export const DRAWER_ITEMS: DrawerItem[] = [
   },
   {
     kind: 'screen',
-    name: 'MyResources',
-    label: 'My Resources',
-    icon: 'resources',
-    phase: 'Phase 7',
-  },
-  { kind: 'divider' },
-  {
-    kind: 'screen',
-    name: 'AdManagement',
-    label: 'Ad Management',
-    icon: 'adManagement',
+    name: 'AiToolkit',
+    label: 'AI Toolkit',
+    icon: 'toolkit',
     phase: 'Phase 7',
   },
   {
@@ -96,13 +86,4 @@ export const DRAWER_ITEMS: DrawerItem[] = [
     icon: 'settings',
     phase: 'Phase 7',
   },
-  { kind: 'divider' },
-  {
-    kind: 'screen',
-    name: 'SuggestFeature',
-    label: 'Suggest a Feature',
-    icon: 'suggest',
-    phase: 'Phase 7',
-  },
-  { kind: 'action', action: 'signOut', label: 'Sign Out', icon: 'signOut' },
 ];

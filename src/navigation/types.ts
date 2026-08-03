@@ -19,34 +19,37 @@ export type AuthStackParamList = {
 };
 
 /**
- * Bottom bar — Phase 0 item 3:
- * "Bottom bar: Home, Directory, Post, Matches, Messages"
+ * Bottom bar — matches the app bar/drawer reference (`TSB Home FV.html`)'s `tabDefs` exactly:
+ * Home, Directory, AI Assist, Messages, Profile. Supersedes Phase 0's original plan ("Home,
+ * Directory, Post, Matches, Messages") — Post and Matches are no longer tabs; My Matches is a
+ * drawer destination instead (see `DrawerParamList`), and Post has no destination yet. Profile
+ * reuses the same `ProfileScreen` the top bar's avatar already pushes onto `AppStackParamList`
+ * — intentionally reachable both ways, same as the reference's own AI Assist (both a tab and a
+ * drawer item pointing at the same screen).
  */
 export type MainTabParamList = {
   Home: undefined;
   Directory: undefined;
-  Post: undefined;
-  Matches: undefined;
+  AiAssist: undefined;
   Messages: undefined;
+  Profile: undefined;
 };
 
 /**
- * Side menu — Phase 0 item 3:
- * "Side menu: ETA Chapters, AI Assist, My Activities, My Events,
- *  My Resources, Ad Management, Settings, Suggest a Feature, Sign Out"
- *
- * Sign Out is an action rather than a destination, so it has no entry here.
+ * Side menu — item list and row chrome match the app bar/drawer reference
+ * (`TSB Home FV.html`) instead of Phase 0's original Phase-plan list: Home, Directory, AI
+ * Assist and Messages route into the bottom tabs (see `menuConfig.ts`'s `kind: 'tab'` items)
+ * rather than being drawer-only screens; ETA Chapters/My Matches/My Events/AI Toolkit/Settings
+ * are. Sign Out isn't in that reference's drawer — it already lives on the Profile screen, so
+ * it's dropped here rather than duplicated.
  */
 export type DrawerParamList = {
   Tabs: NavigatorScreenParams<MainTabParamList>;
   EtaChapters: undefined;
-  AiAssist: undefined;
-  MyActivities: undefined;
+  MyMatches: undefined;
   MyEvents: undefined;
-  MyResources: undefined;
-  AdManagement: undefined;
+  AiToolkit: undefined;
   Settings: undefined;
-  SuggestFeature: undefined;
 };
 
 /**

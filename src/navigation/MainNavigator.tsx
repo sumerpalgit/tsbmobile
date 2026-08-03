@@ -3,14 +3,16 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../theme';
 import { Icon } from '../components/icons/Icon';
 import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
-import { HomeScreen } from '../screens';
+import { HomeScreen, ProfileScreen } from '../screens';
 import { TAB_ITEMS } from './menuConfig';
 import { MainTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 /**
- * Bottom bar — Home, Directory, Post, Matches, Messages.
+ * Bottom bar — Home, Directory, AI Assist, Messages, Profile (see `MainTabParamList`'s doc
+ * comment for why this differs from Phase 0's original "Home, Directory, Post, Matches,
+ * Messages" plan).
  *
  * The header is deliberately off: `DrawerNavigator` renders one shared `TopBar`
  * above this navigator so the chrome does not change between tabs and drawer
@@ -28,21 +30,17 @@ const TAB_SCREENS: Record<keyof MainTabParamList, React.ComponentType> = {
     icon: 'directory',
     phase: 'Phase 7',
   }),
-  Post: createPlaceholderScreen({
-    title: 'Create a Post',
-    icon: 'create',
-    phase: 'Phase 4',
-  }),
-  Matches: createPlaceholderScreen({
-    title: 'My Matches',
-    icon: 'matches',
-    phase: 'Phase 5',
+  AiAssist: createPlaceholderScreen({
+    title: 'AI Assist',
+    icon: 'aiAssist',
+    phase: 'Phase 7',
   }),
   Messages: createPlaceholderScreen({
     title: 'Messages',
     icon: 'messages',
     phase: 'Phase 6',
   }),
+  Profile: ProfileScreen,
 };
 
 function MainNavigator() {

@@ -1,14 +1,13 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme';
 
+const AUTH_LOGO = require('../assets/images/AuthLogo.png');
+
 /**
- * TSB wordmark.
- *
- * The website renders `/logoD.png` (inverted to white in dark mode). That asset
- * is not in this repo, so this is a type-set stand-in using the brand display
- * face. When the real artwork arrives, replace the body of this component with
- * an <Image> — no call site needs to change.
+ * TSB wordmark — icon mark (`AuthLogo.png`, same asset the auth/onboarding screens already
+ * use) + "TSB" wordmark, matching the app bar reference (`TSB Home FV.html`): icon, bold "TSB",
+ * optional "FIND. CONNECT. CLOSE." tagline beneath.
  */
 
 type LogoProps = {
@@ -18,9 +17,9 @@ type LogoProps = {
 };
 
 const SCALE = {
-  small: { mark: 15, word: 13, tagline: 7 },
-  medium: { mark: 19, word: 15, tagline: 8 },
-  large: { mark: 30, word: 22, tagline: 10 },
+  small: { mark: 18, word: 15, tagline: 7 },
+  medium: { mark: 24, word: 18, tagline: 8 },
+  large: { mark: 34, word: 24, tagline: 10 },
 } as const;
 
 export function Logo({ showTagline = false, size = 'medium' }: LogoProps) {
@@ -29,16 +28,12 @@ export function Logo({ showTagline = false, size = 'medium' }: LogoProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.row}>
-        <Text
-          style={[
-            fonts.display,
-            { fontSize: scale.mark, color: colors.gold },
-            styles.mark,
-          ]}
-        >
-          TSB
-        </Text>
+      <Image
+        source={AUTH_LOGO}
+        resizeMode="contain"
+        style={[styles.mark, { width: scale.mark, height: scale.mark }]}
+      />
+      <View>
         <Text
           style={[
             fonts.display,
@@ -46,36 +41,33 @@ export function Logo({ showTagline = false, size = 'medium' }: LogoProps) {
             styles.word,
           ]}
         >
-          The Search Bridge
+          TSB
         </Text>
-      </View>
 
-      {showTagline && (
-        <Text
-          style={[
-            fonts.bold,
-            {
-              fontSize: scale.tagline,
-              color: colors.ink3,
-              letterSpacing: letterSpacing.wider,
-            },
-            styles.tagline,
-          ]}
-        >
-          FIND. CONNECT. CLOSE.
-        </Text>
-      )}
+        {showTagline && (
+          <Text
+            style={[
+              fonts.bold,
+              {
+                fontSize: scale.tagline,
+                color: colors.gold,
+                letterSpacing: letterSpacing.wider,
+              },
+              styles.tagline,
+            ]}
+          >
+            FIND. CONNECT. CLOSE.
+          </Text>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    justifyContent: 'center',
-  },
-  row: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
   },
   mark: {
     marginRight: 6,

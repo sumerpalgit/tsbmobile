@@ -12,6 +12,7 @@ export const AUTH_ENDPOINTS = {
   RESEND_FORGOT_PASSWORD_OTP: '/auth/resend-forgot-password-otp',
   COMPLETE_PROFILE: '/auth/complete-profile',
   CHECK_LINKEDIN: '/auth/check-linkedin',
+  OAUTH_SIGNIN: '/auth/oauth-signin',
 } as const;
 
 export const PROFILE_ENDPOINTS = {

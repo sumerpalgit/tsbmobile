@@ -29,6 +29,17 @@ export type ThemeColors = {
   creamBorder: string;
   creamBorderBold: string;
 
+  /** Active-row background (drawer, and anywhere else a selected-chip fill is needed).
+   * No equivalent exists in `globals.css` — sourced from the `TSB Home FV.html` app
+   * bar/drawer reference instead, the one exception to this file's "port from web" rule. */
+  chip: string;
+
+  /** `SegmentedControl`'s track background (the Filters panel's "Posted within" control). The
+   * reference hardcodes this as a literal translucent white (`#FFFFFF79`) with no dark-mode
+   * variant defined — the light value matches that exactly; dark substitutes the reference's
+   * own `--sunken` tone instead of literal white-on-dark, which would look broken. */
+  segmentedTrack: string;
+
   /** Page + surfaces. */
   pageBg: string;
   surface: string;
@@ -157,8 +168,13 @@ export const lightColors: ThemeColors = {
   creamDark: '#edeae2',
   creamBorder: '#d8d4c8',
   creamBorderBold: '#cac5b8',
+  chip: '#F3ECD8',
+  segmentedTrack: 'rgba(255,255,255,0.47)',
 
-  pageBg: '#fafaf7',
+  // Matches the app bar/drawer/home reference's `--page` exactly (`#fafaf7` was the real web
+  // app's `--tsb-page-bg` — the HTML design takes priority for visuals, same rule as `chip`
+  // above; webSrc stays the reference for functionality/API contracts, not visuals).
+  pageBg: '#F1EEE7',
   surface: '#ffffff',
   surface2: '#ffffff',
   surfaceSunken: '#F7F6F2',
@@ -236,8 +252,10 @@ export const darkColors: ThemeColors = {
   creamDark: '#243549',
   creamBorder: 'rgba(255,255,255,0.10)',
   creamBorderBold: 'rgba(255,255,255,0.16)',
+  chip: '#332C1A',
+  segmentedTrack: '#101B26',
 
-  pageBg: '#0d1620',
+  pageBg: '#0C1520',
   surface: '#16222f',
   surface2: '#1d2c3b',
   surfaceSunken: '#101b26',

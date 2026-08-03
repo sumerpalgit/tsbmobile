@@ -28,39 +28,24 @@ const SCREENS: Record<
     icon: 'etaChapters',
     phase: 'Phase 7',
   }),
-  AiAssist: createPlaceholderScreen({
-    title: 'AI Assist',
-    icon: 'aiAssist',
-    phase: 'Phase 7',
-  }),
-  MyActivities: createPlaceholderScreen({
-    title: 'My Activities',
-    icon: 'activities',
-    phase: 'Phase 6',
+  MyMatches: createPlaceholderScreen({
+    title: 'My Matches',
+    icon: 'matches',
+    phase: 'Phase 5',
   }),
   MyEvents: createPlaceholderScreen({
     title: 'My Events',
     icon: 'events',
     phase: 'Phase 7',
   }),
-  MyResources: createPlaceholderScreen({
-    title: 'My Resources',
-    icon: 'resources',
-    phase: 'Phase 7',
-  }),
-  AdManagement: createPlaceholderScreen({
-    title: 'Ad Management',
-    icon: 'adManagement',
+  AiToolkit: createPlaceholderScreen({
+    title: 'AI Toolkit',
+    icon: 'toolkit',
     phase: 'Phase 7',
   }),
   Settings: createPlaceholderScreen({
     title: 'Settings',
     icon: 'settings',
-    phase: 'Phase 7',
-  }),
-  SuggestFeature: createPlaceholderScreen({
-    title: 'Suggest a Feature',
-    icon: 'suggest',
     phase: 'Phase 7',
   }),
 };

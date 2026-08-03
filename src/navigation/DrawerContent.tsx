@@ -1,36 +1,41 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { DrawerContentComponentProps } from '@react-navigation/drawer';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import { Icon, IconName } from '../components/icons/Icon';
-import { Logo } from '../components/Logo';
-import { useAuth } from '../store/AuthContext';
+import { Avatar } from '../components/Avatar';
+import { useMe } from '../hooks/useMe';
 import { DRAWER_ITEMS } from './menuConfig';
 
 /**
- * Side menu contents.
- *
- * Styling follows the website sidebar (`webSrc/src/app/dashboard/layout.tsx`):
- * gold icon, 10px-radius rows, hairline dividers between groups, and the
- * account actions pinned to the bottom.
- *
- * Active row treatment matches `globals.css`:
- *   light → solid navy fill, white label
- *   dark  → translucent gold wash with a 3px gold leading bar
- * The web uses a horizontal gradient for the dark wash; a flat tint is used
- * here to avoid pulling in a gradient dependency for one surface.
+ * Side menu contents — header (account avatar/name/role, close button) and item list match the
+ * app bar/drawer reference (`TSB Home FV.html`), replacing the earlier logo-header version.
+ * Item list itself comes from `menuConfig.ts`'s `DRAWER_ITEMS` (see its doc comment for how it
+ * differs from Phase 0's original plan). Sign Out isn't here — it already lives on the Profile
+ * screen. No footer/upsell card — not part of the app.
  */
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const { navigation, state } = props;
-  const { colors, spacing, borderWidth } = useTheme();
+  const { colors, fonts, fontSize, spacing, radius, borderWidth, letterSpacing } = useTheme();
   const insets = useSafeAreaInsets();
-  const { logout } = useAuth();
+  const { data: me } = useMe();
 
   // `Tabs` is index 0 of the drawer; anything else means a drawer screen is
   // showing and should be highlighted.
   const activeRouteName = state.routeNames[state.index];
+  // `getFocusedRouteNameFromRoute` is React Navigation's own utility for exactly this — reading
+  // a nested navigator's truly-focused route name. Hand-rolling this by reading `route.state`
+  // directly missed React Navigation's internal cached child-state, so it could report a stale
+  // tab (always showing whichever tab was active when the drawer content last remounted, not
+  // the one actually open) — this utility reads the right, live source instead.
+  const activeTabName =
+    activeRouteName === 'Tabs' ? getFocusedRouteNameFromRoute(state.routes[state.index]) : undefined;
+
+  const profile = me?.profile as Record<string, unknown> | undefined;
+  const roleType = String(profile?.roleType ?? profile?.role_type ?? '').trim();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
@@ -38,50 +43,67 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         style={[
           styles.header,
           {
-            paddingTop: insets.top + spacing.xl,
-            paddingBottom: spacing.lg,
+            paddingTop: insets.top + spacing.sm,
             borderBottomColor: colors.borderSoft,
             borderBottomWidth: borderWidth.thin,
           },
         ]}
       >
-        <Logo size="medium" showTagline />
+        <Avatar name={me?.name} imageUri={me?.profileImg} size={44} />
+        <View style={{ flex: 1, marginLeft: spacing.md }}>
+          <Text style={[fonts.bold, { fontSize: fontSize.subtitle, color: colors.ink }]} numberOfLines={1}>
+            {me?.name || 'Your Account'}
+          </Text>
+          {!!roleType && (
+            <View
+              style={[
+                styles.roleBadge,
+                { backgroundColor: colors.chip, borderRadius: radius.sm, marginTop: spacing.xxs },
+              ]}
+            >
+              <Text
+                style={[
+                  fonts.bold,
+                  { fontSize: fontSize.badge, color: colors.goldDark, letterSpacing: letterSpacing.wide },
+                ]}
+              >
+                {roleType.toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </View>
+        <Pressable
+          onPress={() => navigation.closeDrawer()}
+          accessibilityRole="button"
+          accessibilityLabel="Close menu"
+          hitSlop={8}
+          style={styles.closeButton}
+        >
+          <Icon name="close" size={14} color={colors.ink3} />
+        </Pressable>
       </View>
 
       <ScrollView
         contentContainerStyle={{
           paddingVertical: spacing.sm,
           paddingHorizontal: spacing.sm,
+          gap: 2,
         }}
         showsVerticalScrollIndicator={false}
       >
-        {DRAWER_ITEMS.map((item, index) => {
-          if (item.kind === 'divider') {
-            return (
-              <View
-                key={`divider-${index}`}
-                style={[
-                  styles.divider,
-                  {
-                    backgroundColor: colors.creamBorderBold,
-                    marginVertical: spacing.sm,
-                    marginHorizontal: spacing.lg,
-                  },
-                ]}
-              />
-            );
-          }
+        {DRAWER_ITEMS.map(item => {
+          if (item.kind === 'divider') return null;
 
-          if (item.kind === 'action') {
+          if (item.kind === 'tab') {
             return (
               <MenuRow
-                key="signOut"
+                key={item.name}
                 label={item.label}
                 icon={item.icon}
-                tone="danger"
+                isActive={activeTabName === item.name}
                 onPress={() => {
+                  navigation.navigate('Tabs', { screen: item.name });
                   navigation.closeDrawer();
-                  logout();
                 }}
               />
             );
@@ -108,40 +130,20 @@ function MenuRow({
   label,
   icon,
   isActive = false,
-  tone = 'default',
   onPress,
 }: {
   label: string;
   icon: IconName;
   isActive?: boolean;
-  tone?: 'default' | 'danger';
   onPress: () => void;
 }) {
-  const { colors, textStyles, radius, spacing, isDark } = useTheme();
+  const { colors, textStyles } = useTheme();
 
-  const isDanger = tone === 'danger';
-
-  const backgroundColor = isActive
-    ? isDark
-      ? 'rgba(201,168,76,0.14)'
-      : colors.accentSolid
-    : 'transparent';
-
-  const labelColor = isDanger
-    ? colors.danger
-    : isActive
-    ? isDark
-      ? colors.goldLight
-      : colors.onAccent
-    : colors.ink;
-
-  const iconColor = isDanger
-    ? colors.danger
-    : isActive
-    ? isDark
-      ? colors.goldLight
-      : colors.goldLight
-    : colors.gold;
+  // Row chrome (padding/radius/gap/active background) matches the app bar/drawer reference
+  // (`TSB Home FV.html`) exactly: `padding:11px 12px;border-radius:12px;gap:13px`, active
+  // background `var(--chip)` (`colors.chip`), icon colour `var(--goldd)` (`colors.goldDark`) —
+  // same treatment in both light and dark mode, no left-bar/dark-mode-specific variant.
+  const backgroundColor = isActive ? colors.chip : 'transparent';
 
   return (
     <Pressable
@@ -150,30 +152,12 @@ function MenuRow({
       accessibilityState={{ selected: isActive }}
       style={({ pressed }) => [
         styles.row,
-        {
-          borderRadius: radius.lg,
-          paddingHorizontal: spacing.lg,
-          paddingVertical: spacing.md,
-          backgroundColor:
-            pressed && !isActive
-              ? isDanger
-                ? colors.dangerSurface
-                : colors.cream
-              : backgroundColor,
-        },
+        { backgroundColor: pressed && !isActive ? colors.cream : backgroundColor },
       ]}
     >
-      {/* Dark-mode active rows get the gold leading bar from globals.css. */}
-      {isActive && isDark && (
-        <View style={[styles.activeBar, { backgroundColor: colors.gold }]} />
-      )}
-
-      <Icon name={icon} size={20} color={iconColor} />
+      <Icon name={icon} size={20} color={colors.goldDark} />
       <Text
-        style={[
-          isActive ? textStyles.navItemActive : textStyles.navItem,
-          { color: labelColor, marginLeft: spacing.lg },
-        ]}
+        style={[isActive ? textStyles.navItemActive : textStyles.navItem, { color: colors.ink }]}
         numberOfLines={1}
       >
         {label}
@@ -187,21 +171,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingBottom: 16,
+  },
+  closeButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 13,
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
     overflow: 'hidden',
-  },
-  activeBar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 3,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
   },
 });

@@ -56,9 +56,10 @@ export function TopBar({
             accessibilityLabel="Open menu"
             onPress={onMenuPress}
             color={colors.ink2}
+            chip={false}
           />
           <View style={{ marginLeft: spacing.xs }}>
-            <Logo size="small" />
+            <Logo size="small" showTagline />
           </View>
         </View>
 
@@ -70,6 +71,7 @@ export function TopBar({
             }
             onPress={toggleTheme}
             color={colors.ink3}
+            chip
           />
 
           <View>
@@ -82,6 +84,7 @@ export function TopBar({
               }
               onPress={onBellPress}
               color={colors.ink3}
+              chip
             />
             {unreadCount > 0 && (
               <View
@@ -132,13 +135,18 @@ function IconButton({
   onPress,
   color,
   accessibilityLabel,
+  chip = false,
 }: {
   name: React.ComponentProps<typeof Icon>['name'];
   onPress: () => void;
   color: string;
   accessibilityLabel: string;
+  /** Persistent light rounded-square background + border, matching the app bar reference's
+   * theme-toggle/bell buttons — the menu button stays bare (background only on press) since
+   * the reference shows it without any button chrome. */
+  chip?: boolean;
 }) {
-  const { colors, sizes, radius } = useTheme();
+  const { colors, sizes, radius, borderWidth } = useTheme();
 
   return (
     <Pressable
@@ -150,12 +158,20 @@ function IconButton({
         {
           width: sizes.iconButton,
           height: sizes.iconButton,
-          borderRadius: radius.pill,
-          backgroundColor: pressed ? colors.cream : 'transparent',
+          borderRadius: chip ? radius.md : radius.pill,
+          borderWidth: chip ? borderWidth.thin : 0,
+          borderColor: colors.border,
+          backgroundColor: chip
+            ? pressed
+              ? colors.cream
+              : colors.surfaceSunken
+            : pressed
+            ? colors.cream
+            : 'transparent',
         },
       ]}
     >
-      <Icon name={name} size={20} color={color} />
+      <Icon name={name} size={chip ? 18 : 20} color={color} />
     </Pressable>
   );
 }

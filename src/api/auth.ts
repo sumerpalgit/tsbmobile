@@ -26,6 +26,31 @@ export async function login(payload: LoginRequest) {
   return data;
 }
 
+export type OAuthSignInResponse = {
+  exists: boolean;
+  /** Whether the account has a completed profile — same role as `login`'s `step2`. */
+  complete: boolean;
+  message?: string;
+  redirectTo?: string;
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    [key: string]: unknown;
+  };
+};
+
+/** `POST /api/auth/oauth-signin` — used by Google/LinkedIn sign-in once the native SDK has
+ * already confirmed the identity; the backend just needs the email to find-or-create the
+ * account and issue a token. No `refreshToken` comes back on this path (unlike `login`). */
+export async function oauthSignIn(email: string) {
+  const data = await apiClient.post<OAuthSignInResponse>(AUTH_ENDPOINTS.OAUTH_SIGNIN, { email }).then(res => res.data);
+  await AsyncStorage.setItem('accessToken', data.token);
+  await AsyncStorage.setItem('onboardingComplete', String(data.complete));
+  return data;
+}
+
 export type RegisterRequest = {
   email: string;
   password: string;
