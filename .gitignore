@@ -34,6 +34,7 @@ local.properties
 *.keystore
 !debug.keystore
 .kotlin/
+keystore.properties
 
 # node.js
 #
@@ -65,6 +66,9 @@ yarn-error.log
 
 # testing
 /coverage
+
+# Environment
+.env
 
 # Claude Code
 .claude/settings.local.json

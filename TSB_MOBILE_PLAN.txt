@@ -95,9 +95,9 @@ PHASE 0 - PROJECT SETUP                      1 DAY   (day 1)
 ================================================================
 
 BUILD
-    1. Colours, fonts, light mode and dark mode
+    1. Colours, fonts, light mode and dark mode -d
     2. Server connection file
-    3. App menu
+    3. App menu -D
            Bottom bar:  Home, Directory, Post, Matches, Messages
            Side menu:   ETA Chapters, AI Assist, My Activities,
                         My Events, My Resources, Ad Management,
