@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Keyboard, StyleSheet, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import { ChevronDown } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -109,6 +109,10 @@ export function CitySearchField({
           if (!match) return;
           setSelected(match);
           setResults([]);
+          // The library closes its search popup on select but doesn't reliably blur its
+          // internal search `TextInput` first, so the keyboard can flash back open as the
+          // popup animates away — force it down explicitly instead of relying on that.
+          Keyboard.dismiss();
           onSelect({
             city: match.city,
             stateCode: match.stateCode,

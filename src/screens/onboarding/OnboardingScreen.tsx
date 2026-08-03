@@ -12,7 +12,7 @@ import { checkLinkedin, completeProfile, submitRoleProfile } from '../../api/aut
 import { batchJoinEtaChapters, EtaChapter, getSuggestedEtaChapters, searchEtaChapters } from '../../api/eta';
 import { getInterestSuggestions, saveInterests } from '../../api/interests';
 import { getIndustries, getGeographies } from '../../api/lookup';
-import { uploadDocument } from '../../api/profile';
+import { getMe, uploadDocument } from '../../api/profile';
 import {
   LINKEDIN_PATTERN,
   MAX_ETA_CHAPTERS,
@@ -95,6 +95,18 @@ function rangeDefault(key: 'rev' | 'ebitda' | 'ev'): [number, number] {
   return RANGE_DEFAULTS[key];
 }
 
+/** Matches webSrc's `complete-profile` page's `normalizeLinkedinUrl` exactly — used to compare
+ * a typed LinkedIn URL against the signed-in user's already-saved one, ignoring protocol/`www.`/
+ * trailing-slash differences that would otherwise make an identical profile look like a
+ * mismatch. */
+function normalizeLinkedinUrl(url: string): string {
+  return url
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\/(www\.)?/, '')
+    .replace(/\/$/, '');
+}
+
 /**
  * Onboarding — mobile port of `TSBOnboarding.html` (repo root), reached
  * after Signup. Built as one component with a `step` state, matching the
@@ -174,8 +186,29 @@ function OnboardingScreen() {
   }>({ checking: false, valid: null, message: '' });
   const [citySelection, setCitySelection] = useState<CitySelection | null>(null);
 
+  // The signed-in user's already-saved LinkedIn (if any) — matches webSrc's
+  // `complete-profile` page: lets the debounced check below recognize "this is still just my
+  // own LinkedIn" without a false "already in use" result from `check-linkedin`. Fetched once;
+  // a failure here just means the bypass isn't available, not a blocking error.
+  const [currentUserLinkedin, setCurrentUserLinkedin] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    getMe()
+      .then(user => {
+        if (cancelled || !user) return;
+        const profile = user.profile as Record<string, unknown> | undefined;
+        const linkedinFromApi = String(profile?.linkedin_url ?? profile?.linkedinUrl ?? '').trim();
+        if (linkedinFromApi) setCurrentUserLinkedin(linkedinFromApi);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Live `check-linkedin` validation, debounced 600ms — matches webSrc's `complete-profile`
-  // page exactly (same debounce, same endpoint).
+  // page exactly (same debounce, same endpoint, same own-LinkedIn bypass, same message text).
   useEffect(() => {
     const trimmed = linkedin.trim();
     if (!trimmed) {
@@ -187,27 +220,51 @@ function OnboardingScreen() {
       return;
     }
 
+    const normalizedInput = normalizeLinkedinUrl(trimmed);
+    const normalizedCurrent = normalizeLinkedinUrl(currentUserLinkedin);
+    if (normalizedCurrent && normalizedInput === normalizedCurrent) {
+      setLinkedinStatus({ checking: false, valid: true, message: '✅ This is your current LinkedIn profile.' });
+      return;
+    }
+
     setLinkedinStatus({ checking: true, valid: null, message: '' });
     const timer = setTimeout(async () => {
       try {
         const result = await checkLinkedin(trimmed);
+        if (result.available) {
+          setLinkedinStatus({ checking: false, valid: true, message: '✅ LinkedIn profile is available.' });
+          return;
+        }
+        if (normalizedCurrent && normalizedInput === normalizedCurrent) {
+          setLinkedinStatus({ checking: false, valid: true, message: '✅ This is your current LinkedIn profile.' });
+          return;
+        }
         setLinkedinStatus({
           checking: false,
-          valid: result.available,
-          message: result.available
-            ? 'LinkedIn profile is available.'
-            : result.message ?? 'This LinkedIn profile is already in use.',
+          valid: false,
+          message: result.message || 'Invalid or already used LinkedIn profile.',
         });
-      } catch {
-        setLinkedinStatus({ checking: false, valid: false, message: 'Could not verify LinkedIn URL. Try again.' });
+      } catch (err) {
+        // Web's `fetch` never throws on a non-2xx response, so it can always read
+        // `data.message` straight off the body. Axios does throw on non-2xx — the backend's
+        // "unavailable" result (`{ available: false, message: "..." }`) comes back as a
+        // non-2xx status, so without this the real reason gets lost behind a generic message.
+        const backendMessage = axios.isAxiosError(err)
+          ? (err.response?.data as { message?: string } | undefined)?.message
+          : undefined;
+        setLinkedinStatus({
+          checking: false,
+          valid: false,
+          message: backendMessage || 'Error checking LinkedIn URL.',
+        });
       }
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [linkedin]);
+  }, [linkedin, currentUserLinkedin]);
 
   const [etaQuery, setEtaQuery] = useState('');
-  const [etaChaptersLoading, setEtaChaptersLoading] = useState(true);
+  const [etaChaptersLoading, setEtaChaptersLoading] = useState(false);
   const [suggestedChapters, setSuggestedChapters] = useState<EtaChapter[]>([]);
   const [otherChapters, setOtherChapters] = useState<EtaChapter[]>([]);
   const [etaSearchResults, setEtaSearchResults] = useState<EtaChapter[] | null>(null);
@@ -215,26 +272,27 @@ function OnboardingScreen() {
   const [selectedChapters, setSelectedChapters] = useState<Record<string, EtaChapter>>({});
   const etaSearchCache = useRef<Map<string, EtaChapter[]>>(new Map());
 
-  // Suggestions fetch, once on mount — matches webSrc's `fetchEtaChapters` (suggestions,
-  // falling back to the flat all-chapters list inside `getSuggestedEtaChapters` itself).
-  useEffect(() => {
-    let cancelled = false;
+  // Matches webSrc's `fetchEtaChapters`: on web this only ever runs once `/join-eta-chapter`
+  // mounts, which only happens after `complete-profile`'s POST has already succeeded — so the
+  // backend always has the user's location by the time this fires. Since mobile is one
+  // component (not separate routed pages), this is called explicitly from `next()` right after
+  // Step 1's `completeProfile` succeeds, not on `OnboardingScreen`'s own mount — firing it on
+  // mount raced ahead of Step 1 entirely and always hit the backend's "coordinates not found"
+  // 400 (falls back to the flat all-chapters list inside `getSuggestedEtaChapters` on failure).
+  const fetchEtaSuggestions = () => {
+    setEtaChaptersLoading(true);
     getSuggestedEtaChapters()
       .then(({ suggested, others }) => {
-        if (cancelled) return;
         setSuggestedChapters(suggested);
         setOtherChapters(others);
       })
       .catch(() => {
-        if (!cancelled) Toast.show({ type: 'error', text1: 'Failed to load ETA chapters. Try again.' });
+        Toast.show({ type: 'error', text1: 'Failed to load ETA chapters. Try again.' });
       })
       .finally(() => {
-        if (!cancelled) setEtaChaptersLoading(false);
+        setEtaChaptersLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  };
 
   // Debounced 150ms search, matching webSrc's `join-eta-chapter` page exactly — shows an
   // instant local substring match from what's already loaded while the API call is in flight,
@@ -507,6 +565,9 @@ function OnboardingScreen() {
         return;
       }
       setSubmitting(false);
+      // Now that the profile (and its location) is actually saved server-side, it's safe to
+      // ask for location-based suggestions — see `fetchEtaSuggestions`'s comment.
+      fetchEtaSuggestions();
     }
     if (step === 2) {
       const chapterIds = Object.keys(selectedChapters);
@@ -545,6 +606,17 @@ function OnboardingScreen() {
       if (!designation) return setError('Select your role / designation.');
       if (!org.trim()) return setError('Enter your organization name.');
       if (!interests.length) return setError('Choose at least one interest.');
+
+      // Step 3 has no API call of its own (its fields submit together with Step 4's on Step
+      // 4's Continue) — but the footer button's "Saving…"/disabled state is driven by
+      // `submitting`, so without this it never shows any feedback here unlike every other
+      // step, and a fast double-tap could re-run this block before the first tap's `setStep`
+      // even re-renders. Flip it briefly (yielding one frame so it actually paints) purely for
+      // that consistent feedback + double-tap guard, not because anything is really loading.
+      setError('');
+      setSubmitting(true);
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      setSubmitting(false);
     }
     if (step === 4) {
       if (!isStep4Complete(role, fieldValues, chipValues, industries, geographyFocus)) {
@@ -789,13 +861,9 @@ function OnboardingScreen() {
               </View>
 
               <View style={{ gap: 10 }}>
-                <PrimaryButton
-                  label="I understand — take me to my dashboard →"
-                  onPress={login}
-                  letterSpacing={0}
-                />
+                <PrimaryButton label="I understand, continue" onPress={login} letterSpacing={0} />
                 <Text style={[fonts.regular, styles.rulesDisclaimer, { color: colors.obInk3 }]}>
-                  Read full <Text style={[fonts.semibold, { color: colors.obGold }]}>terms of service</Text>
+                  Read full <Text style={[fonts.semibold, { color: colors.obGold }]}>Terms of Service</Text>
                 </Text>
               </View>
             </View>

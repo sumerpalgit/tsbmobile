@@ -15,7 +15,13 @@ function normalizeInterest(item: unknown): InterestItem {
 /** Matches webSrc's `useInterestSuggestions` hook: `GET /api/interests?role_type=&sub_role=`,
  * grouped by category server-side — flattened to labels only since this screen's
  * `ChipMultiSelect` (Step 3's "Suggested Interests") is option-list-agnostic, not
- * category-grouped, same as web's own `allLabels` flat fallback. */
+ * category-grouped, same as web's own `allLabels` flat fallback.
+ *
+ * De-duplicated by label: the backend can list the same interest text under more than one
+ * category (each a distinct row with its own `id`). Web never notices because it keys its
+ * suggestion chips by `item.id` (`InterestDropdown.tsx`); this screen's `ChipMultiSelect` keys
+ * by the label string itself (matching its plain-`string[]` selection model, same as
+ * Industries/Geography), so a repeated label would otherwise render as a duplicate React key. */
 export async function getInterestSuggestions(roleType: string, subCategory: string): Promise<string[]> {
   if (!roleType) return [];
   const params: Record<string, string> = { role_type: roleType };
@@ -23,10 +29,11 @@ export async function getInterestSuggestions(roleType: string, subCategory: stri
 
   const data = await apiClient.get(INTERESTS_ENDPOINTS.LIST, { params }).then(res => res.data);
   const grouped: Record<string, unknown[]> = data?.grouped ?? {};
-  return Object.values(grouped)
+  const labels = Object.values(grouped)
     .flat()
     .map(normalizeInterest)
     .map(i => i.label);
+  return Array.from(new Set(labels));
 }
 
 /** Matches webSrc's `role-form/page.tsx` `handleComplete`: fired once alongside the role
