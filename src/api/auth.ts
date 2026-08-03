@@ -187,11 +187,23 @@ export type CompleteProfileResponse = {
   message?: string;
 };
 
-/** Matches webSrc's `/auth/complete-profile` step (Onboarding Step 1 there and here — web's
- * Steps 2-3, ETA join and role-specific business details, aren't wired yet: mobile's Onboarding
- * Steps 2-4 still use static placeholder data, not real per-role fields to submit). */
+/** Matches webSrc's `/auth/complete-profile` step (Onboarding Step 1 there and here). */
 export function completeProfile(payload: CompleteProfileRequest) {
   return apiClient.post<CompleteProfileResponse>(AUTH_ENDPOINTS.COMPLETE_PROFILE, payload).then(res => res.data);
+}
+
+export type SubmitRoleProfileResponse = {
+  message?: string;
+};
+
+/** Matches webSrc's `role-form/page.tsx` `handleComplete`: one `PUT /api/auth/{roleEndpoint}`
+ * per role (`searcher`/`investor`/`lender`/`advisor`/`seller`/`operator`/`intermediary`/
+ * `student` — see `ROLE_TYPE_MAP`), body wrapped under a `formData` key, submitting Onboarding
+ * Step 3 + Step 4's combined fields in one call (mirrors web's single two-sub-step submit). */
+export function submitRoleProfile(roleEndpoint: string, formData: Record<string, unknown>) {
+  return apiClient
+    .put<SubmitRoleProfileResponse>(`/auth/${roleEndpoint}`, { formData })
+    .then(res => res.data);
 }
 
 export type CheckLinkedinResponse = {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import type { PredefinedFileTypes } from '@react-native-documents/picker';
 import { Check, Upload } from 'lucide-react-native';
@@ -37,11 +37,16 @@ export function FileUploadButton({
   onChange,
   acceptedTypes = [types.pdf, types.images],
   placeholder = 'Tap to upload',
+  loading = false,
 }: {
   value: PickedFile | null;
   onChange: (file: PickedFile | null) => void;
   acceptedTypes?: PredefinedFileTypes[];
   placeholder?: string;
+  /** True while the picked file is mid-upload to the backend (a separate network step after
+   * picking, see `uploadDocument` in `src/api/profile.ts`) — distinct from `busy`, which only
+   * covers the OS picker itself. */
+  loading?: boolean;
 }) {
   const { colors, fonts, fontSize } = useTheme();
   const [busy, setBusy] = useState(false);
@@ -51,7 +56,7 @@ export function FileUploadButton({
       onChange(null);
       return;
     }
-    if (busy) return;
+    if (busy || loading) return;
     setBusy(true);
     try {
       const [picked] = await pick({ type: acceptedTypes });
@@ -67,16 +72,18 @@ export function FileUploadButton({
   return (
     <Pressable
       onPress={handlePress}
-      disabled={busy}
+      disabled={busy || loading}
       style={[
         styles.button,
         value
           ? { backgroundColor: colors.goldExtraLight, borderColor: colors.gold, borderStyle: 'solid' }
           : { backgroundColor: colors.surfaceSunken, borderColor: colors.border, borderStyle: 'dashed' },
-        busy && { opacity: 0.6 },
+        (busy || loading) && { opacity: 0.6 },
       ]}
     >
-      {value ? (
+      {loading ? (
+        <ActivityIndicator size="small" color={colors.gold} />
+      ) : value ? (
         <Check size={15} color={colors.gold} strokeWidth={2} />
       ) : (
         <Upload size={15} color={colors.ink3} strokeWidth={1.8} />
@@ -85,7 +92,7 @@ export function FileUploadButton({
         style={[fonts.semibold, styles.text, { color: value ? colors.gold : colors.ink3, fontSize: fontSize.body }]}
         numberOfLines={1}
       >
-        {value ? `${value.name} — tap to remove` : placeholder}
+        {loading ? 'Uploading…' : value ? `${value.name} — tap to remove` : placeholder}
       </Text>
     </Pressable>
   );

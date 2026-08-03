@@ -16,6 +16,7 @@ export function ChipMultiSelect({
   onToggle,
   suggestionsLabel = 'Suggestions',
   emptyHint = 'Tap a suggestion below to add your first one.',
+  loading = false,
 }: {
   label: string;
   required?: boolean;
@@ -24,6 +25,10 @@ export function ChipMultiSelect({
   onToggle: (option: string) => void;
   suggestionsLabel?: string;
   emptyHint?: string;
+  /** Distinguishes "still fetching" from "server returned zero options" — otherwise an
+   * empty `options` list mid-fetch would show the same "All suggestions added." as a
+   * genuinely exhausted list. */
+  loading?: boolean;
 }) {
   const { colors, fonts } = useTheme();
   const suggestions = options.filter(o => !selected.includes(o));
@@ -80,7 +85,9 @@ export function ChipMultiSelect({
               </Pressable>
             ))
           ) : (
-            <Text style={[fonts.regular, styles.allAdded, { color: colors.obInk3 }]}>All suggestions added.</Text>
+            <Text style={[fonts.regular, styles.allAdded, { color: colors.obInk3 }]}>
+              {loading ? 'Loading suggestions…' : 'All suggestions added.'}
+            </Text>
           )}
         </ScrollViewWithScrollbar>
       </View>

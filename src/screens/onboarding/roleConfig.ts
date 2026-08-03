@@ -33,7 +33,10 @@ export type RoleConfigEntry = {
   sections: { title: string; fields: RoleField[] }[];
   hasDealRange: boolean;
   hasOrgWebsite: boolean;
-  uploads: { key: string; label: string }[];
+  /** `fileType` is the document-category tag sent to `POST /profile/upload-document`'s
+   * `type` field — matches webSrc's `UnifiedRoleForm.tsx` `FileUploadField` call sites
+   * exactly (e.g. `cimUrl` → `"cim"`, `pitchDeckUrl` → `"pitch_deck"`). */
+  uploads: { key: string; label: string; fileType: string }[];
 };
 
 const opts = (values: string[]) => values.map(v => ({ value: v, label: v }));
@@ -132,7 +135,7 @@ export const ROLE_CONFIG: Record<string, RoleConfigEntry> = {
     ],
     hasDealRange: true,
     hasOrgWebsite: false,
-    uploads: [{ key: 'cimUrl', label: 'CIM / Information Memorandum' }],
+    uploads: [{ key: 'cimUrl', label: 'CIM / Information Memorandum', fileType: 'cim' }],
   },
 
   Investor: {
@@ -183,8 +186,8 @@ export const ROLE_CONFIG: Record<string, RoleConfigEntry> = {
     hasDealRange: true,
     hasOrgWebsite: true,
     uploads: [
-      { key: 'investmentCriteriaUrl', label: 'Investment Criteria' },
-      { key: 'pitchDeckUrl', label: 'Pitch Deck' },
+      { key: 'investmentCriteriaUrl', label: 'Investment Criteria', fileType: 'investment_criteria' },
+      { key: 'pitchDeckUrl', label: 'Pitch Deck', fileType: 'pitch_deck' },
     ],
   },
 
@@ -251,7 +254,7 @@ export const ROLE_CONFIG: Record<string, RoleConfigEntry> = {
     ],
     hasDealRange: true,
     hasOrgWebsite: true,
-    uploads: [{ key: 'lendingCriteriaUrl', label: 'Lending Criteria Document' }],
+    uploads: [{ key: 'lendingCriteriaUrl', label: 'Lending Criteria Document', fileType: 'lending_criteria' }],
   },
 
   Advisor: {
@@ -323,7 +326,7 @@ export const ROLE_CONFIG: Record<string, RoleConfigEntry> = {
     ],
     hasDealRange: true,
     hasOrgWebsite: true,
-    uploads: [{ key: 'firmCredentialsUrl', label: 'Firm Credentials / Case Studies' }],
+    uploads: [{ key: 'firmCredentialsUrl', label: 'Firm Credentials / Case Studies', fileType: 'credentials' }],
   },
 
   'Business Owner': {
@@ -473,8 +476,8 @@ export const ROLE_CONFIG: Record<string, RoleConfigEntry> = {
     hasDealRange: true,
     hasOrgWebsite: false,
     uploads: [
-      { key: 'resumeUrl', label: 'Resume' },
-      { key: 'coverLetterUrl', label: 'Cover Letter' },
+      { key: 'resumeUrl', label: 'Resume', fileType: 'resume' },
+      { key: 'coverLetterUrl', label: 'Cover Letter', fileType: 'cover_letter' },
     ],
   },
 

@@ -22,11 +22,13 @@ export function FieldDropdown({
   placeholder,
   options,
   onChange,
+  disabled,
 }: {
   value: string;
   placeholder: string;
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   const { colors, fonts, fontSize } = useTheme();
   const insets = useSafeAreaInsets();
@@ -61,6 +63,7 @@ export function FieldDropdown({
         onFocus={measureAvailableHeight}
         renderRightIcon={() => <ChevronDown size={14} color={colors.obInk3} strokeWidth={1.6} />}
         maxHeight={maxHeight}
+        disable={disabled}
       />
     </View>
   );

@@ -1,20 +1,21 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../../../theme';
-import { INTERESTS } from '../constants';
 import { ChipMultiSelect } from './ChipMultiSelect';
 import { FieldDropdown } from './FieldDropdown';
 
 /** Step 3 body — "Organization & Profile", part 1 of the 2-part Business Details flow (Step 4 is
  * part 2). `designationOptions` comes from the selected role's `ROLE_CONFIG` entry
- * (`../roleConfig`) — this screen just renders whatever list it's given. `INTERESTS` is still
- * static, same phasing as `Step1Fields`'s `SUB_CATEGORIES` — role-scoped interest suggestions
- * replace it once role-conditional Step 4 is verified working. */
+ * (`../roleConfig`); `interestOptions` comes from the live `GET /interests?role_type=&sub_role=`
+ * suggestions (`src/api/interests.ts`), matching webSrc's `useInterestSuggestions` — this screen
+ * just renders whatever lists it's given. */
 export function Step3Fields({
   designation,
   designationOptions,
   org,
   interests,
+  interestOptions,
+  interestsLoading,
   onDesignationChange,
   onOrgChange,
   onInterestsToggle,
@@ -23,6 +24,8 @@ export function Step3Fields({
   designationOptions: { value: string; label: string }[];
   org: string;
   interests: string[];
+  interestOptions: string[];
+  interestsLoading: boolean;
   onDesignationChange: (value: string) => void;
   onOrgChange: (value: string) => void;
   onInterestsToggle: (item: string) => void;
@@ -78,10 +81,11 @@ export function Step3Fields({
       <ChipMultiSelect
         label="Suggested Interests"
         required
-        options={INTERESTS}
+        options={interestOptions}
         selected={interests}
         onToggle={onInterestsToggle}
         emptyHint="Tap a suggestion below to add your first interest."
+        loading={interestsLoading}
       />
     </View>
   );

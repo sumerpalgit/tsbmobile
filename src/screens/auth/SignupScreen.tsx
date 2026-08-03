@@ -277,14 +277,6 @@ function SignupScreen() {
             onPress={handleSubmit(onValid)}
           />
 
-          {/* TEMP — dev-only shortcut into the Onboarding wizard for UI work, skips
-              register/verify/login entirely. Remove once Onboarding UI is signed off. */}
-          <Pressable onPress={() => navigation.replace('Onboarding')} hitSlop={8} style={styles.devSkipButton}>
-            <Text style={[fonts.semibold, { fontSize: fontSize.small, color: colors.authMuted }]}>
-              [DEV] Skip to Onboarding
-            </Text>
-          </Pressable>
-
           <AuthDivider label="OR" />
           <SocialSignIn />
 
@@ -304,9 +296,6 @@ function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
-  devSkipButton: {
-    alignItems: 'center',
-  },
   termsRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

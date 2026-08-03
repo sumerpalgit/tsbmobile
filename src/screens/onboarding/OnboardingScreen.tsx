@@ -8,10 +8,12 @@ import Toast from 'react-native-toast-message';
 import { useTheme } from '../../theme';
 import { PickedFile, PrimaryButton } from '../../components';
 import { useAuth } from '../../store/AuthContext';
-import { checkLinkedin, completeProfile } from '../../api/auth';
+import { checkLinkedin, completeProfile, submitRoleProfile } from '../../api/auth';
 import { batchJoinEtaChapters, EtaChapter, getSuggestedEtaChapters, searchEtaChapters } from '../../api/eta';
+import { getInterestSuggestions, saveInterests } from '../../api/interests';
+import { getIndustries, getGeographies } from '../../api/lookup';
+import { uploadDocument } from '../../api/profile';
 import {
-  FINANCIAL_RANGES,
   LINKEDIN_PATTERN,
   MAX_ETA_CHAPTERS,
   ROLE_TYPE_MAP,
@@ -31,8 +33,8 @@ import {
 
 const AUTH_LOGO = require('../../assets/images/AuthLogo.png');
 
-/** Per-step heading + subtitle, as in the design's `titles` map — steps without an entry fall
- * back to the generic "Step N · Label" heading (still true for the Step 3/4 stubs). */
+/** Per-step heading + subtitle, as in the design's `titles` map — steps without an entry
+ * (Step 3/4) fall back to the generic "Step N · Label" heading. */
 const STEP_COPY: Partial<Record<Step, [string, string]>> = {
   1: ['What brings you to The Search Bridge?', "We'll personalize your experience based on your role."],
   2: ['Step Into a City That Thinks Ahead', "Pick your preferred cities — we'll customize accordingly."],
@@ -80,12 +82,17 @@ const GROUND_RULES: { icon: typeof Shield; title: string; description: string }[
   },
 ];
 
-/** Neutral default for a Financial Criteria slider — the full range, i.e. "no constraint" —
- * rather than the design's arbitrary pre-filled demo numbers, since this is a fresh user's
- * onboarding, not a populated demo state. */
+/** Default starting range for a Financial Criteria slider — matches webSrc's
+ * `UnifiedRoleForm.tsx` literal fallbacks (`formData.revenueMax ?? 50` etc.) exactly, not the
+ * slider's full bounds. */
+const RANGE_DEFAULTS: Record<'rev' | 'ebitda' | 'ev', [number, number]> = {
+  rev: [0, 50],
+  ebitda: [0, 10],
+  ev: [0, 50],
+};
+
 function rangeDefault(key: 'rev' | 'ebitda' | 'ev'): [number, number] {
-  const r = FINANCIAL_RANGES.find(x => x.key === key)!;
-  return [r.min, r.max];
+  return RANGE_DEFAULTS[key];
 }
 
 /**
@@ -117,10 +124,11 @@ function rangeDefault(key: 'rev' | 'ebitda' | 'ev'): [number, number] {
  * config declares, instead of 8 hand-built forms. `fieldValues`/`chipValues`/`uploads` below are
  * therefore generic `Record<key, ...>` maps keyed by each field's config key, not individual
  * named state per field — the config is the single source of truth for which keys exist per
- * role. `INDUSTRIES`/`GEOGRAPHIES`/`INTERESTS` (`./constants`) are still static placeholders —
- * real per-role/location-scoped lookups (web's `useIndustries`/`useGeographies`/
- * `useInterestSuggestions`) replace them later, same as Step 2's ETA chapters already got
- * (`src/api/eta.ts`) and Step 1's LinkedIn/city already got (`check-linkedin`/`location/cities`).
+ * role. Industries/Geography Focus (Step 4) and Suggested Interests (Step 3) are live API data
+ * now too (`src/api/lookup.ts`, `src/api/interests.ts`), same as Step 2's ETA chapters
+ * (`src/api/eta.ts`) and Step 1's LinkedIn/city (`check-linkedin`/`location/cities`). Step 3+4's
+ * combined fields submit via `submitRoleProfile` (`src/api/auth.ts`, `PUT /auth/{roleEndpoint}`)
+ * on Step 4's Continue, matching web's single two-sub-step submit.
  *
  * `ChipMultiSelect` (Step 3's "Suggested Interests", Step 4's Industries/Geography/chip-type
  * fields) and `DualRangeSlider`/`ScrollViewWithScrollbar` (Step 4's Financial Criteria sliders
@@ -301,6 +309,32 @@ function OnboardingScreen() {
   const [org, setOrg] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
 
+  // Live role-scoped interest suggestions (Step 3) — matches webSrc's `useInterestSuggestions`.
+  const [interestSuggestions, setInterestSuggestions] = useState<string[]>([]);
+  const [interestsLoading, setInterestsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!role) {
+      setInterestSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    setInterestsLoading(true);
+    getInterestSuggestions(ROLE_TYPE_MAP[role] ?? role, sub)
+      .then(list => {
+        if (!cancelled) setInterestSuggestions(list);
+      })
+      .catch(() => {
+        // Matches web's `useInterestSuggestions`: fails silently, leaves the list empty.
+      })
+      .finally(() => {
+        if (!cancelled) setInterestsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [role, sub]);
+
   // Generic per-role Step 4 state — keyed by whatever field keys the selected role's
   // `ROLE_CONFIG` entry declares (see ./roleConfig), not individual named fields, since the
   // field set itself varies by role.
@@ -313,6 +347,35 @@ function OnboardingScreen() {
   const [ebitdaRange, setEbitdaRange] = useState(rangeDefault('ebitda'));
   const [evRange, setEvRange] = useState(rangeDefault('ev'));
   const [uploads, setUploads] = useState<Record<string, PickedFile | null>>({});
+  // Backend URL returned per uploaded document key (e.g. `cimUrl`), separate from `uploads`
+  // (which just tracks what's locally picked) — this is what actually goes in the submit payload.
+  const [uploadedUrls, setUploadedUrls] = useState<Record<string, string>>({});
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+
+  // Industries/Geography lookup lists (Step 4, shared by every role) — role-agnostic, fetched
+  // once, matching webSrc's `useIndustries()`/`useGeographies()`.
+  const [industryOptions, setIndustryOptions] = useState<string[]>([]);
+  const [geographyOptions, setGeographyOptions] = useState<string[]>([]);
+  const [lookupLoading, setLookupLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getIndustries(), getGeographies()])
+      .then(([ind, geo]) => {
+        if (cancelled) return;
+        setIndustryOptions(ind);
+        setGeographyOptions(geo);
+      })
+      .catch(() => {
+        // Matches web's `useIndustries`/`useGeographies`: fails silently, leaves lists empty.
+      })
+      .finally(() => {
+        if (!cancelled) setLookupLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [roleSheetOpen, setRoleSheetOpen] = useState(false);
 
@@ -361,8 +424,34 @@ function OnboardingScreen() {
     setError('');
   };
 
-  const setUpload = (key: string, file: PickedFile | null) => {
+  // Matches webSrc's `UnifiedRoleForm.tsx` `uploadFile`: uploads immediately on pick (not
+  // deferred to Step 4's final Continue), storing the resulting URL separately in
+  // `uploadedUrls` — `uploads` itself just tracks what's locally picked, for display.
+  const setUpload = async (key: string, file: PickedFile | null) => {
     setUploads(prev => ({ ...prev, [key]: file }));
+    if (!file) {
+      setUploadedUrls(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      return;
+    }
+
+    const fileType = ROLE_CONFIG[role]?.uploads.find(u => u.key === key)?.fileType ?? key;
+    setUploadingKey(key);
+    try {
+      const { fileUrl } = await uploadDocument(file, fileType);
+      setUploadedUrls(prev => ({ ...prev, [key]: fileUrl }));
+    } catch (err) {
+      const message = axios.isAxiosError(err)
+        ? err.response?.data?.error ?? err.message
+        : 'Please try again.';
+      Toast.show({ type: 'error', text1: 'Upload failed', text2: message });
+      setUploads(prev => ({ ...prev, [key]: null }));
+    } finally {
+      setUploadingKey(null);
+    }
   };
 
   const canBack = step > 1;
@@ -461,6 +550,49 @@ function OnboardingScreen() {
       if (!isStep4Complete(role, fieldValues, chipValues, industries, geographyFocus)) {
         return setError('Complete the required fields for your role.');
       }
+
+      // Matches webSrc's `role-form/page.tsx` `handleComplete`: Step 3 + Step 4's fields
+      // submit together as one `formData` object, in a single `PUT /auth/{roleEndpoint}`.
+      const config = ROLE_CONFIG[role];
+      const formData: Record<string, unknown> = {
+        role: designation,
+        organizationName: org,
+        interests,
+        ...fieldValues,
+        ...chipValues,
+        industries,
+        geographyFocus,
+      };
+      if (config?.hasOrgWebsite) formData.organizationWebsite = orgWebsite;
+      if (config?.hasDealRange) {
+        formData.revenueMin = String(revRange[0]);
+        formData.revenueMax = String(revRange[1]);
+        formData.ebitdaMin = String(ebitdaRange[0]);
+        formData.ebitdaMax = String(ebitdaRange[1]);
+        formData.minEV = String(evRange[0]);
+        formData.maxEV = String(evRange[1]);
+      }
+      config?.uploads.forEach(u => {
+        if (uploadedUrls[u.key]) formData[u.key] = uploadedUrls[u.key];
+      });
+
+      setError('');
+      setSubmitting(true);
+      try {
+        await submitRoleProfile(ROLE_TYPE_MAP[role] ?? role, formData);
+      } catch (err) {
+        const message = axios.isAxiosError(err)
+          ? err.response?.data?.error ?? err.message
+          : 'Something went wrong. Please try again.';
+        Toast.show({ type: 'error', text1: 'Could not save profile', text2: message });
+        setSubmitting(false);
+        return;
+      }
+      // Fire-and-forget, matching web exactly — a failure here doesn't block onboarding.
+      if (interests.length) {
+        saveInterests(interests).catch(() => null);
+      }
+      setSubmitting(false);
     }
     setError('');
     setStep(step < 4 ? ((step + 1) as Step) : 5);
@@ -600,6 +732,8 @@ function OnboardingScreen() {
               designationOptions={ROLE_CONFIG[role]?.designationOptions ?? []}
               org={org}
               interests={interests}
+              interestOptions={interestSuggestions}
+              interestsLoading={interestsLoading}
               onDesignationChange={v => {
                 setDesignation(v);
                 setError('');
@@ -617,9 +751,12 @@ function OnboardingScreen() {
               chipValues={chipValues}
               onChipToggle={toggleChipValue}
               industries={industries}
+              industryOptions={industryOptions}
               onIndustriesToggle={toggleIndustry}
               geographyFocus={geographyFocus}
+              geographyOptions={geographyOptions}
               onGeographyToggle={toggleGeography}
+              lookupLoading={lookupLoading}
               orgWebsite={orgWebsite}
               onOrgWebsiteChange={setOrgWebsite}
               revRange={revRange}
@@ -630,6 +767,7 @@ function OnboardingScreen() {
               onEvChange={(lo, hi) => setEvRange([lo, hi])}
               uploads={uploads}
               onUploadChange={setUpload}
+              uploadingKey={uploadingKey}
             />
           )}
 
@@ -702,6 +840,7 @@ function OnboardingScreen() {
         selected={role}
         onSelect={r => {
           setRole(r);
+          setSub(''); // sub category options depend on role — old value may not exist in the new role's list
           setRoleSheetOpen(false);
           setError('');
         }}

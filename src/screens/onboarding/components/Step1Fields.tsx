@@ -49,12 +49,20 @@ export function Step1Fields({
         <CategoryTrigger role={role} onPress={onRolePress} />
       </View>
 
-      {/* Sub Category */}
+      {/* Sub Category — options depend on the selected role (`SUB_CATEGORIES[role]`), matching
+          webSrc's `complete-profile` page; disabled until a role is picked since there's no
+          list to show yet. */}
       <View style={{ gap: 8 }}>
         <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.obInk }]}>
           Sub Category <Text style={{ color: colors.obRequired }}>*</Text>
         </Text>
-        <FieldDropdown value={sub} placeholder="Select sub category" options={SUB_CATEGORIES} onChange={onSubChange} />
+        <FieldDropdown
+          value={sub}
+          placeholder="Select sub category"
+          options={SUB_CATEGORIES[role] ?? []}
+          onChange={onSubChange}
+          disabled={!role}
+        />
       </View>
 
       {/* LinkedIn */}

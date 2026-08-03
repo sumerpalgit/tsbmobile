@@ -16,10 +16,21 @@ export const AUTH_ENDPOINTS = {
 
 export const PROFILE_ENDPOINTS = {
   ME: '/profile/me',
+  UPLOAD_DOCUMENT: '/profile/upload-document',
 } as const;
 
 export const LOCATION_ENDPOINTS = {
   CITIES: '/location/cities',
+} as const;
+
+export const INTERESTS_ENDPOINTS = {
+  LIST: '/interests',
+  SAVE: '/interests/save',
+} as const;
+
+export const LOOKUP_ENDPOINTS = {
+  INDUSTRIES: '/lookup/industries',
+  GEOGRAPHIES: '/lookup/geographies',
 } as const;
 
 export const ETA_ENDPOINTS = {

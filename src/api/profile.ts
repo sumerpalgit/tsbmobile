@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import { PROFILE_ENDPOINTS } from './endpoints';
+import type { PickedFile } from '../components/FileUploadButton';
 
 export type User = {
   id: string;
@@ -35,4 +36,28 @@ export async function getMe(): Promise<User | null> {
   const result = await apiClient.get(PROFILE_ENDPOINTS.ME).then(res => res.data);
   const payload = result?.profile ?? result?.data?.profile ?? result?.data ?? result?.user ?? null;
   return mapProfileToUser(payload);
+}
+
+export type UploadDocumentResponse = {
+  fileUrl: string;
+};
+
+/** Matches webSrc's `UnifiedRoleForm.tsx` `uploadFile`: `POST /api/profile/upload-document`,
+ * multipart (`file` + `type`), returns `{ fileUrl }` to embed directly into the role PUT
+ * payload. `fileType` is the same document-category tag web sends (`cim`, `resume`,
+ * `pitch_deck`, `investment_criteria`, `lending_criteria`, `credentials`, `cover_letter`). */
+export function uploadDocument(file: PickedFile, fileType: string) {
+  const form = new FormData();
+  form.append('file', {
+    uri: file.uri,
+    name: file.name,
+    type: file.mimeType ?? 'application/octet-stream',
+  } as unknown as Blob);
+  form.append('type', fileType);
+
+  return apiClient
+    .post<UploadDocumentResponse>(PROFILE_ENDPOINTS.UPLOAD_DOCUMENT, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then(res => res.data);
 }

@@ -25,13 +25,52 @@ export const ROLE_TYPE_MAP: Record<string, string> = {
   Student: 'student',
 };
 
-/** Static in the design file itself (not templated per-role there either). */
-export const SUB_CATEGORIES = [
-  { value: 'self-funded', label: 'Self-funded searcher' },
-  { value: 'traditional', label: 'Traditional search fund' },
-  { value: 'sponsor', label: 'Independent sponsor' },
-  { value: 'accelerator', label: 'Accelerator-backed' },
-];
+const subCategoryOpts = (values: string[]) => values.map(v => ({ value: v, label: v }));
+
+const OTHER_SPECIFY_SUB = 'Other (please specify)';
+
+/** Per-role Sub Category options — mirrors webSrc's `SUB_CATEGORIES` map in
+ * `complete-profile/page.tsx` exactly, keyed to this screen's own role labels (`ROLES`
+ * above) instead of web's longer ones, same mapping as `ROLE_TYPE_MAP`. */
+export const SUB_CATEGORIES: Record<string, { value: string; label: string }[]> = {
+  Searcher: subCategoryOpts(['Self Funded Searcher', 'Traditional Searcher', 'Prospective Searcher', 'Independent Sponsor']),
+  Investor: subCategoryOpts([
+    'Family Office',
+    'Angel Investor',
+    'Investment Groups',
+    'Private Equity Firm',
+    'Venture Capital Firm',
+    'Search Fund Investor',
+    'Corporate Investor',
+    OTHER_SPECIFY_SUB,
+  ]),
+  Lender: subCategoryOpts(['Commercial Banks', 'SBA Lenders', 'Private Credit Funds', OTHER_SPECIFY_SUB]),
+  Advisor: subCategoryOpts([
+    'Accounting & Financial Due Diligence Firms',
+    'Tax Advisory & Structuring',
+    'Legal Advisors',
+    'Valuation Experts',
+    'Technology / IT Due Diligence Specialists',
+    'Operational & Acquisition Coaches / Mentors (ETA Coaches)',
+    'Marketing & Branding Agencies',
+    'Seller Succession & Exit Planners',
+    'Cybersecurity Firms',
+    'Capital Advisory Firm',
+    'R&W Insurance Brokers',
+    OTHER_SPECIFY_SUB,
+  ]),
+  'Business Owner': subCategoryOpts(['Business Owner', 'Founder', OTHER_SPECIFY_SUB]),
+  Operator: subCategoryOpts(['SMB Operators', 'Fractional Executives', OTHER_SPECIFY_SUB]),
+  Intermediary: subCategoryOpts([
+    'Deal Sourcing Platforms',
+    'Business Brokers',
+    'Investment Bankers',
+    'Boutique M&A advisory',
+    'Independent deal intermediary',
+    OTHER_SPECIFY_SUB,
+  ]),
+  Student: subCategoryOpts(['Intern', 'Trainee', OTHER_SPECIFY_SUB]),
+};
 
 // City is a live search now (`CitySearchField`, `src/api/location.ts`), not a fixed list —
 // the static `CITIES`/`CITY_LOCATION` placeholder pair that used to live here is gone.
@@ -45,58 +84,9 @@ export const LINKEDIN_PATTERN = /linkedin\.com/;
 
 export const MAX_ETA_CHAPTERS = 3;
 
-/** Same fixed 15-item list as the design file — real suggestions become role + sub-category
- * scoped later (matching the web app's `useInterestSuggestions`), same phasing as the rest of
- * this screen's static data. Per-role "Your Role / Designation" options now live in
- * `./roleConfig`'s `ROLE_CONFIG` instead of a single fixed list here. */
-export const INTERESTS = [
-  'Deal closing track record',
-  'Intermediary reputation',
-  'Thought leadership & content',
-  'Deal-by-deal equity raising',
-  'Promote & carry structures',
-  'Preferred equity & debt structuring',
-  'Search fund investor directories',
-  'Peer searcher networking',
-  'Mentorship from acquired CEOs',
-  'Independent sponsor networks',
-  'Negotiation & deal closing skills',
-  'Burnout & solo operator challenges',
-  'Valuation model practice',
-  'Reviewing real CIMs',
-  'Deal simulation exercises',
-];
-
-/** Shared "Industries of Interest" multi-select — every role sees the same list, per web's
- * role-agnostic `useIndustries()`. Static placeholder for now; a real lookup API (web's `GET
- * /api/lookup/industries`) replaces this once role-specific Step 4 UI is verified. */
-export const INDUSTRIES = [
-  'Technology & Software',
-  'Healthcare & Life Sciences',
-  'Manufacturing & Industrial',
-  'Business & Professional Services',
-  'Consumer Products & Retail',
-  'Financial Services',
-  'Construction & Real Estate',
-  'Transportation & Logistics',
-  'Food & Beverage',
-  'Media & Entertainment',
-];
-
-/** Shared "Geography Focus" multi-select — same phasing/role-agnostic scope as `INDUSTRIES`
- * above (web's `useGeographies()`). */
-export const GEOGRAPHIES = [
-  'North America',
-  'United States — Northeast',
-  'United States — Southeast',
-  'United States — Midwest',
-  'United States — West',
-  'Europe',
-  'Asia Pacific',
-  'India',
-  'Middle East',
-  'Remote / Location Agnostic',
-];
+// Suggested Interests (Step 3), Industries of Interest and Geography Focus (Step 4) are now
+// live, role-scoped/lookup API data — `getInterestSuggestions`/`getIndustries`/
+// `getGeographies` in `src/api/interests.ts`/`src/api/lookup.ts` — not static lists here.
 
 export type FinancialRange = {
   key: 'rev' | 'ebitda' | 'ev';
@@ -107,10 +97,11 @@ export type FinancialRange = {
   step: number;
 };
 
-/** Step 4 "Financial Criteria" dual-range sliders — same bounds/step as the design file
- * (`rangeVals("rev",...,5,500,5)` etc.), one fixed set regardless of role for now. */
+/** Step 4 "Financial Criteria" dual-range sliders — bounds match webSrc's `UnifiedRoleForm.tsx`
+ * `DualRangeSlider` call sites exactly (`min`/`max` props there), one fixed set regardless of
+ * role, same as web. */
 export const FINANCIAL_RANGES: FinancialRange[] = [
-  { key: 'rev', label: 'Revenue Range (USD M)', unit: 'M', min: 5, max: 500, step: 5 },
-  { key: 'ebitda', label: 'EBITDA Range (USD M)', unit: 'M', min: 1, max: 120, step: 1 },
-  { key: 'ev', label: 'Enterprise Value (USD M)', unit: 'M', min: 10, max: 900, step: 10 },
+  { key: 'rev', label: 'Revenue Range (USD M)', unit: 'M', min: 0, max: 500, step: 1 },
+  { key: 'ebitda', label: 'EBITDA Range (USD M)', unit: 'M', min: 0, max: 100, step: 1 },
+  { key: 'ev', label: 'Enterprise Value (USD M)', unit: 'M', min: 0, max: 500, step: 1 },
 ];

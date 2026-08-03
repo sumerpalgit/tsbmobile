@@ -2,7 +2,7 @@ import React, { Fragment } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../../../theme';
 import { FileUploadButton, PickedFile } from '../../../components';
-import { FINANCIAL_RANGES, GEOGRAPHIES, INDUSTRIES } from '../constants';
+import { FINANCIAL_RANGES } from '../constants';
 import { ROLE_CONFIG } from '../roleConfig';
 import { ChipMultiSelect } from './ChipMultiSelect';
 import { DualRangeSlider } from './DualRangeSlider';
@@ -24,9 +24,12 @@ export function Step4Fields({
   chipValues,
   onChipToggle,
   industries,
+  industryOptions,
   onIndustriesToggle,
   geographyFocus,
+  geographyOptions,
   onGeographyToggle,
+  lookupLoading,
   orgWebsite,
   onOrgWebsiteChange,
   revRange,
@@ -37,6 +40,7 @@ export function Step4Fields({
   onEvChange,
   uploads,
   onUploadChange,
+  uploadingKey,
 }: {
   role: string;
   fieldValues: Record<string, string>;
@@ -44,9 +48,12 @@ export function Step4Fields({
   chipValues: Record<string, string[]>;
   onChipToggle: (key: string, option: string) => void;
   industries: string[];
+  industryOptions: string[];
   onIndustriesToggle: (option: string) => void;
   geographyFocus: string[];
+  geographyOptions: string[];
   onGeographyToggle: (option: string) => void;
+  lookupLoading: boolean;
   orgWebsite: string;
   onOrgWebsiteChange: (value: string) => void;
   revRange: [number, number];
@@ -57,6 +64,9 @@ export function Step4Fields({
   onEvChange: (lo: number, hi: number) => void;
   uploads: Record<string, PickedFile | null>;
   onUploadChange: (key: string, file: PickedFile | null) => void;
+  /** Key currently mid-upload (network call in flight after pick), or null — shows a
+   * loading state on that upload's button, mirroring web's `uploadingField`. */
+  uploadingKey: string | null;
 }) {
   const { colors, fonts } = useTheme();
   const config = ROLE_CONFIG[role];
@@ -114,8 +124,22 @@ export function Step4Fields({
 
       {/* Shared by every role — web's role-agnostic `useIndustries()`/`useGeographies()` */}
       <View style={{ gap: 16 }}>
-        <ChipMultiSelect label="Industries of Interest" required options={INDUSTRIES} selected={industries} onToggle={onIndustriesToggle} />
-        <ChipMultiSelect label="Geography Focus" required options={GEOGRAPHIES} selected={geographyFocus} onToggle={onGeographyToggle} />
+        <ChipMultiSelect
+          label="Industries of Interest"
+          required
+          options={industryOptions}
+          selected={industries}
+          onToggle={onIndustriesToggle}
+          loading={lookupLoading}
+        />
+        <ChipMultiSelect
+          label="Geography Focus"
+          required
+          options={geographyOptions}
+          selected={geographyFocus}
+          onToggle={onGeographyToggle}
+          loading={lookupLoading}
+        />
       </View>
 
       {config.hasOrgWebsite && (
@@ -168,7 +192,11 @@ export function Step4Fields({
                 <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.obInk }]}>
                   {upload.label} <Text style={{ color: colors.obInk3 }}>(optional)</Text>
                 </Text>
-                <FileUploadButton value={uploads[upload.key] ?? null} onChange={file => onUploadChange(upload.key, file)} />
+                <FileUploadButton
+                  value={uploads[upload.key] ?? null}
+                  onChange={file => onUploadChange(upload.key, file)}
+                  loading={uploadingKey === upload.key}
+                />
               </View>
             ))}
           </View>
