@@ -18,6 +18,12 @@ export const AUTH_ENDPOINTS = {
 export const PROFILE_ENDPOINTS = {
   ME: '/profile/me',
   UPLOAD_DOCUMENT: '/profile/upload-document',
+  COMPLETION: '/profile/completion',
+} as const;
+
+export const FEED_ENDPOINTS = {
+  LIST: '/feed',
+  SEARCH: '/feed/search',
 } as const;
 
 export const LOCATION_ENDPOINTS = {

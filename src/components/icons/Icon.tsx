@@ -41,6 +41,22 @@ export type IconName =
   | 'bookmark'
   | 'calendar'
   | 'trendingUp'
+  | 'star'
+  | 'arrowRight'
+  | 'arrowRightLong'
+  | 'heart'
+  | 'share'
+  | 'comment'
+  | 'idCard'
+  | 'lightbulb'
+  | 'barChart'
+  | 'link'
+  | 'downloadTray'
+  | 'briefcase'
+  | 'pin'
+  | 'starOutline'
+  | 'chartUp'
+  | 'building'
   | 'signOut'
   | 'bell'
   | 'sun'
@@ -60,6 +76,10 @@ type IconProps = {
   color?: string;
   /** Overrides the per-icon default (1.5 on the web, 1.3 on the bell). */
   strokeWidth?: number;
+  /** Renders solid-filled instead of outlined — the mockup's "active" state for `heart`/
+   * `bookmark` (liked/saved) swaps from an `--ink3` outline to a `--gold`-filled shape rather
+   * than a separate icon. Ignored by icons that don't define a filled variant. */
+  filled?: boolean;
 };
 
 /** Each icon's native viewBox, so paths stay untouched from the source. */
@@ -82,6 +102,22 @@ const VIEW_BOX: Partial<Record<IconName, string>> = {
   bookmark: '0 0 16 16',
   calendar: '0 0 12 12',
   trendingUp: '0 0 12 12',
+  star: '0 0 18 18',
+  arrowRight: '0 0 11 11',
+  arrowRightLong: '0 0 14 14',
+  heart: '0 0 16 16',
+  share: '0 0 16 16',
+  comment: '0 0 16 16',
+  idCard: '0 0 16 16',
+  lightbulb: '0 0 12 12',
+  barChart: '0 0 12 12',
+  link: '0 0 10 10',
+  downloadTray: '0 0 14 14',
+  briefcase: '0 0 16 16',
+  pin: '0 0 12 12',
+  starOutline: '0 0 12 12',
+  chartUp: '0 0 12 12',
+  building: '0 0 12 12',
   // The login page's field glyphs come from lucide-react, which draws on 24×24.
   mail: '0 0 24 24',
   lock: '0 0 24 24',
@@ -96,6 +132,7 @@ export function Icon({
   size = 20,
   color = 'currentColor',
   strokeWidth = 1.5,
+  filled = false,
 }: IconProps) {
   const stroke = color;
   const sw = strokeWidth;
@@ -107,12 +144,12 @@ export function Icon({
       viewBox={VIEW_BOX[name] ?? DEFAULT_VIEW_BOX}
       fill="none"
     >
-      {renderPaths(name, stroke, sw)}
+      {renderPaths(name, stroke, sw, filled)}
     </Svg>
   );
 }
 
-function renderPaths(name: IconName, stroke: string, sw: number) {
+function renderPaths(name: IconName, stroke: string, sw: number, filled: boolean) {
   switch (name) {
     case 'home':
       return (
@@ -397,7 +434,9 @@ function renderPaths(name: IconName, stroke: string, sw: number) {
       );
 
     case 'bookmark':
-      return (
+      return filled ? (
+        <Path d="M3.5 2.5A1 1 0 014.5 1.5h7a1 1 0 011 1v11.5l-4.5-2.8-4.5 2.8z" fill={stroke} />
+      ) : (
         <Path
           d="M3.5 2.5A1 1 0 014.5 1.5h7a1 1 0 011 1v11.5l-4.5-2.8-4.5 2.8z"
           stroke={stroke}
@@ -430,6 +469,196 @@ function renderPaths(name: IconName, stroke: string, sw: number) {
             strokeLinejoin="round"
           />
           <Path d="M8 3.5h3v3" stroke={stroke} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      );
+
+    // Filled, not stroked — matches the "Complete Your Profile" banner's icon badge
+    // (`webSrc/src/app/dashboard/page.tsx`'s inline star SVG) copied verbatim, `fill` instead
+    // of `stroke` since that reference renders it solid.
+    case 'star':
+      return (
+        <Path
+          d="M9 1l1.9 4.5 4.9.5-3.6 3.4 1 4.8L9 11.7 4.8 14.2l1-4.8L2.2 6l4.9-.5z"
+          fill={stroke}
+        />
+      );
+
+    // Shaft + arrowhead, not a bare caret (`chevronRight` is too small a mark for a full CTA
+    // arrow) — copied verbatim from the "Complete Profile" CTA's inline SVG in
+    // `webSrc/src/app/dashboard/page.tsx`.
+    case 'arrowRight':
+      return (
+        <Path
+          d="M2 5.5h7M5.5 2l3.5 3.5L5.5 9"
+          stroke={stroke}
+          strokeWidth={sw}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      );
+
+    // Events' "View Details" CTA — a separate, longer arrow than `arrowRight` (different
+    // confirmed path/viewBox from its own mockup source, not a reuse).
+    case 'arrowRightLong':
+      return (
+        <Path
+          d="M2 7h10M7.5 2.5L12 7l-4.5 4.5"
+          stroke={stroke}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      );
+
+    // `PostCardActions`' like/comment/share row and `PostCardHeader`'s save button — paths
+    // copied verbatim from the feed-card examples hand-authored in `TSB Home FV.html` (each
+    // card's `onLike`/`toastComment`/`toastShare`/`onSave` SVGs), which do exist in that file —
+    // an earlier, too-shallow search of it missed them.
+    case 'heart':
+      return filled ? (
+        <Path d="M8 13.5S2 9.9 2 5.8a3.2 3.2 0 016-1.5 3.2 3.2 0 016 1.5C14 9.9 8 13.5 8 13.5z" fill={stroke} />
+      ) : (
+        <Path
+          d="M8 13.5S2 9.9 2 5.8a3.2 3.2 0 016-1.5 3.2 3.2 0 016 1.5C14 9.9 8 13.5 8 13.5z"
+          stroke={stroke}
+          strokeWidth={1.4}
+          strokeLinejoin="round"
+        />
+      );
+
+    case 'comment':
+      return (
+        <Path
+          d="M2 2.5h12a.5.5 0 01.5.5v8a.5.5 0 01-.5.5H9L6 14v-2.5H2a.5.5 0 01-.5-.5V3a.5.5 0 01.5-.5z"
+          stroke={stroke}
+          strokeWidth={1.4}
+          strokeLinejoin="round"
+        />
+      );
+
+    case 'share':
+      return (
+        <Path
+          d="M2 8.5 7 5v2.5c3.5 0 6 1.5 6.5 5C12 10 10 9 7 9v2.5z"
+          stroke={stroke}
+          strokeWidth={1.4}
+          strokeLinejoin="round"
+        />
+      );
+
+    // Feed card's "quick profile" preview button.
+    case 'idCard':
+      return (
+        <>
+          <Rect x="2.4" y="3" width="11.2" height="10" rx="1.6" stroke={stroke} strokeWidth={1.4} />
+          <Path d="M2.4 6.1h11.2" stroke={stroke} strokeWidth={1.4} />
+          <Path d="M4.4 4.55h.01M6 4.55h.01" stroke={stroke} strokeWidth={1.3} strokeLinecap="round" />
+        </>
+      );
+
+    // "Ask the Community" badge icon.
+    case 'lightbulb':
+      return (
+        <Path
+          d="M6 1a3.5 3.5 0 00-3.5 3.5c0 1.5 1 2.3 1.5 3v1.5h4V7.5c.5-.7 1.5-1.5 1.5-3A3.5 3.5 0 006 1zM4.5 9.5h3M4.5 11h3"
+          stroke={stroke}
+          strokeWidth={1.1}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      );
+
+    // "Polls" badge icon.
+    case 'barChart':
+      return <Path d="M2 10V6M5 10V2M8 10V7M11 10V4" stroke={stroke} strokeWidth={1.3} strokeLinecap="round" />;
+
+    // "Find My Match" badge icon (two-link chain).
+    case 'link':
+      return (
+        <>
+          <Path
+            d="M4.5 5.5L2.8 7.2a1.6 1.6 0 002.3 2.3l1.2-1.2M7.5 6.5l1.7-1.7a1.6 1.6 0 00-2.3-2.3L5.4 3.6"
+            stroke={stroke}
+            strokeWidth={1.1}
+            strokeLinecap="round"
+          />
+          <Path d="M5 7l2-2" stroke={stroke} strokeWidth={1.1} strokeLinecap="round" />
+        </>
+      );
+
+    // "Express Interest"/"Pitch Your Deal" CTA icon.
+    case 'downloadTray':
+      return (
+        <Path
+          d="M7 1.5v6M3 7.5l4 4 4-4M2 12.5h10"
+          stroke={stroke}
+          strokeWidth={1.4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      );
+
+    // "Jobs" badge icon.
+    case 'briefcase':
+      return (
+        <>
+          <Rect x="2" y="5" width="12" height="8" rx="1.5" stroke={stroke} strokeWidth={1.3} />
+          <Path d="M5.5 5V3.7a1 1 0 011-1h3a1 1 0 011 1V5" stroke={stroke} strokeWidth={1.3} />
+          <Path d="M2 9h12" stroke={stroke} strokeWidth={1.3} />
+        </>
+      );
+
+    // Event card's location line.
+    case 'pin':
+      return (
+        <>
+          <Path
+            d="M6 1a3.5 3.5 0 013.5 3.5c0 2.5-3.5 6-3.5 6s-3.5-3.5-3.5-6A3.5 3.5 0 016 1z"
+            stroke={stroke}
+            strokeWidth={1.2}
+            strokeLinejoin="round"
+          />
+          <Circle cx="6" cy="4.5" r="1.2" stroke={stroke} strokeWidth={1.1} />
+        </>
+      );
+
+    // Investor Corner "Back a Searcher" badge icon.
+    case 'starOutline':
+      return (
+        <Path
+          d="M6 1l1.3 2.8H10L7.9 5.5l.8 2.9L6 6.9 3.3 8.4l.8-2.9L2 3.8h2.7z"
+          stroke={stroke}
+          strokeWidth={1}
+          strokeLinejoin="round"
+        />
+      );
+
+    // Investor Corner "Invest in a Deal" badge icon (also Deal's "Raising Capital" variant).
+    case 'chartUp':
+      return (
+        <>
+          <Path
+            d="M2 9l3-3 2 2 4-5"
+            stroke={stroke}
+            strokeWidth={1.2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path d="M8 3h3v3" stroke={stroke} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      );
+
+    // Deal's "Looking for a Buyer" badge icon.
+    case 'building':
+      return (
+        <>
+          <Path
+            d="M2 5L6 2l4 3v5.5a.4.4 0 01-.4.5H2.4a.4.4 0 01-.4-.5z"
+            stroke={stroke}
+            strokeWidth={1.1}
+            strokeLinejoin="round"
+          />
+          <Path d="M5 11V8h2v3" stroke={stroke} strokeWidth={1.1} strokeLinejoin="round" />
         </>
       );
 

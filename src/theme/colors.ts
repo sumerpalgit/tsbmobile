@@ -50,10 +50,29 @@ export type ThemeColors = {
   border: string;
   borderSoft: string;
 
+  /** `ProfileCompletionCard`'s border (`--line2` in the app bar/drawer/home reference,
+   * `TSB Home FV.html`) — distinct from `border`/`borderSoft` (neither matches its value), the
+   * same one-exception-to-"port-from-web" case as `chip` above. */
+  homeCardBorder: string;
+
+  /** `PostCard`'s outer border + its actions-row divider (`--line` in the same reference) — a
+   * third, slightly different border value from `border`/`borderSoft`/`homeCardBorder`, all
+   * four genuinely distinct in that file. */
+  feedCardLine: string;
+
   /** Ink = text colours, strongest to weakest. */
   ink: string;
   ink2: string;
   ink3: string;
+
+  /** `PostCardHeader`'s avatar fallback fill + text, and `PostCardTags`' 2nd-tier solid chip
+   * (`--fill`/`--onfill` in `TSB Home FV.html`) — a dark-navy background that must stay dark in
+   * both themes since it's a solid fill, not text (unlike `navy`, which deliberately inverts to
+   * near-white in dark mode to keep navy-coloured *text* legible). Distinct from the existing
+   * `avatarFallback` (a different reference's gradient approximation) since this is a flat value
+   * copied verbatim from this specific mockup instead. */
+  feedFill: string;
+  feedOnFill: string;
 
   /** Solid accent used for primary buttons / active nav in light mode. */
   accentSolid: string;
@@ -181,10 +200,14 @@ export const lightColors: ThemeColors = {
 
   border: '#d8d4c8',
   borderSoft: '#edeae2',
+  homeCardBorder: '#DED9CC',
+  feedCardLine: '#EBE7DD',
 
   ink: '#182E43',
   ink2: '#3d5472',
   ink3: '#7a90a6',
+  feedFill: '#182E43',
+  feedOnFill: '#F2F5F8',
 
   accentSolid: '#182E43',
   accentSolidHover: '#1f3a52',
@@ -262,10 +285,14 @@ export const darkColors: ThemeColors = {
 
   border: 'rgba(255,255,255,0.10)',
   borderSoft: 'rgba(255,255,255,0.06)',
+  homeCardBorder: 'rgba(255,255,255,0.15)',
+  feedCardLine: 'rgba(255,255,255,0.09)',
 
   ink: '#e8edf2',
   ink2: '#a9b8c6',
   ink3: '#6f8294',
+  feedFill: '#22364A',
+  feedOnFill: '#FFFFFF',
 
   accentSolid: '#2c4660',
   accentSolidHover: '#36546f',

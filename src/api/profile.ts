@@ -38,6 +38,24 @@ export async function getMe(): Promise<User | null> {
   return mapProfileToUser(payload);
 }
 
+export type ProfileCompletion = {
+  completionPercentage: number;
+  filled: number;
+  total: number;
+};
+
+/** Matches webSrc's `useProfileCompletion`: `GET /api/profile/completion` →
+ * `{ completion_percentage, filled, total }`. Powers the Home feed's "Complete Your Profile"
+ * banner (`ProfileCompletionCard`). */
+export async function getProfileCompletion(): Promise<ProfileCompletion> {
+  const result = await apiClient.get(PROFILE_ENDPOINTS.COMPLETION).then(res => res.data);
+  return {
+    completionPercentage: Number(result?.completion_percentage ?? 0),
+    filled: Number(result?.filled ?? 0),
+    total: Number(result?.total ?? 0),
+  };
+}
+
 export type UploadDocumentResponse = {
   fileUrl: string;
 };

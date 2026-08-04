@@ -13,9 +13,16 @@ type AvatarProps = {
   name?: string | null;
   imageUri?: string | null;
   size?: number;
+  /** Overrides `colors.avatarFallback` — `PostCardHeader` passes `colors.feedFill` to match
+   * `TSB Home FV.html`'s feed-card avatar exactly, a different flat tone than the fallback
+   * used elsewhere (`TopBar`, `DrawerContent`). */
+  fallbackColor?: string;
+  /** Overrides `colors.onAccent` — paired with `fallbackColor` (`colors.feedOnFill` for feed
+   * cards). */
+  textColor?: string;
 };
 
-export function Avatar({ name, imageUri, size = 36 }: AvatarProps) {
+export function Avatar({ name, imageUri, size = 36, fallbackColor, textColor }: AvatarProps) {
   const { colors, fonts, borderWidth } = useTheme();
 
   const initials = (name || 'U')
@@ -34,7 +41,7 @@ export function Avatar({ name, imageUri, size = 36 }: AvatarProps) {
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: colors.avatarFallback,
+          backgroundColor: fallbackColor ?? colors.avatarFallback,
           borderColor: colors.border,
           borderWidth: borderWidth.thick,
         },
@@ -50,7 +57,7 @@ export function Avatar({ name, imageUri, size = 36 }: AvatarProps) {
         <Text
           style={[
             fonts.semibold,
-            { fontSize: size * 0.39, color: colors.onAccent },
+            { fontSize: size * 0.39, color: textColor ?? colors.onAccent },
           ]}
         >
           {initials}

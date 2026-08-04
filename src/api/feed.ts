@@ -1,0 +1,129 @@
+import { apiClient } from './client';
+import { FEED_ENDPOINTS } from './endpoints';
+import type { FeedItemData } from '../types/home';
+
+/** Matches the live `GET /api/feed` response's `profile` object exactly — anonymous posts
+ * return it with every field but `name`/`username` nulled out (`{name: "Anonymous", username:
+ * "anonymous", profile_img: null, ...}`), so most fields are nullable rather than optional. */
+export type FeedProfile = {
+  name: string;
+  username: string;
+  profile_img: string | null;
+  sub_category: string | null;
+  role_type: string | null;
+  city?: string | null;
+  organization?: string | null;
+};
+
+/** The envelope every feed item shares, intersected with `FeedItemData` — the discriminated
+ * union (`src/types/home.ts`) that narrows `item`'s shape by `feed_type`. Matches the live
+ * response exactly: `{id, feed_type, item_id, created_at, is_anonymous, profile, item,
+ * is_my_feed}`. */
+export type FeedItem = {
+  id: string;
+  item_id: string;
+  created_at: string;
+  is_anonymous: boolean;
+  is_my_feed: boolean;
+  profile: FeedProfile;
+} & FeedItemData;
+
+/** Matches webSrc's `FEED_LIMIT` (`app/dashboard/page.tsx`). */
+export const FEED_PAGE_LIMIT = 10;
+
+export type FeedComment = {
+  id: string;
+  feed_id: string;
+  parent_comment_id: string | null;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  is_ai: boolean;
+  profile: FeedProfile;
+};
+
+/** One entry per feed item ID, keyed the same way in the live response. `PostCardStats`/
+ * `PostCardActions` read straight off this — `count`/`liked`/`saved` render immediately, no
+ * separate round-trip needed (matches webSrc's `Engagement` type, `FeedCard.tsx`). */
+export type FeedEngagement = {
+  comments: FeedComment[];
+  likes: { count: number; liked: boolean };
+  saved: boolean;
+  isPlayed: boolean;
+};
+
+export type FeedPage = {
+  items: FeedItem[];
+  hasNextPage: boolean;
+  engagements: Record<string, FeedEngagement>;
+};
+
+function parseFeedResponse(result: any, limit: number): FeedPage {
+  const items = Array.isArray(result?.data) ? result.data : [];
+  return {
+    items,
+    hasNextPage: result?.pagination?.hasNextPage ?? items.length === limit,
+    engagements: result?.engagements ?? {},
+  };
+}
+
+/** Matches webSrc's `fetchDashboardFeed` (`actions/home.ts`): `GET /api/feed?page=&limit=` →
+ * `{ data: FeedItem[], pagination: { hasNextPage }, engagements? }`. Powers the Home feed's main
+ * (unfiltered) list — `searchFeed` below is the filtered/searched counterpart. */
+export async function fetchFeed(page: number, limit: number): Promise<FeedPage> {
+  const result = await apiClient
+    .get(FEED_ENDPOINTS.LIST, { params: { page, limit } })
+    .then(res => res.data);
+
+  return parseFeedResponse(result, limit);
+}
+
+/** `FilterPanel`'s `postTypes` values (`ask`, `investor`, ...) → backend `feed_type` strings —
+ * mirrors webSrc's own `FEED_TYPE_MAP` (`app/dashboard/page.tsx`), just named for our UI's value
+ * set instead of web's label set. */
+const POST_TYPE_TO_FEED_TYPE: Record<string, string> = {
+  ask: 'atc',
+  investor: 'investor_corner',
+  capital: 'search_capital',
+  deal: 'deal',
+  match: 'find_a_connection',
+  job: 'job',
+  event: 'event',
+  poll: 'poll',
+};
+
+export type FeedSearchParams = {
+  query?: string;
+  postTypes?: string[];
+  postedBy?: string[];
+  topics?: string[];
+};
+
+/** Matches webSrc's `searchFeed` (`app/dashboard/page.tsx`): `GET /api/feed/search?...`. Only
+ * sends params the backend actually supports for search — `postedWithin`/`onlySaved`/
+ * `hideAnonymous`/`activeOpportunitiesOnly` aren't sent because web's own version doesn't send
+ * them either ("Filters applied client-side... are NOT sent to the backend because the search
+ * endpoint doesn't support them", web's own comment) — `useHomeFeed` applies those client-side
+ * instead, same as web's `filteredFeed` pass. */
+export async function searchFeed(page: number, limit: number, params: FeedSearchParams): Promise<FeedPage> {
+  const query: Record<string, string> = { page: String(page), limit: String(limit) };
+
+  if (params.query?.trim()) {
+    query.query = params.query.trim();
+  }
+  if (params.postTypes?.length) {
+    const feedTypes = params.postTypes.map(t => POST_TYPE_TO_FEED_TYPE[t]).filter(Boolean);
+    if (feedTypes.length) {
+      query.feed_type = feedTypes.join(',');
+    }
+  }
+  if (params.postedBy?.length) {
+    query.posted_by = params.postedBy.join(',');
+  }
+  if (params.topics?.length) {
+    query.middle = params.topics.join(',');
+  }
+
+  const result = await apiClient.get(FEED_ENDPOINTS.SEARCH, { params: query }).then(res => res.data);
+  return parseFeedResponse(result, limit);
+}
