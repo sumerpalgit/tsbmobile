@@ -8,7 +8,7 @@ import { PostCardActions } from './PostCardActions';
 import { PostCardFooter } from './PostCardFooter';
 import { PostCardQuickProfile, QuickProfileContent } from './PostCardQuickProfile';
 import { getFindAConnectionQuickProfile } from './bodies/FindAConnectionBody';
-import { getEventQuickProfile } from './bodies/EventBody';
+import { EventFooter, getEventQuickProfile } from './bodies/EventBody';
 import { getJobQuickProfile } from './bodies/JobBody';
 import { getInvestorCornerQuickProfile } from './bodies/InvestorCornerBody';
 import { getAtcQuickProfile } from './bodies/AtcBody';
@@ -87,13 +87,13 @@ export function PostCard({
         saved={engagement?.saved}
         onSave={onSave}
         onQuickProfile={onQuickProfile}
-        onPrimaryPress={onPrimaryPress}
-        onRsvp={onRsvp}
       />
 
       {hasActions(feedItem) && (
         <PostCardActions engagement={engagement} onLike={onLike} onComment={onComment} onShare={onShare} />
       )}
+
+      {isEvent && <EventFooter item={feedItem.item} onPrimaryPress={onPrimaryPress} onRsvp={onRsvp} />}
 
       {!isEvent && footer && (
         <PostCardFooter

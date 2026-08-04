@@ -47,8 +47,9 @@ export function getEventQuickProfile(item: EventItem): QuickProfileContent {
  * Events — the mockup's one structurally different type: a cover-image block replaces the
  * usual avatar header entirely (no avatar anywhere on the card), with a floating date badge and
  * the type badge/location overlaid on the image itself. `PostCard.tsx` skips the shared
- * `PostCardHeader`/`PostCardFooter` for this type and forwards their callbacks here instead,
- * since this body owns that layout itself.
+ * `PostCardHeader` for this type and forwards its save/quick-profile callbacks here instead,
+ * since this body owns that layout itself. The footer is a separate `EventFooter` export (see
+ * its own doc comment for why it isn't returned from here).
  *
  * The image bleeds to the card's true edges via negative margins equal to the card's own
  * padding (`15`), rather than restructuring the card shell's padding for one type.
@@ -61,8 +62,6 @@ export function EventBody({
   saved,
   onSave,
   onQuickProfile,
-  onPrimaryPress,
-  onRsvp,
 }: {
   item: EventItem;
   profile: FeedProfile;
@@ -71,15 +70,12 @@ export function EventBody({
   saved?: boolean;
   onSave?: () => void;
   onQuickProfile?: () => void;
-  onPrimaryPress?: () => void;
-  onRsvp?: () => void;
 }) {
   const { colors, fonts, fontSize } = useTheme();
 
   const startDate = new Date(item.start_date);
   const month = startDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
   const day = startDate.getDate();
-  const isPast = new Date(item.end_date || item.start_date).getTime() < Date.now();
 
   const durationDays = Math.max(
     1,
@@ -150,33 +146,54 @@ export function EventBody({
         <EventTile label="Format" value={item.format} />
         <EventTile label="Duration" value={`${durationDays} ${durationDays === 1 ? 'Day' : 'Days'}`} />
       </View>
+    </View>
+  );
+}
 
-      <View style={styles.footerRow}>
+/**
+ * Event's bespoke footer — kept as its own component, rendered by `PostCard.tsx` *after*
+ * `PostCardActions`, not returned from `EventBody` itself. An earlier version returned this
+ * footer as the last element inside `EventBody`, which put it in the "body" slot — before
+ * `PostCardActions` renders — so Events ended up with buttons-then-actions while every other
+ * type (whose footer comes from the separate `PostCardFooter`, rendered after actions in
+ * `PostCard.tsx`) correctly shows actions-then-buttons. This fixes that ordering to match.
+ */
+export function EventFooter({
+  item,
+  onPrimaryPress,
+  onRsvp,
+}: {
+  item: EventItem;
+  onPrimaryPress?: () => void;
+  onRsvp?: () => void;
+}) {
+  const { colors, fonts } = useTheme();
+  const isPast = new Date(item.end_date || item.start_date).getTime() < Date.now();
+
+  return (
+    <View style={styles.footerRow}>
+      <Pressable
+        onPress={onPrimaryPress}
+        accessibilityRole="button"
+        style={[styles.detailsButton, { backgroundColor: colors.gold }]}
+      >
+        <Icon name="arrowRightLong" size={14} color="#fff" />
+        <Text style={[fonts.bold, styles.footerLabel, { color: '#fff' }]}>View Details</Text>
+      </Pressable>
+
+      {isPast ? (
+        <View style={[styles.pastPill, { backgroundColor: colors.surfaceSunken, borderColor: colors.homeCardBorder }]}>
+          <Text style={[fonts.semibold, styles.footerLabel, { fontSize: 12, color: colors.ink3 }]}>Event passed</Text>
+        </View>
+      ) : (
         <Pressable
-          onPress={onPrimaryPress}
+          onPress={onRsvp}
           accessibilityRole="button"
           style={[styles.detailsButton, { backgroundColor: colors.gold }]}
         >
-          <Icon name="arrowRightLong" size={14} color="#fff" />
-          <Text style={[fonts.bold, styles.footerLabel, { color: '#fff' }]}>View Details</Text>
+          <Text style={[fonts.bold, styles.footerLabel, { color: '#fff' }]}>{item.user_rsvped ? "You're going" : 'RSVP'}</Text>
         </Pressable>
-
-        {isPast ? (
-          <View
-            style={[styles.pastPill, { backgroundColor: colors.surfaceSunken, borderColor: colors.homeCardBorder }]}
-          >
-            <Text style={[fonts.semibold, styles.footerLabel, { fontSize: 12, color: colors.ink3 }]}>Event passed</Text>
-          </View>
-        ) : (
-          <Pressable
-            onPress={onRsvp}
-            accessibilityRole="button"
-            style={[styles.detailsButton, { backgroundColor: colors.gold }]}
-          >
-            <Text style={[fonts.bold, styles.footerLabel, { color: '#fff' }]}>{item.user_rsvped ? "You're going" : 'RSVP'}</Text>
-          </Pressable>
-        )}
-      </View>
+      )}
     </View>
   );
 }
@@ -197,11 +214,17 @@ const styles = StyleSheet.create({
   container: {
     gap: 11,
   },
+  // Source: `display:flex;align-items:flex-end` — on the web, an unset `flex-direction`
+  // defaults to `row`, so `align-items:flex-end` pushes content to the *bottom* (cross-axis).
+  // RN's `View` defaults to `flexDirection: 'column'` instead, so porting this without setting
+  // `flexDirection: 'row'` explicitly silently pinned the badge/location to the top — this is
+  // that fix.
   coverWrap: {
     height: 118,
     marginHorizontal: -15,
     marginTop: -15,
-    justifyContent: 'space-between',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     padding: 12,
     overflow: 'hidden',
   },

@@ -18,9 +18,10 @@ import { SearchCapitalBody } from './bodies/SearchCapitalBody';
  * later is just one new import + one new switch case.
  *
  * All 8 types are built now. Event-specific props (`profile`/`isAnonymous`/`createdAt`/save/
- * quick-profile/primary-press/RSVP callbacks) are only ever read by `EventBody` — every other
- * body ignores them since their header/footer come from the shared `PostCardHeader`/
- * `PostCardFooter` instead.
+ * quick-profile callbacks) are only ever read by `EventBody` — every other body ignores them
+ * since their header comes from the shared `PostCardHeader` instead. Event's footer
+ * (`EventFooter`) is rendered separately by `PostCard.tsx`, not through here — see its own doc
+ * comment for why.
  */
 export function PostCardBody({
   feedItem,
@@ -28,16 +29,12 @@ export function PostCardBody({
   saved,
   onSave,
   onQuickProfile,
-  onPrimaryPress,
-  onRsvp,
 }: {
   feedItem: FeedItem;
   onVote?: (optionIndex: number) => void;
   saved?: boolean;
   onSave?: () => void;
   onQuickProfile?: () => void;
-  onPrimaryPress?: () => void;
-  onRsvp?: () => void;
 }) {
   switch (feedItem.feed_type) {
     case 'atc':
@@ -64,8 +61,6 @@ export function PostCardBody({
           saved={saved}
           onSave={onSave}
           onQuickProfile={onQuickProfile}
-          onPrimaryPress={onPrimaryPress}
-          onRsvp={onRsvp}
         />
       );
     default:
