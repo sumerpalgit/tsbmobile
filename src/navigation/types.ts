@@ -12,6 +12,11 @@ export type AuthStackParamList = {
   /** Reached via the tsb://reset-password?token=... deep link — kept as a fallback, not the
    * primary path (see `ResetPasswordOtp`). */
   ResetPassword: { token?: string };
+  /** Reached via the tsb://linkedin-callback?token=...&complete=... deep link once webSrc's
+   * betterAuth LinkedIn flow finishes server-side (see `SocialSignIn`'s `handleLinkedInSignIn`
+   * in authShared.tsx). `complete`/`error` arrive as strings, same as every other query-param
+   * route here — parsed in `LinkedInCallbackScreen`. */
+  LinkedInCallback: { token?: string; complete?: string; error?: string };
   /** Primary password-reset path — OTP code + new password on one screen, reached right after
    * `ForgotPasswordScreen` submits, same shape as `CheckEmail`/email verification. */
   ResetPasswordOtp: { email: string };

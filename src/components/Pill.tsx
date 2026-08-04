@@ -46,7 +46,7 @@ export function Pill({
 
 const styles = StyleSheet.create({
   pill: {
-    borderRadius: 11,
+    borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 9,
   },

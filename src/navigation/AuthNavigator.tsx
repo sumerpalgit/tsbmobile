@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
   CheckEmailScreen,
   ForgotPasswordScreen,
+  LinkedInCallbackScreen,
   LoginScreen,
   ResetPasswordOtpScreen,
   ResetPasswordScreen,
@@ -44,6 +45,7 @@ function AuthNavigator() {
       <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="ResetPasswordOtp" component={ResetPasswordOtpScreen} />
+      <Stack.Screen name="LinkedInCallback" component={LinkedInCallbackScreen} />
       {/* Bottom-sheet-style modal over Login, not a horizontal push like Login → Signup. */}
       <Stack.Screen
         name="ForgotPassword"

@@ -1,6 +1,6 @@
 import React from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
-import { useNavigation } from '@react-navigation/native';
+import { getFocusedRouteNameFromRoute, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../theme';
 import { TopBar } from '../components/TopBar';
@@ -60,22 +60,33 @@ function DrawerNavigator() {
   return (
     <Drawer.Navigator
       drawerContent={props => <DrawerContent {...props} />}
-      screenOptions={({ navigation }) => ({
-        drawerType: 'front',
-        drawerStyle: {
-          width: sizes.drawerWidth,
-          backgroundColor: colors.surface,
-        },
-        sceneStyle: { backgroundColor: colors.pageBg },
-        overlayColor: 'rgba(0,0,0,0.4)',
-        header: () => (
-          <TopBar
-            onMenuPress={() => navigation.openDrawer()}
-            onBellPress={() => stackNavigation.navigate('Notifications')}
-            onAvatarPress={() => stackNavigation.navigate('Profile')}
-          />
-        ),
-      })}
+      screenOptions={({ navigation, route }) => {
+        // `route` is the focused `Tabs` drawer route while a bottom tab is showing — read the
+        // nested tab name the same way `DrawerContent` does, so the avatar (which just opens the
+        // Profile tab) can hide itself while already on that tab. Defaults to 'Home' (the first
+        // tab) since `getFocusedRouteNameFromRoute` returns undefined before any nested
+        // navigation has happened yet.
+        const focusedTabName =
+          route.name === 'Tabs' ? getFocusedRouteNameFromRoute(route) ?? 'Home' : undefined;
+
+        return {
+          drawerType: 'front',
+          drawerStyle: {
+            width: sizes.drawerWidth,
+            backgroundColor: colors.surface,
+          },
+          sceneStyle: { backgroundColor: colors.pageBg },
+          overlayColor: 'rgba(0,0,0,0.4)',
+          header: () => (
+            <TopBar
+              onMenuPress={() => navigation.openDrawer()}
+              onBellPress={() => stackNavigation.navigate('Notifications')}
+              onAvatarPress={() => stackNavigation.navigate('Profile')}
+              showAvatar={focusedTabName !== 'Home'}
+            />
+          ),
+        };
+      }}
     >
       <Drawer.Screen name="Tabs" component={MainNavigator} />
       {(

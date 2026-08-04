@@ -155,7 +155,7 @@ function MenuRow({
         { backgroundColor: pressed && !isActive ? colors.cream : backgroundColor },
       ]}
     >
-      <Icon name={icon} size={20} color={colors.goldDark} />
+      <Icon name={icon} size={21} color={colors.goldDark} />
       <Text
         style={[isActive ? textStyles.navItemActive : textStyles.navItem, { color: colors.ink }]}
         numberOfLines={1}

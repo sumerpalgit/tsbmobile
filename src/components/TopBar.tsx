@@ -23,6 +23,9 @@ type TopBarProps = {
   unreadCount?: number;
   userName?: string | null;
   profileImageUri?: string | null;
+  /** Hides the trailing avatar — used on the Home tab, where it would just open the Profile tab
+   * that's already reachable from the bottom bar. */
+  showAvatar?: boolean;
 };
 
 export function TopBar({
@@ -32,6 +35,7 @@ export function TopBar({
   unreadCount = 0,
   userName,
   profileImageUri,
+  showAvatar = true,
 }: TopBarProps) {
   const { colors, fonts, sizes, spacing, borderWidth, isDark, toggleTheme } =
     useTheme();
@@ -112,18 +116,20 @@ export function TopBar({
             )}
           </View>
 
-          <Pressable
-            onPress={onAvatarPress}
-            accessibilityRole="button"
-            accessibilityLabel="Profile menu"
-            hitSlop={4}
-          >
-            <Avatar
-              name={userName}
-              imageUri={profileImageUri}
-              size={sizes.avatar}
-            />
-          </Pressable>
+          {showAvatar && (
+            <Pressable
+              onPress={onAvatarPress}
+              accessibilityRole="button"
+              accessibilityLabel="Profile menu"
+              hitSlop={4}
+            >
+              <Avatar
+                name={userName}
+                imageUri={profileImageUri}
+                size={sizes.avatar}
+              />
+            </Pressable>
+          )}
         </View>
       </View>
     </View>
@@ -158,7 +164,7 @@ function IconButton({
         {
           width: sizes.iconButton,
           height: sizes.iconButton,
-          borderRadius: chip ? radius.md : radius.pill,
+          borderRadius: chip ? 12 : radius.pill,
           borderWidth: chip ? borderWidth.thin : 0,
           borderColor: colors.border,
           backgroundColor: chip
@@ -171,7 +177,7 @@ function IconButton({
         },
       ]}
     >
-      <Icon name={name} size={chip ? 18 : 20} color={color} />
+      <Icon name={name} size={chip ? 19 : 21} color={color} />
     </Pressable>
   );
 }

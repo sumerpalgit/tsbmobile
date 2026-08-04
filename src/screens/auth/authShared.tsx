@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { ChevronLeft } from 'lucide-react-native';
 import { GoogleSignin, isSuccessResponse, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import axios from 'axios';
 import Toast from 'react-native-toast-message';
+import { WEB_BASE_URL } from '@env';
 import { useTheme } from '../../theme';
 import { useAuth } from '../../store/AuthContext';
 import { AuthStackParamList } from '../../navigation/types';
@@ -101,6 +102,7 @@ export function SocialButton({
 /** The Google + LinkedIn button pair, identical on every auth sheet. */
 export function SocialSignIn() {
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [linkedinLoading, setLinkedinLoading] = useState(false);
   const { login } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
 
@@ -158,6 +160,33 @@ export function SocialSignIn() {
     }
   }
 
+  /** Opens webSrc's own LinkedIn sign-in flow in the system browser rather than doing OAuth
+   * natively — LinkedIn's code-for-token exchange needs a client secret that only webSrc's
+   * server holds (same secret the "Continue with LinkedIn" button on the website flow uses).
+   * webSrc redirects back into the app via `callbackURL`, landing on the
+   * tsb://linkedin-callback deep link (`LinkedInCallbackScreen`), which does the actual
+   * session persisting/navigation once webSrc hands back a token. Because this just opens a
+   * browser, there's no way to detect the user backing out without completing sign-in — the
+   * spinner only covers the moment it takes the OS to bring the browser to front. */
+  async function handleLinkedInSignIn() {
+    console.log('[LinkedInSignIn] button pressed');
+    setLinkedinLoading(true);
+    try {
+      const callbackURL = encodeURIComponent('tsb://linkedin-callback');
+      const url = `${WEB_BASE_URL}/mobile-auth/linkedin?callbackURL=${callbackURL}`;
+      await Linking.openURL(url);
+    } catch (error) {
+      console.log('[LinkedInSignIn] error opening browser:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'LinkedIn sign-in failed',
+        text2: 'Something went wrong. Please try again.',
+      });
+    } finally {
+      setLinkedinLoading(false);
+    }
+  }
+
   return (
     <View style={{ gap: 10 }}>
       <SocialButton
@@ -166,7 +195,12 @@ export function SocialSignIn() {
         onPress={handleGoogleSignIn}
         loading={googleLoading}
       />
-      <SocialButton icon={<LinkedInIcon />} label="Continue with LinkedIn" />
+      <SocialButton
+        icon={<LinkedInIcon />}
+        label="Continue with LinkedIn"
+        onPress={handleLinkedInSignIn}
+        loading={linkedinLoading}
+      />
     </View>
   );
 }

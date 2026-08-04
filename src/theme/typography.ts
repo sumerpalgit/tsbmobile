@@ -80,15 +80,15 @@ export const lineHeight = {
 
 /** Ready-made text styles for the shapes that repeat across screens. */
 export const textStyles = {
-  /** Bottom-tab and drawer item label — web uses 14px / 500. */
+  /** Drawer item label — web uses 14px / 500, bumped +1px for mobile legibility. */
   navItem: {
     ...fonts.medium,
-    fontSize: fontSize.ui,
+    fontSize: fontSize.ui + 1,
   } as TextStyle,
   /** Active nav item — web bumps to 600. */
   navItemActive: {
     ...fonts.semibold,
-    fontSize: fontSize.ui,
+    fontSize: fontSize.ui + 1,
   } as TextStyle,
   /** Drawer sub-item — web uses 11.5px. */
   navSubItem: {

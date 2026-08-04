@@ -41,13 +41,22 @@ export type OAuthSignInResponse = {
   };
 };
 
-/** `POST /api/auth/oauth-signin` — used by Google/LinkedIn sign-in once the native SDK has
- * already confirmed the identity; the backend just needs the email to find-or-create the
- * account and issue a token. No `refreshToken` comes back on this path (unlike `login`). */
+/** Persists an OAuth-issued token the same way regardless of which provider produced it —
+ * shared by `oauthSignIn` (Google, where the native SDK confirms identity and this app calls
+ * `oauth-signin` itself) and `LinkedInCallbackScreen` (where webSrc's betterAuth server already
+ * called `oauth-signin` and just hands the result back over the tsb://linkedin-callback deep
+ * link). No `refreshToken` on either path (unlike `login`). */
+export async function applyOAuthSession(token: string, complete: boolean) {
+  await AsyncStorage.setItem('accessToken', token);
+  await AsyncStorage.setItem('onboardingComplete', String(complete));
+}
+
+/** `POST /api/auth/oauth-signin` — used by Google sign-in once the native SDK has already
+ * confirmed the identity; the backend just needs the email to find-or-create the account and
+ * issue a token. */
 export async function oauthSignIn(email: string) {
   const data = await apiClient.post<OAuthSignInResponse>(AUTH_ENDPOINTS.OAUTH_SIGNIN, { email }).then(res => res.data);
-  await AsyncStorage.setItem('accessToken', data.token);
-  await AsyncStorage.setItem('onboardingComplete', String(data.complete));
+  await applyOAuthSession(data.token, data.complete);
   return data;
 }
 
