@@ -24,7 +24,7 @@ export const TAB_ITEMS: TabItem[] = [
   { name: 'Home', label: 'Home', icon: 'home', phase: 'Phase 3' },
   { name: 'Directory', label: 'Directory', icon: 'directory', phase: 'Phase 7' },
   { name: 'AiAssist', label: 'AI Assist', icon: 'aiAssist' },
-  { name: 'Messages', label: 'Messages', icon: 'messages', phase: 'Phase 6' },
+  { name: 'Messages', label: 'Messages', icon: 'messages' },
   { name: 'Profile', label: 'Profile', icon: 'account' },
 ];
 

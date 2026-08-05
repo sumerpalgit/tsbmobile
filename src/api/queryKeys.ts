@@ -4,3 +4,4 @@ export const HOME_FEED_QUERY_KEY = ['homeFeed'] as const;
 export const MY_EVENTS_QUERY_KEY = ['myEvents'] as const;
 export const SAVED_EVENTS_QUERY_KEY = ['savedEvents'] as const;
 export const AI_CONVERSATIONS_QUERY_KEY = ['aiConversations'] as const;
+export const CONVERSATIONS_QUERY_KEY = ['conversations'] as const;

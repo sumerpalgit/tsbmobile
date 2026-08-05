@@ -19,11 +19,13 @@ export const PROFILE_ENDPOINTS = {
   ME: '/profile/me',
   UPLOAD_DOCUMENT: '/profile/upload-document',
   COMPLETION: '/profile/completion',
+  SEARCH: '/profile/search',
 } as const;
 
 export const FEED_ENDPOINTS = {
   LIST: '/feed',
   SEARCH: '/feed/search',
+  SINGLE: '/feed/single',
 } as const;
 
 export const LOCATION_ENDPOINTS = {
@@ -47,6 +49,7 @@ export const MY_ACTIVITY_ENDPOINTS = {
 
 export const UPLOAD_ENDPOINTS = {
   IMAGE_UPLOAD: '/upload/image-upload',
+  DOCUMENT: '/upload/document',
 } as const;
 
 export const INTERESTS_ENDPOINTS = {
@@ -73,4 +76,10 @@ export const AI_ENDPOINTS = {
   MESSAGES: '/ai/messages',
   UPLOAD_DOCUMENT: '/ai/documents/upload',
   GENERATE_STREAM: '/ai/generate-stream',
+} as const;
+
+/** Ids interpolated at the call site (`${CHAT_ENDPOINTS.CONVERSATIONS}/${id}/messages`), same
+ * convention as `AI_ENDPOINTS` above. */
+export const CHAT_ENDPOINTS = {
+  CONVERSATIONS: '/chat/conversations',
 } as const;

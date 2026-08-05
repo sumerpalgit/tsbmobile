@@ -74,11 +74,10 @@ function DrawerNavigator() {
           },
           sceneStyle: { backgroundColor: colors.pageBg },
           overlayColor: 'rgba(0,0,0,0.4)',
-          // AI Assist renders its own header (`AiHeader`, matching its mockup — empty-state
-          // history/logo/theme/bell vs thread-state back/title/actions) instead of the generic
-          // `TopBar` above. Unlike My Events (a drawer screen, so it can set `headerShown: false`
-          // per `Drawer.Screen`), AI Assist is a *bottom tab* nested inside the single `Tabs`
-          // screen that owns this shared header.
+          // AI Assist and Messages each render their own header (`AiHeader`/`MessagesHeader`,
+          // matching their own mockups) instead of the generic `TopBar` above. Unlike My Events
+          // (a drawer screen, so it can set `headerShown: false` per `Drawer.Screen`), both are
+          // *bottom tabs* nested inside the single `Tabs` screen that owns this shared header.
           //
           // `headerShown: focusedTabName !== 'AiAssist'` alone does NOT hide it here — on-device
           // testing showed the shared `TopBar` still rendering (stacked above `AiHeader`) even
@@ -87,8 +86,10 @@ function DrawerNavigator() {
           // cause — `@react-navigation/drawer` v7 apparently doesn't re-derive the header's
           // reserved layout slot from a nested tab's focus change, even though it does re-invoke
           // `header:`'s render function — returning `null` from `header:` itself is what actually
-          // works, so that's the guard here instead of `headerShown`.
-          header: () => (focusedTabName === 'AiAssist' ? null : (
+          // works, so that's the guard here instead of `headerShown`. Same treatment extended to
+          // `'Messages'` without re-testing the `headerShown` route again — no reason to expect
+          // a different navigator behavior for a second tab making the identical request.
+          header: () => (focusedTabName === 'AiAssist' || focusedTabName === 'Messages' ? null : (
             <TopBar
               onMenuPress={() => navigation.openDrawer()}
               onBellPress={() => stackNavigation.navigate('Notifications')}
