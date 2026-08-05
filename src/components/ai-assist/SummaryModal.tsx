@@ -1,10 +1,13 @@
 import React from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { X } from 'lucide-react-native';
+import { Copy, X } from 'lucide-react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '../../theme';
 
 /** Centered modal showing `summariseAiMessage`'s output — same chrome family as
- * `ConfirmDialog`/`RenameDialog`, sized taller for prose and scrollable. */
+ * `ConfirmDialog`/`RenameDialog`, sized taller for prose and scrollable. Footer's "Copy summary"
+ * matches webSrc's summary modal (`page.tsx:1781-1788`). */
 export function SummaryModal({
   visible,
   loading,
@@ -45,11 +48,38 @@ export function SummaryModal({
               <ActivityIndicator size="small" color={colors.gold} />
             </View>
           ) : (
-            <ScrollView style={styles.scroll}>
-              <Text style={[fonts.regular, styles.body, { fontSize: fontSize.body, color: colors.ink2 }]}>
-                {summary}
-              </Text>
-            </ScrollView>
+            <>
+              <ScrollView style={styles.scroll}>
+                <Text style={[fonts.regular, styles.body, { fontSize: fontSize.body, color: colors.ink2 }]}>
+                  {summary}
+                </Text>
+              </ScrollView>
+              {summary ? (
+                <View style={styles.footer}>
+                  <Pressable
+                    onPress={onClose}
+                    style={({ pressed }) => [
+                      styles.footerButton,
+                      { backgroundColor: pressed ? colors.surfaceSunken : 'transparent' },
+                    ]}
+                  >
+                    <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Close</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      Clipboard.setString(summary);
+                      Toast.show({ type: 'success', text1: 'Summary copied ✓' });
+                    }}
+                    style={[styles.copyButton, { backgroundColor: colors.feedFill, borderRadius: radius.lg }]}
+                  >
+                    <Copy size={13} color={colors.feedOnFill} strokeWidth={1.6} />
+                    <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.feedOnFill }]}>
+                      Copy summary
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </>
           )}
         </Pressable>
       </Pressable>
@@ -95,5 +125,25 @@ const styles = StyleSheet.create({
   },
   body: {
     lineHeight: 20,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+  },
+  footerButton: {
+    height: 38,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 38,
+    paddingHorizontal: 14,
   },
 });

@@ -1,16 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
   Share,
+  Text,
   View,
 } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import Toast from 'react-native-toast-message';
+import axios from 'axios';
 import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import { useTheme } from '../theme';
 import { useMe } from '../hooks/useMe';
@@ -66,7 +69,7 @@ function pickRandomPrompts(count: number) {
  * stream `fetch` support in this RN/Hermes configuration), export uses `Share.share()` instead of
  * web's `jspdf`/blob-download flow, and the History Drawer replaces web's permanent sidebar. */
 export default function AiAssistScreen() {
-  const { colors } = useTheme();
+  const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const navigation = useNavigation();
   const { data: me } = useMe();
   const { conversations, isLoading: conversationsLoading, refetch: refetchConversations } = useAiConversations();
@@ -83,6 +86,7 @@ export default function AiAssistScreen() {
   const [messageReactions, setMessageReactions] = useState<Record<string, MessageReaction>>({});
   const [suggestedPrompts] = useState(() => pickRandomPrompts(3));
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [uploadingFileName, setUploadingFileName] = useState('');
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -104,6 +108,10 @@ export default function AiAssistScreen() {
   const shouldAutoScrollRef = useRef(true);
   const prevContentHeightRef = useRef(0);
   const pendingScrollAdjustRef = useRef<number | null>(null);
+  // Matches webSrc's `lastScrollTime` debounce (`page.tsx:394-411`) — without it, rapid scroll
+  // events (throttled at 32ms here) can fire `loadMoreMessages` more than once before the first
+  // call's `setLoadingMore(true)` re-render lands, double-fetching/double-prepending a page.
+  const lastLoadMoreAtRef = useRef(0);
 
   useEffect(() => () => streamAbortRef.current?.(), []);
 
@@ -170,7 +178,14 @@ export default function AiAssistScreen() {
   }, [currentConversationId, pagination, loadingMore]);
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (e.nativeEvent.contentOffset.y < 40 && pagination?.hasMore && !loadingMore) {
+    const now = Date.now();
+    if (
+      e.nativeEvent.contentOffset.y < 40 &&
+      pagination?.hasMore &&
+      !loadingMore &&
+      now - lastLoadMoreAtRef.current > 500
+    ) {
+      lastLoadMoreAtRef.current = now;
       loadMoreMessages();
     }
   };
@@ -186,6 +201,20 @@ export default function AiAssistScreen() {
     prevContentHeightRef.current = height;
   };
 
+  // Matches webSrc's `start`-event handler (`page.tsx:653-661`): once the backend assigns a real
+  // conversation (and generates its title server-side), refetch and adopt that title — otherwise
+  // the thread header stays on the raw first-message text forever, diverging from what History
+  // shows for the same chat.
+  const syncTitleFromServer = useCallback(async (conversationId: string) => {
+    try {
+      const result = await refetchConversations();
+      const conv = result.data?.find(c => c.id === conversationId);
+      if (conv) setChatTitle(conv.title);
+    } catch {
+      // Non-critical — the locally-set title (raw first message) stays as a reasonable fallback.
+    }
+  }, [refetchConversations]);
+
   const generateContent = useCallback(async (userMessage: string) => {
     setLoading(true);
     shouldAutoScrollRef.current = true;
@@ -196,7 +225,10 @@ export default function AiAssistScreen() {
       { message: userMessage, conversationId: currentConversationId },
       {
         onStart: convId => {
-          if (convId && !currentConversationId) setCurrentConversationId(convId);
+          if (convId && !currentConversationId) {
+            setCurrentConversationId(convId);
+            syncTitleFromServer(convId);
+          }
         },
         onToken: (_token, fullText) => {
           setMessages(prev => prev.map(m => (m.id === assistantId ? { ...m, text: fullText } : m)));
@@ -216,7 +248,7 @@ export default function AiAssistScreen() {
       },
     );
     streamAbortRef.current = abort;
-  }, [currentConversationId, refetchConversations]);
+  }, [currentConversationId, refetchConversations, syncTitleFromServer]);
 
   const handleAsk = useCallback((text: string) => {
     const trimmed = text.trim();
@@ -262,6 +294,7 @@ export default function AiAssistScreen() {
         return;
       }
       setIsUploadingDocument(true);
+      setUploadingFileName(picked.name ?? 'document.pdf');
       let conversationId = currentConversationId;
       if (!conversationId) {
         conversationId = await createAiConversation('New Chat');
@@ -280,9 +313,17 @@ export default function AiAssistScreen() {
       refetchConversations();
     } catch (err) {
       if (isErrorWithCode(err) && err.code === errorCodes.OPERATION_CANCELED) return;
-      showToast('Failed to upload document', 'error');
+      // Matches webSrc's catch (`page.tsx:584`): surface the real backend error instead of a
+      // fixed generic string, same shape webSrc's own `requestBackend` extracts errors in.
+      const message = axios.isAxiosError(err)
+        ? (err.response?.data as { error?: string } | undefined)?.error ?? err.message
+        : err instanceof Error
+        ? err.message
+        : undefined;
+      showToast(message || 'Failed to upload document', 'error');
     } finally {
       setIsUploadingDocument(false);
+      setUploadingFileName('');
     }
   };
 
@@ -446,6 +487,38 @@ export default function AiAssistScreen() {
           />
         )}
 
+        {/* Upload progress banner — matches webSrc's `page.tsx:1113-1129` (spinner + filename +
+            informational copy). No Cancel button: web's own Cancel is dead code there (its
+            `AbortController` is never actually wired to the request, confirmed by reading
+            `handleCancelDocumentUpload`/`handleDocumentUpload`), so omitting it isn't a
+            regression — a non-functional button isn't worth reproducing. */}
+        {isUploadingDocument && (
+          <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                padding: 12,
+                borderRadius: radius.xl,
+                borderWidth: borderWidth.thin,
+                borderColor: colors.border,
+                backgroundColor: colors.surface,
+              }}
+            >
+              <ActivityIndicator size="small" color={colors.gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={[fonts.medium, { fontSize: fontSize.body, color: colors.ink }]}>
+                  Uploading {uploadingFileName || 'document'}…
+                </Text>
+                <Text style={[fonts.regular, { fontSize: fontSize.small, color: colors.ink3, marginTop: 2 }]}>
+                  AI will use document context after processing completes.
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         <Composer
           value={inputText}
           onChangeText={setInputText}
@@ -458,6 +531,27 @@ export default function AiAssistScreen() {
           isUploadingDocument={isUploadingDocument}
           disabled={loading}
         />
+
+        {/* Disclaimer — matches webSrc's `page.tsx:1419-1422`, shown under the composer at all
+            times. Same `colors.surface` background as the `Composer` card above it (not the page
+            background) so the two read as one continuous bottom block instead of the text
+            appearing to float separately. */}
+        <View style={{ backgroundColor: colors.surface, paddingBottom: 8 }}>
+          <Text
+            style={[
+              fonts.regular,
+              {
+                textAlign: 'center',
+                fontSize: 10,
+                color: colors.ink3,
+                opacity: 0.7,
+                paddingHorizontal: 16,
+              },
+            ]}
+          >
+            AI Assist can make mistakes. Verify important deal and tax information independently.
+          </Text>
+        </View>
       </KeyboardAvoidingView>
 
       <HistoryDrawer

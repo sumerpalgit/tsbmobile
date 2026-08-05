@@ -131,6 +131,7 @@ export function HistoryDrawer({
             activeConversationId={activeConversationId}
             onSelect={onSelect}
             onOpenMenu={onOpenMenu}
+            collapsible
           />
         </ScrollView>
 
@@ -153,6 +154,8 @@ export function HistoryDrawer({
   );
 }
 
+const SAVED_COLLAPSE_THRESHOLD = 3;
+
 function Section({
   icon,
   label,
@@ -161,6 +164,7 @@ function Section({
   activeConversationId,
   onSelect,
   onOpenMenu,
+  collapsible = false,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -169,16 +173,30 @@ function Section({
   activeConversationId: string | null;
   onSelect: (id: string) => void;
   onOpenMenu: (conversation: Conversation) => void;
+  /** Caps the list to `SAVED_COLLAPSE_THRESHOLD` with a "See all"/"Less" toggle once it exceeds
+   * that — matches webSrc's Saved section (`page.tsx:1079-1090`, `isShowAllSavedChats`). */
+  collapsible?: boolean;
 }) {
   const { colors, fonts, fontSize, radius } = useTheme();
+  const [showAll, setShowAll] = useState(false);
 
   if (!loading && items.length === 0) return null;
+
+  const isCollapsed = collapsible && !showAll && items.length > SAVED_COLLAPSE_THRESHOLD;
+  const visibleItems = isCollapsed ? items.slice(0, SAVED_COLLAPSE_THRESHOLD) : items;
 
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         {icon}
         <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink3 }]}>{label}</Text>
+        {collapsible && items.length > SAVED_COLLAPSE_THRESHOLD && (
+          <Pressable onPress={() => setShowAll(p => !p)} style={styles.seeAllButton} hitSlop={8}>
+            <Text style={[fonts.semibold, styles.seeAllText, { color: colors.ink3 }]}>
+              {showAll ? 'Less' : 'See all'}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       {loading
@@ -188,7 +206,7 @@ function Section({
               <View style={[styles.skeletonLine, { width: `${w}%`, backgroundColor: colors.creamDark, borderRadius: radius.sm }]} />
             </View>
           ))
-        : items.map(conv => {
+        : visibleItems.map(conv => {
             const active = conv.id === activeConversationId;
             return (
               <View
@@ -274,6 +292,14 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 0.9,
     textTransform: 'uppercase',
+  },
+  seeAllButton: {
+    marginLeft: 'auto',
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  seeAllText: {
+    fontSize: 9,
   },
   row: {
     flexDirection: 'row',

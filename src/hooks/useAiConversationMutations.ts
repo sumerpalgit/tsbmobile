@@ -49,6 +49,10 @@ export function useAiConversationMutations() {
       queryClient.setQueryData(AI_CONVERSATIONS_QUERY_KEY, (old: any[] = []) =>
         old.map(c => (c.id === id ? { ...c, is_saved: isSaved } : c)),
       );
+      // Fires alongside the optimistic update, not after the round trip — matches webSrc's
+      // `showToast(...)` called synchronously at the same click site as `toggleSaveConversation`
+      // (`page.tsx:1159-1171`), not gated on the network response.
+      Toast.show({ type: 'success', text1: isSaved ? 'Chat saved ✓' : 'Removed from saved' });
       return { previous };
     },
     onError: (_err, _vars, context) => {

@@ -209,7 +209,22 @@ export async function streamAiGenerate(
     drain();
     if (buffer.trim()) processSSEChunk(buffer.trim());
     if (xhr.status < 200 || xhr.status >= 300) {
-      callbacks.onError?.(`Request failed: ${xhr.status}`);
+      // Same status-specific copy as webSrc's `generateContent` (`ai-assist/page.tsx:608-614`).
+      const STATUS_MESSAGES: Record<number, string> = {
+        401: 'Authentication failed. Please log in again.',
+        403: 'Access denied. Please verify your account.',
+        429: 'Rate limit exceeded. Please try again later.',
+        503: 'AI service temporarily unavailable. Please try again later.',
+      };
+      let serverMessage: string | undefined;
+      try {
+        serverMessage = JSON.parse(xhr.responseText || '{}')?.error;
+      } catch {
+        // Non-JSON error body — fall through to the generic message below.
+      }
+      callbacks.onError?.(
+        STATUS_MESSAGES[xhr.status] || serverMessage || `Request failed: ${xhr.status} ${xhr.statusText}`,
+      );
       return;
     }
     if (!fullResponse.trim()) callbacks.onError?.('Empty AI response');
