@@ -65,3 +65,12 @@ export const ETA_ENDPOINTS = {
   SEARCH: '/eta/eta-chapters/search',
   BATCH_JOIN: '/eta/groups/batch-join',
 } as const;
+
+/** Ids are interpolated at the call site (`${AI_ENDPOINTS.CONVERSATIONS}/${id}`), same
+ * convention as `EVENT_ENDPOINTS.CREATE` + `/${id}` in `api/events.ts`. */
+export const AI_ENDPOINTS = {
+  CONVERSATIONS: '/ai/conversations',
+  MESSAGES: '/ai/messages',
+  UPLOAD_DOCUMENT: '/ai/documents/upload',
+  GENERATE_STREAM: '/ai/generate-stream',
+} as const;

@@ -74,14 +74,28 @@ function DrawerNavigator() {
           },
           sceneStyle: { backgroundColor: colors.pageBg },
           overlayColor: 'rgba(0,0,0,0.4)',
-          header: () => (
+          // AI Assist renders its own header (`AiHeader`, matching its mockup — empty-state
+          // history/logo/theme/bell vs thread-state back/title/actions) instead of the generic
+          // `TopBar` above. Unlike My Events (a drawer screen, so it can set `headerShown: false`
+          // per `Drawer.Screen`), AI Assist is a *bottom tab* nested inside the single `Tabs`
+          // screen that owns this shared header.
+          //
+          // `headerShown: focusedTabName !== 'AiAssist'` alone does NOT hide it here — on-device
+          // testing showed the shared `TopBar` still rendering (stacked above `AiHeader`) even
+          // though `focusedTabName` was correctly 'AiAssist' in that same render (proven by
+          // `showAvatar` below reacting correctly in the very same options object). Whatever the
+          // cause — `@react-navigation/drawer` v7 apparently doesn't re-derive the header's
+          // reserved layout slot from a nested tab's focus change, even though it does re-invoke
+          // `header:`'s render function — returning `null` from `header:` itself is what actually
+          // works, so that's the guard here instead of `headerShown`.
+          header: () => (focusedTabName === 'AiAssist' ? null : (
             <TopBar
               onMenuPress={() => navigation.openDrawer()}
               onBellPress={() => stackNavigation.navigate('Notifications')}
               onAvatarPress={() => stackNavigation.navigate('Profile')}
               showAvatar={focusedTabName !== 'Home'}
             />
-          ),
+          )),
         };
       }}
     >

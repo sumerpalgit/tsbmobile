@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../theme';
 import { Icon } from '../components/icons/Icon';
 import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
-import { HomeScreen, ProfileScreen } from '../screens';
+import { AiAssistScreen, HomeScreen, ProfileScreen } from '../screens';
 import { TAB_ITEMS } from './menuConfig';
 import { MainTabParamList } from './types';
 
@@ -30,11 +30,7 @@ const TAB_SCREENS: Record<keyof MainTabParamList, React.ComponentType> = {
     icon: 'directory',
     phase: 'Phase 7',
   }),
-  AiAssist: createPlaceholderScreen({
-    title: 'AI Assist',
-    icon: 'aiAssist',
-    phase: 'Phase 7',
-  }),
+  AiAssist: AiAssistScreen,
   Messages: createPlaceholderScreen({
     title: 'Messages',
     icon: 'messages',
