@@ -4,7 +4,7 @@ import { useTheme } from '../../../theme';
 import { Icon } from '../../icons/Icon';
 import { Pill } from '../../Pill';
 import { Switch } from '../../Switch';
-import { ROLE_OPTIONS, WizardDraft } from './types';
+import { ROLE_COUNTS, ROLE_OPTIONS, WizardDraft } from './types';
 
 const QUICK_PRESETS: { label: string; roles: string[] }[] = [
   { label: 'Everyone', roles: ROLE_OPTIONS },
@@ -26,6 +26,10 @@ export function StepAudience({ draft, onChange }: { draft: WizardDraft; onChange
     const next = draft.roles.includes(role) ? draft.roles.filter(r => r !== role) : [...draft.roles, role];
     onChange({ roles: next });
   };
+
+  // Matches web's `estimatedReach` (`event.tsx:134`): sum of AUDIENCE_ROLES' hardcoded counts
+  // for currently-selected roles.
+  const estimatedReach = draft.roles.reduce((sum, role) => sum + (ROLE_COUNTS[role] ?? 0), 0);
 
   return (
     <View style={styles.wrap}>
@@ -72,7 +76,9 @@ export function StepAudience({ draft, onChange }: { draft: WizardDraft; onChange
       <View style={styles.notifiedRow}>
         <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink3 }]}>MEMBERS NOTIFIED</Text>
         <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-        <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.ink }]}>{draft.roles.length} role{draft.roles.length === 1 ? '' : 's'}</Text>
+        <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.ink }]}>
+          ~<Text style={{ color: colors.goldDark }}>{estimatedReach.toLocaleString()}</Text> members
+        </Text>
       </View>
 
       <View style={[styles.rsvpCard, { backgroundColor: colors.surface, borderColor: colors.homeCardBorder, borderWidth: borderWidth.thin, borderRadius: radius.xl }]}>

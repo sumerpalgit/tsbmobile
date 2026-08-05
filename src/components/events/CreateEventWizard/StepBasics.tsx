@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../../../theme';
 import { Icon } from '../../icons/Icon';
 import { FieldSelect } from './FieldSelect';
-import { EVENT_TYPE_OPTIONS, VISIBILITY_OPTIONS, WizardDraft } from './types';
+import { EVENT_TYPES_IN_PERSON, EVENT_TYPES_ONLINE, VISIBILITY_OPTIONS, WizardDraft } from './types';
 
 const TITLE_MAX = 80;
 const DESC_MAX = 500;
@@ -14,9 +14,12 @@ const FORMATS: { value: WizardDraft['fmt']; icon: 'link' | 'pin' | 'grid' }[] = 
   { value: 'Hybrid', icon: 'grid' },
 ];
 
-/** Step 1 — title, description, format (Online/In Person/Hybrid), event type, visibility.
- * `onFieldFocus` (wired to both text fields below) drives `CreateEventWizard.tsx`'s manual
- * scroll-to-focused-input — see that file's doc comment on `handleFieldFocus` for why. */
+/** Step 1 — title, description, format (Online/In Person/Hybrid), format-scoped event type,
+ * visibility (+ Registration Link for private events). No AI-rephrase button — web's `EventForm`
+ * declares the same `handleRephraseEventDescription` prop but never renders a button for it either
+ * (only the Question/Job post type's form does), so this stays out for parity. `onFieldFocus`
+ * (wired to both text fields below) drives `CreateEventWizard.tsx`'s manual scroll-to-focused-input
+ * — see that file's doc comment on `handleFieldFocus` for why. */
 export function StepBasics({
   draft,
   onChange,
@@ -29,6 +32,10 @@ export function StepBasics({
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const titleRef = useRef<TextInput>(null);
   const descRef = useRef<TextInput>(null);
+  const linkRef = useRef<TextInput>(null);
+
+  const eventTypeList = draft.fmt === 'Online' ? EVENT_TYPES_ONLINE : EVENT_TYPES_IN_PERSON;
+  const isPrivate = draft.vis === 'private';
 
   return (
     <View style={styles.wrap}>
@@ -96,7 +103,7 @@ export function StepBasics({
         <FieldSelect
           value={draft.etype}
           placeholder="Select event type"
-          options={EVENT_TYPE_OPTIONS.map(t => ({ value: t, label: t }))}
+          options={eventTypeList.map(t => ({ value: t, label: t }))}
           onChange={v => onChange({ etype: v })}
         />
       </View>
@@ -106,10 +113,33 @@ export function StepBasics({
         <FieldSelect
           value={draft.vis}
           placeholder="Select visibility"
-          options={VISIBILITY_OPTIONS.map(v => ({ value: v, label: v }))}
+          options={VISIBILITY_OPTIONS}
           onChange={v => onChange({ vis: v })}
         />
       </View>
+
+      {isPrivate && (
+        <FieldGroup label="Registration link" required>
+          <TextInput
+            ref={linkRef}
+            value={draft.link}
+            onChangeText={v => onChange({ link: v })}
+            onFocus={() => onFieldFocus?.(linkRef)}
+            placeholder="https://… link where invited guests can register"
+            placeholderTextColor={colors.ink3}
+            autoCapitalize="none"
+            keyboardType="url"
+            style={[
+              fonts.regular,
+              styles.input,
+              { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xl, color: colors.ink, fontSize: fontSize.ui },
+            ]}
+          />
+          <Text style={[fonts.regular, styles.hint, { color: colors.ink3 }]}>
+            Only people with this link can register. Share it directly with your invited audience.
+          </Text>
+        </FieldGroup>
+      )}
     </View>
   );
 }

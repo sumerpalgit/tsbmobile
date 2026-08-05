@@ -4,6 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { Icon } from '../icons/Icon';
 
+/** The header's own content height below the safe-area inset — `row`'s `paddingVertical` (top +
+ * bottom) plus the icon buttons' fixed height, matching `styles.row`/`styles.iconButton` below
+ * exactly. `EventsCalendarPopover` positions itself off `insets.top + HEADER_CONTENT_HEIGHT`
+ * rather than measuring the Calendar button at runtime — this header's height never changes with
+ * content, so a fixed constant both files agree on is simpler and doesn't depend on getting
+ * `measureInWindow` timing/coordinate-space right. Keep this in sync if `row`/`iconButton` change. */
+export const HEADER_CONTENT_HEIGHT = 9 + 9 + 38;
+
 /**
  * My Events' own header — replaces the app-wide `TopBar` for just this drawer screen (wired via
  * `options.header` on its `Drawer.Screen` in `DrawerNavigator.tsx`) since the mockup's header

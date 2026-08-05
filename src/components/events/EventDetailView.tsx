@@ -196,7 +196,13 @@ export function EventDetailView({
             <View style={[styles.noticeRow, { backgroundColor: colors.surface2, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xl }]}>
               <Icon name="account" size={15} color={colors.ink3} />
               <Text style={[fonts.regular, styles.noticeText, { color: colors.ink2 }]}>
-                This event is visible to <Text style={fonts.semibold}>{event.visibility}</Text>.
+                {event.visibility === 'private' ? (
+                  <>This event is <Text style={fonts.semibold}>private</Text> — visible only via the registration link.</>
+                ) : event.visibility === 'public' ? (
+                  <>This event is visible to <Text style={fonts.semibold}>everyone on TSB</Text>.</>
+                ) : (
+                  <>This event is visible to <Text style={fonts.semibold}>{event.visibility}</Text>.</>
+                )}
               </Text>
             </View>
           )}
@@ -245,12 +251,12 @@ export function EventDetailView({
         )}
         {!!event.event_link && (
           <Pressable
-            onPress={virtual ? openLink : () => Toast.show({ type: 'success', text1: 'Added to calendar!' })}
+            onPress={openLink}
             style={({ pressed }) => [styles.footerButton, { backgroundColor: colors.accentSolid, borderRadius: radius.xl }, pressed && styles.pressed]}
           >
             {virtual && <Icon name="link" size={13} color={colors.onAccent} />}
             <Text style={[fonts.bold, styles.footerButtonText, { color: colors.onAccent }]}>
-              {virtual ? 'Join event' : 'Add to calendar'}
+              {virtual ? 'Join event' : 'View Details'}
             </Text>
           </Pressable>
         )}

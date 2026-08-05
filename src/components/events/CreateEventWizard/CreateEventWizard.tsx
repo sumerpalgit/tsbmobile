@@ -26,7 +26,11 @@ function toPayload(draft: WizardDraft, coverUrl: string): EventFormPayload {
     start_date: draft.sdate,
     end_date: draft.edate || draft.sdate,
     start_time: draft.stime,
-    end_time: draft.etime,
+    // End time is optional in the UI (only Start time is marked required in `step2Valid`), but
+    // the backend's `time` column rejects an empty string outright ("invalid input syntax for
+    // type time: \"\"") rather than treating it as null — falls back to the start time, same
+    // pattern already used for `end_date` above.
+    end_time: draft.etime || draft.stime,
     timezone: draft.tz,
     event_link: draft.link,
     location: draft.venue,

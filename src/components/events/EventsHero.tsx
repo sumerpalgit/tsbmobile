@@ -4,17 +4,19 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../../theme';
 
 /**
- * Hero band — title/subtitle + a 3-stat row (Registered / Saved / Attended), matching the
- * mockup's `stats` array exactly (`myevents_decoded.html` ~line 1458) — not web's 4-stat version
- * (which adds "Days to next event").
+ * Hero band — title/subtitle + a 4-stat row (Registered / Saved / Days to next event / Attended),
+ * matching web's stat row exactly (`my-events/page.tsx:867-885`) — the mockup's own `stats` array
+ * (`myevents_decoded.html` ~line 1458) only has 3, dropping "Days to next event"; this restores it.
  */
 export function EventsHero({
   registeredCount,
   savedCount,
+  daysToNextEvent,
   attendedCount,
 }: {
   registeredCount: number;
   savedCount: number;
+  daysToNextEvent: number | string;
   attendedCount: number;
 }) {
   const { colors, fonts } = useTheme();
@@ -22,6 +24,7 @@ export function EventsHero({
   const stats = [
     { label: 'Registered', value: registeredCount },
     { label: 'Saved', value: savedCount },
+    { label: 'Days to next event', value: daysToNextEvent },
     { label: 'Attended', value: attendedCount },
   ];
 

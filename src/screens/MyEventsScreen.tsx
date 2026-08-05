@@ -3,7 +3,6 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native
 import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Toast from 'react-native-toast-message';
 import { useTheme } from '../theme';
 import { useMyEvents } from '../hooks/useMyEvents';
 import { useEventMutations } from '../hooks/useEventMutations';
@@ -13,6 +12,7 @@ import type { MyEventItem } from '../types/events';
 import type { AppStackParamList, DrawerParamList } from '../navigation/types';
 import { MyEventsHeader } from '../components/events/MyEventsHeader';
 import { EventsHero } from '../components/events/EventsHero';
+import { EventsCalendarPopover } from '../components/events/EventsCalendarPopover';
 import { NextUpCard } from '../components/events/NextUpCard';
 import { EventsControls, EventTab } from '../components/events/EventsControls';
 import { EventTypeChipsRow } from '../components/events/EventTypeChipsRow';
@@ -77,6 +77,7 @@ function MyEventsScreen() {
   const [filters, setFilters] = useState<EventsFilterState>(EMPTY_EVENTS_FILTERS);
   const [filterPageOpen, setFilterPageOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const isRsvped = (eventId: string) => rsvpEvents.some(e => e.id === eventId);
   const isSaved = (event: MyEventItem) => savedEvents.some(s => s.feed_id === event.feed_id);
@@ -191,6 +192,10 @@ function MyEventsScreen() {
 
   const attendedCount = events.filter(e => isEventPast(e)).length;
   const registeredCount = rsvpEvents.filter(e => e.start_date && new Date(e.start_date).getTime() > now).length;
+  // Matches web's `daysToNextEvent` (`my-events/page.tsx:540-548`) — days until the earliest
+  // future RSVP'd event, "—" when there is none. Reuses `nextUpEvent`/`daysBetween` already
+  // computed above rather than a second day-math formula.
+  const daysToNextEvent: number | string = nextUpEvent ? Math.max(0, daysBetween(nextUpEvent.start_date, now)) : '—';
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -209,16 +214,22 @@ function MyEventsScreen() {
     <View style={[styles.screen, { backgroundColor: colors.pageBg }]}>
       <MyEventsHeader
         onMenuPress={() => navigation.openDrawer()}
-        onCalendarPress={() => Toast.show({ type: 'info', text1: 'Calendar view coming soon' })}
+        onCalendarPress={() => setCalendarOpen(true)}
         onCreatePress={() => navigation.navigate('CreateEvent', {})}
       />
+      <EventsCalendarPopover visible={calendarOpen} events={events} onClose={() => setCalendarOpen(false)} />
 
       <ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} />}
       >
-        <EventsHero registeredCount={registeredCount} savedCount={savedEvents.length} attendedCount={attendedCount} />
+        <EventsHero
+          registeredCount={registeredCount}
+          savedCount={savedEvents.length}
+          daysToNextEvent={daysToNextEvent}
+          attendedCount={attendedCount}
+        />
 
         {showNextUp && nextUpEvent && (
           <NextUpCard
@@ -245,7 +256,7 @@ function MyEventsScreen() {
             filtersActive={filtersActive}
           />
 
-          {!searchOpen && typesInSegment.length > 0 && (
+          {typesInSegment.length > 0 && (
             <EventTypeChipsRow types={typesInSegment} selected={selectedType} onSelect={setSelectedType} />
           )}
         </View>

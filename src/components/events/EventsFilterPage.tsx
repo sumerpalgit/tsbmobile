@@ -1,11 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { Icon } from '../icons/Icon';
 import { Pill } from '../Pill';
 import { Button } from '../Button';
+import { searchCities } from '../../api/location';
 import type { EventTab } from './EventsControls';
+
+const CITY_SEARCH_DEBOUNCE_MS = 300;
+const CITY_SEARCH_MIN_LENGTH = 2;
 
 export type EventDateRange = 'any' | 'week' | 'month' | 'quarter' | 'custom';
 export type EventSort = 'soon' | 'late' | 'az';
@@ -70,6 +74,36 @@ export function EventsFilterPage({
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(initialFilters);
   const [cityQuery, setCityQuery] = useState('');
+  const [liveCities, setLiveCities] = useState<string[]>([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const cityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Matches web's live `/api/location/cities` autocomplete on the filter drawer
+  // (`my-events/page.tsx:332-341`) — merged into `filteredCities` below alongside the
+  // already-loaded-events list, not a replacement for it.
+  useEffect(() => {
+    if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current);
+    const trimmed = cityQuery.trim();
+    if (trimmed.length < CITY_SEARCH_MIN_LENGTH) {
+      setLiveCities([]);
+      setCityLoading(false);
+      return;
+    }
+    setCityLoading(true);
+    cityDebounceRef.current = setTimeout(async () => {
+      try {
+        const results = await searchCities(trimmed);
+        setLiveCities(results.map(c => c.city));
+      } catch {
+        setLiveCities([]);
+      } finally {
+        setCityLoading(false);
+      }
+    }, CITY_SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current);
+    };
+  }, [cityQuery]);
 
   const screenWidth = Dimensions.get('window').width;
   const [shouldRender, setShouldRender] = useState(visible);
@@ -99,7 +133,11 @@ export function EventsFilterPage({
   };
 
   const activeCount = countActiveEventFilters(draft);
-  const filteredCities = cityOptions.filter(c => c.toLowerCase().includes(cityQuery.trim().toLowerCase()));
+  const localCities = cityOptions.filter(c => c.toLowerCase().includes(cityQuery.trim().toLowerCase()));
+  const filteredCities = [
+    ...localCities,
+    ...liveCities.filter(c => !localCities.some(l => l.toLowerCase() === c.toLowerCase())),
+  ];
 
   const sortOptions: { value: EventSort; label: string }[] =
     activeTab === 'past'
@@ -217,6 +255,7 @@ export function EventsFilterPage({
                 placeholderTextColor={colors.ink3}
                 style={[styles.cityInput, { fontSize: fontSize.body, color: colors.ink }]}
               />
+              {cityLoading && <ActivityIndicator size="small" color={colors.ink3} />}
             </View>
             <View style={{ height: spacing.md }} />
             {filteredCities.length > 0 ? (
