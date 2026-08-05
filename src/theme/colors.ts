@@ -90,6 +90,12 @@ export type ThemeColors = {
   danger: string;
   dangerSurface: string;
 
+  /** "Registered" / "Happening now" status badges (My Events). Sourced from the My Events
+   * mobile mockup's `--ok`/`--okbg` tokens, not webSrc (which inlines these per-badge-class
+   * instead of naming them) — same one-exception-to-"port-from-web" case as `chip` above. */
+  success: string;
+  successSurface: string;
+
   /** Fixed white/black that must not flip between themes. */
   onGold: string;
   onAccent: string;
@@ -221,6 +227,9 @@ export const lightColors: ThemeColors = {
   danger: '#cc4444',
   dangerSurface: '#fdf3f1',
 
+  success: '#2F7A5B',
+  successSurface: 'rgba(47,122,91,0.12)',
+
   onGold: '#ffffff',
   onAccent: '#ffffff',
 
@@ -305,6 +314,9 @@ export const darkColors: ThemeColors = {
 
   danger: '#e07a86',
   dangerSurface: '#2a1a1a',
+
+  success: '#4FA37D',
+  successSurface: 'rgba(79,163,125,0.16)',
 
   onGold: '#15212e',
   onAccent: '#ffffff',

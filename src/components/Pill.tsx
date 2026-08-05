@@ -23,13 +23,14 @@ export function Pill({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={[
+      style={({ pressed }) => [
         styles.pill,
         {
           borderWidth: borderWidth.thin,
           borderColor: selected ? colors.accentSolid : colors.border,
           backgroundColor: selected ? colors.accentSolid : colors.surface,
         },
+        pressed && styles.pressed,
       ]}
     >
       <Text
@@ -49,5 +50,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 9,
+  },
+  pressed: {
+    opacity: 0.65,
   },
 });

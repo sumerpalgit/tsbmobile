@@ -34,14 +34,14 @@ export function Button({
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
-      style={[
+      style={({ pressed }) => [
         styles.button,
         fullWidth && styles.fullWidth,
         {
           borderWidth: isPrimary ? 0 : borderWidth.thin,
           borderColor: colors.border,
           backgroundColor: isPrimary ? colors.gold : colors.surface,
-          opacity: disabled ? 0.5 : 1,
+          opacity: disabled ? 0.5 : pressed ? 0.65 : 1,
         },
         isPrimary && elevation('sm'),
       ]}

@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../theme';
 import { TopBar } from '../components/TopBar';
 import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
+import { MyEventsScreen } from '../screens';
 import MainNavigator from './MainNavigator';
 import { DrawerContent } from './DrawerContent';
 import { AppStackParamList, DrawerParamList } from './types';
@@ -33,11 +34,7 @@ const SCREENS: Record<
     icon: 'matches',
     phase: 'Phase 5',
   }),
-  MyEvents: createPlaceholderScreen({
-    title: 'My Events',
-    icon: 'events',
-    phase: 'Phase 7',
-  }),
+  MyEvents: MyEventsScreen,
   AiToolkit: createPlaceholderScreen({
     title: 'AI Toolkit',
     icon: 'toolkit',
@@ -92,7 +89,15 @@ function DrawerNavigator() {
       {(
         Object.keys(SCREENS) as Array<keyof Omit<DrawerParamList, 'Tabs'>>
       ).map(name => (
-        <Drawer.Screen key={name} name={name} component={SCREENS[name]} />
+        <Drawer.Screen
+          key={name}
+          name={name}
+          component={SCREENS[name]}
+          // My Events renders its own header (`MyEventsHeader`, matching its mockup — title +
+          // theme/calendar/create, no logo/bell/avatar) instead of the generic `TopBar` above,
+          // so it owns `openDrawer()`/create-wizard state without a cross-component bridge.
+          options={name === 'MyEvents' ? { headerShown: false } : undefined}
+        />
       ))}
     </Drawer.Navigator>
   );

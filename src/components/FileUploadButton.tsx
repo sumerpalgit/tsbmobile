@@ -73,12 +73,13 @@ export function FileUploadButton({
     <Pressable
       onPress={handlePress}
       disabled={busy || loading}
-      style={[
+      style={({ pressed }) => [
         styles.button,
         value
           ? { backgroundColor: colors.goldExtraLight, borderColor: colors.gold, borderStyle: 'solid' }
           : { backgroundColor: colors.surfaceSunken, borderColor: colors.border, borderStyle: 'dashed' },
         (busy || loading) && { opacity: 0.6 },
+        !busy && !loading && pressed && { opacity: 0.65 },
       ]}
     >
       {loading ? (

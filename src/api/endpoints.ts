@@ -28,6 +28,25 @@ export const FEED_ENDPOINTS = {
 
 export const LOCATION_ENDPOINTS = {
   CITIES: '/location/cities',
+  COUNTRIES: '/location/countries',
+} as const;
+
+export const EVENT_ENDPOINTS = {
+  FILTER_LIST: '/event/filter-list',
+  CREATE: '/feed/event',
+  RSVP: '/feed/event/rsvp',
+} as const;
+
+export const SAVES_ENDPOINTS = {
+  TOGGLE: '/saves/toggle',
+} as const;
+
+export const MY_ACTIVITY_ENDPOINTS = {
+  SAVED_POSTS: '/my-activity/saved-posts',
+} as const;
+
+export const UPLOAD_ENDPOINTS = {
+  IMAGE_UPLOAD: '/upload/image-upload',
 } as const;
 
 export const INTERESTS_ENDPOINTS = {

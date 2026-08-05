@@ -1,4 +1,5 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { MyEventItem } from '../types/events';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -65,4 +66,16 @@ export type AppStackParamList = {
   Drawer: NavigatorScreenParams<DrawerParamList>;
   Notifications: undefined;
   Profile: undefined;
+  /** My Events' "Create a New Event" wizard — a dedicated pushed screen (was a `Modal` overlay
+   * living inside `MyEventsScreen` itself; moved here so it gets its own native push transition
+   * and back gesture like `Notifications`/`Profile` above, instead of stacking a second `Modal`
+   * on top of My Events' own screen). Presence of `event` switches it into edit mode, pre-filling
+   * the wizard from that event (`CreateEventScreen`'s `buildDraftFromEvent`) instead of creating
+   * a new one. */
+  CreateEvent: { event?: MyEventItem } | undefined;
+  /** My Events' event detail view — same reasoning as `CreateEvent` above: was a `Modal` overlay
+   * inside `MyEventsScreen`, moved here after `Modal`'s coordinate-space quirks caused a real bug
+   * (`useSafeAreaInsets()` read inside a `Modal` isn't reliable on Android in every case — the
+   * hero banner touching the top of the screen "in some cases" was that, not a spacing mistake). */
+  EventDetail: { event: MyEventItem };
 };

@@ -38,3 +38,28 @@ export async function searchCities(query: string): Promise<CityResult[]> {
   if (!Array.isArray(data)) return [];
   return data.map(normalizeCity).filter((c): c is CityResult => c !== null);
 }
+
+export type CountryResult = {
+  countryCode: string;
+  countryName: string;
+};
+
+function normalizeCountry(item: unknown): CountryResult | null {
+  const record = item as Record<string, unknown>;
+  const countryCode = String(record?.country_code ?? record?.countryCode ?? '').trim();
+  const countryName = String(record?.country_name ?? record?.countryName ?? '').trim();
+  if (!countryCode || !countryName) return null;
+  return { countryCode, countryName };
+}
+
+/** Matches webSrc's `GET /api/location/countries?search=` — the My Events filter's chapter/city
+ * search uses the cities endpoint above; this backs `CountryFilterAutocomplete` on web, kept for
+ * parity even though the mockup's filter page only surfaces a city search, not a country one. */
+export async function searchCountries(query: string): Promise<CountryResult[]> {
+  const data = await apiClient
+    .get(LOCATION_ENDPOINTS.COUNTRIES, { params: { search: query } })
+    .then(res => res.data);
+
+  if (!Array.isArray(data)) return [];
+  return data.map(normalizeCountry).filter((c): c is CountryResult => c !== null);
+}
