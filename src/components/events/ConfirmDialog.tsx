@@ -15,6 +15,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = 'Cancel',
   destructive = false,
+  confirmColor,
   onConfirm,
   onCancel,
   onShow,
@@ -26,6 +27,10 @@ export function ConfirmDialog({
   cancelLabel?: string;
   /** Confirm button renders red instead of gold — for actions like cancelling an RSVP. */
   destructive?: boolean;
+  /** Overrides the confirm button's background — for actions that need neither the default gold
+   * nor red (e.g. ETA Chapters' "Join Chapter" confirm, which matches web's real navy button).
+   * Takes priority over `destructive` when both are set. */
+  confirmColor?: string;
   onConfirm: () => void;
   onCancel: () => void;
   /** Fires once the native modal has actually finished presenting — the caller uses this to
@@ -68,7 +73,7 @@ export function ConfirmDialog({
               style={({ pressed }) => [
                 styles.button,
                 styles.confirmButton,
-                { backgroundColor: destructive ? colors.danger : colors.gold, borderRadius: radius.lg },
+                { backgroundColor: confirmColor ?? (destructive ? colors.danger : colors.gold), borderRadius: radius.lg },
                 pressed && styles.pressed,
               ]}
             >

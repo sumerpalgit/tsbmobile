@@ -49,13 +49,7 @@ export type DrawerItem =
 export const DRAWER_ITEMS: DrawerItem[] = [
   { kind: 'tab', name: 'Home', label: 'Home', icon: 'home' },
   { kind: 'tab', name: 'Directory', label: 'Directory', icon: 'directory' },
-  {
-    kind: 'screen',
-    name: 'EtaChapters',
-    label: 'ETA Chapters',
-    icon: 'etaChapters',
-    phase: 'Phase 7',
-  },
+  { kind: 'screen', name: 'EtaChapters', label: 'ETA Chapters', icon: 'etaChapters' },
   { kind: 'tab', name: 'AiAssist', label: 'AI Assist', icon: 'aiAssist' },
   {
     kind: 'screen',

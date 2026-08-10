@@ -67,6 +67,16 @@ export const ETA_ENDPOINTS = {
   ALL: '/eta/eta-chapters',
   SEARCH: '/eta/eta-chapters/search',
   BATCH_JOIN: '/eta/groups/batch-join',
+  /** My ETA Chapters dashboard — a different endpoint set than the onboarding ones above
+   * (`fetchMyEtaChapters`/join/leave/etc. in `api/eta.ts`). Group ids are interpolated at the
+   * call site (`${ETA_ENDPOINTS.GROUPS}/${id}/join`), same convention as `AI_ENDPOINTS`. */
+  MY_CHAPTERS: '/eta/my-eta-chapters',
+  GROUPS: '/eta/groups',
+  CHAPTER_EVENTS: '/eta/chapter-events',
+  REQUEST_CITY: '/eta/request-city',
+  GROUP_PREFS_BULK: '/eta/groups/prefs/bulk',
+  INVITE_BY_EMAIL: '/eta/invite-by-email',
+  INVITE_USER: '/eta/invite-eta-chapter',
 } as const;
 
 /** Ids are interpolated at the call site (`${AI_ENDPOINTS.CONVERSATIONS}/${id}`), same
@@ -82,4 +92,12 @@ export const AI_ENDPOINTS = {
  * convention as `AI_ENDPOINTS` above. */
 export const CHAT_ENDPOINTS = {
   CONVERSATIONS: '/chat/conversations',
+} as const;
+
+/** ETA Chapters' ad banner (real-content read) + campaign creation (Phase 5) — a distinct,
+ * adjacent domain from `ETA_ENDPOINTS`, matches web's separate `ads/eta/:id` (read, member-facing)
+ * vs `ads/create-ad` (write, advertiser-facing) split. Chapter id interpolated at the call site. */
+export const ADS_ENDPOINTS = {
+  ETA: '/ads/eta',
+  CREATE: '/ads/create-ad',
 } as const;

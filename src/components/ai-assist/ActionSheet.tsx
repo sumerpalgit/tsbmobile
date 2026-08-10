@@ -59,28 +59,34 @@ export function ActionSheet({
           ) : null}
 
           <View style={{ gap: 2 }}>
-            {items.map(item => (
-              <Pressable
-                key={item.key}
-                onPress={() => {
-                  onClose();
-                  item.onPress();
-                }}
-                style={({ pressed }) => [
-                  styles.row,
-                  { borderRadius: radius.xl, backgroundColor: pressed ? colors.surfaceSunken : 'transparent' },
-                ]}
-              >
-                <View style={styles.rowIcon}>{item.icon}</View>
-                <Text
-                  style={[
-                    fonts.semibold,
-                    { fontSize: fontSize.ui, color: item.danger ? colors.danger : colors.ink },
+            {items.map((item, i) => (
+              <React.Fragment key={item.key}>
+                {/* A destructive item that isn't the sheet's only item gets a divider above it —
+                    matches the reference design's separation of "Leave chapter"/etc. from the
+                    regular actions above it. A separate hairline (not border-on-the-row) since
+                    the row's fixed `height` would otherwise clip extra top padding. */}
+                {item.danger && i > 0 && <View style={[styles.dangerDivider, { backgroundColor: colors.border }]} />}
+                <Pressable
+                  onPress={() => {
+                    onClose();
+                    item.onPress();
+                  }}
+                  style={({ pressed }) => [
+                    styles.row,
+                    { borderRadius: radius.xl, backgroundColor: pressed ? colors.surfaceSunken : 'transparent' },
                   ]}
                 >
-                  {item.label}
-                </Text>
-              </Pressable>
+                  <View style={styles.rowIcon}>{item.icon}</View>
+                  <Text
+                    style={[
+                      fonts.semibold,
+                      { fontSize: fontSize.ui, color: item.danger ? colors.danger : colors.ink },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </Pressable>
+              </React.Fragment>
             ))}
           </View>
         </Pressable>
@@ -126,5 +132,10 @@ const styles = StyleSheet.create({
     width: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dangerDivider: {
+    height: 1,
+    marginVertical: 6,
+    marginHorizontal: 4,
   },
 });

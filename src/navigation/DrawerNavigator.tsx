@@ -5,7 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../theme';
 import { TopBar } from '../components/TopBar';
 import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
-import { MyEventsScreen } from '../screens';
+import { EtaChaptersScreen, MyEventsScreen } from '../screens';
 import MainNavigator from './MainNavigator';
 import { DrawerContent } from './DrawerContent';
 import { AppStackParamList, DrawerParamList } from './types';
@@ -24,11 +24,7 @@ const SCREENS: Record<
   keyof Omit<DrawerParamList, 'Tabs'>,
   React.ComponentType
 > = {
-  EtaChapters: createPlaceholderScreen({
-    title: 'ETA Chapters',
-    icon: 'etaChapters',
-    phase: 'Phase 7',
-  }),
+  EtaChapters: EtaChaptersScreen,
   MyMatches: createPlaceholderScreen({
     title: 'My Matches',
     icon: 'matches',
@@ -108,10 +104,13 @@ function DrawerNavigator() {
           key={name}
           name={name}
           component={SCREENS[name]}
-          // My Events renders its own header (`MyEventsHeader`, matching its mockup — title +
-          // theme/calendar/create, no logo/bell/avatar) instead of the generic `TopBar` above,
-          // so it owns `openDrawer()`/create-wizard state without a cross-component bridge.
-          options={name === 'MyEvents' ? { headerShown: false } : undefined}
+          // My Events and ETA Chapters each render their own header (`MyEventsHeader`/
+          // `EtaChaptersHeader`, matching their own mockups) instead of the generic `TopBar`
+          // above, so they own `openDrawer()`/screen-specific actions without a cross-component
+          // bridge — same reasoning as `MyEvents`, and no `focusedTabName` workaround needed
+          // since both are plain `Drawer.Screen`s, not nested inside the `Tabs` screen the way
+          // AI Assist/Messages are.
+          options={name === 'MyEvents' || name === 'EtaChapters' ? { headerShown: false } : undefined}
         />
       ))}
     </Drawer.Navigator>
