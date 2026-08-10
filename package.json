@@ -28,6 +28,7 @@
     "react-hook-form": "^7.83.0",
     "react-native": "0.83.1",
     "react-native-app-auth": "^8.4.1",
+    "react-native-blob-util": "^0.24.10",
     "react-native-dotenv": "^4.1.1",
     "react-native-element-dropdown": "^2.12.4",
     "react-native-gesture-handler": "^3.0.2",

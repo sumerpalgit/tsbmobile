@@ -17,25 +17,41 @@ const DEST_OPTS: { value: DestType; title: string; sub: string }[] = [
 const HEADLINE_MAX = 80;
 const BODY_MAX = 160;
 
-export function StepCreative({ draft, onChange }: { draft: CampaignDraft; onChange: (patch: Partial<CampaignDraft>) => void }) {
+export function StepCreative({
+  draft,
+  onChange,
+  errors,
+  clearError,
+}: {
+  draft: CampaignDraft;
+  onChange: (patch: Partial<CampaignDraft>) => void;
+  errors: Record<string, string>;
+  clearError: (key: string) => void;
+}) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const ctaLabel = draft.ctaLabel || 'Learn More';
 
   return (
     <View style={styles.gap}>
-      <Field label="Ad banner" required>
+      <Field label="Ad banner" required error={errors.bannerFile}>
         <FileUploadButton
           value={draft.bannerFile}
-          onChange={f => onChange({ bannerFile: f })}
+          onChange={f => {
+            onChange({ bannerFile: f });
+            clearError('bannerFile');
+          }}
           acceptedTypes={[types.images]}
           placeholder="Upload a 260×200 banner image (JPG or PNG)"
         />
       </Field>
 
-      <Field label="Headline" required>
+      <Field label="Headline" required error={errors.headline}>
         <TextInput
           value={draft.headline}
-          onChangeText={t => onChange({ headline: t.slice(0, HEADLINE_MAX) })}
+          onChangeText={t => {
+            onChange({ headline: t.slice(0, HEADLINE_MAX) });
+            clearError('headline');
+          }}
           placeholder="Shown in bold on your ad"
           placeholderTextColor={colors.ink3}
           style={[fonts.regular, styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.ink, borderRadius: radius.lg }]}
@@ -115,10 +131,13 @@ export function StepCreative({ draft, onChange }: { draft: CampaignDraft; onChan
         </View>
       </Field>
 
-      <Field label="Destination URL" required>
+      <Field label="Destination URL" required error={errors.destUrl}>
         <TextInput
           value={draft.destUrl}
-          onChangeText={t => onChange({ destUrl: t })}
+          onChangeText={t => {
+            onChange({ destUrl: t });
+            clearError('destUrl');
+          }}
           placeholder="https://yourcompany.com/searchers"
           placeholderTextColor={colors.ink3}
           autoCapitalize="none"

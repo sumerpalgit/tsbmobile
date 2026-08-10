@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
-import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
+import { pick, types, isErrorWithCode, errorCodes, keepLocalCopy } from '@react-native-documents/picker';
 import type { PredefinedFileTypes } from '@react-native-documents/picker';
 import { Check, Upload } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
@@ -60,7 +60,22 @@ export function FileUploadButton({
     setBusy(true);
     try {
       const [picked] = await pick({ type: acceptedTypes });
-      onChange({ uri: picked.uri, name: picked.name ?? 'file', size: picked.size, mimeType: picked.type });
+      // Some content providers (Google Photos, cloud-backed docs, etc.) hand back a `content://`
+      // uri that RN's `fetch` can't reliably read straight through — it throws "Network request
+      // failed" with no HTTP response at all, since the read never leaves the device. Copying to
+      // a real local `file://` path first (the library's own documented workaround) makes the
+      // later `fetch(uri).blob()` upload step reliable regardless of where the file came from.
+      let uploadUri = picked.uri;
+      try {
+        const [copy] = await keepLocalCopy({
+          files: [{ uri: picked.uri, fileName: picked.name ?? 'file' }],
+          destination: 'cachesDirectory',
+        });
+        if (copy?.status === 'success') uploadUri = copy.localUri;
+      } catch {
+        // fall back to the original picked uri — fetch can often read it directly anyway
+      }
+      onChange({ uri: uploadUri, name: picked.name ?? 'file', size: picked.size, mimeType: picked.type });
     } catch (err) {
       if (isErrorWithCode(err) && err.code === errorCodes.OPERATION_CANCELED) return;
       Toast.show({ type: 'error', text1: 'Could not attach file', text2: 'Please try again.' });

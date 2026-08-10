@@ -357,5 +357,6 @@ export type CreateAdCampaignPayload = {
  * collection anywhere in this flow — confirmed by a full read of web's `ad-management.ts`, see
  * the ETA Chapters plan's ad-campaign research). */
 export function createAdCampaign(payload: CreateAdCampaignPayload): Promise<{ message?: string }> {
+  console.log('[createAdCampaign] POST', `${apiClient.defaults.baseURL}${ADS_ENDPOINTS.CREATE}`, JSON.stringify(payload, null, 2));
   return apiClient.post(ADS_ENDPOINTS.CREATE, payload).then(res => res.data ?? {});
 }

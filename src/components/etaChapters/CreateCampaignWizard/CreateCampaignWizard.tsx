@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { Megaphone, X } from 'lucide-react-native';
@@ -33,54 +33,79 @@ export function CreateCampaignWizard({ visible, onClose }: { visible: boolean; o
   const [step, setStep] = useState(1);
   const [draft, setDraft] = useState<CampaignDraft>(EMPTY_DRAFT);
   const [submitting, setSubmitting] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
       setStep(1);
       setDraft(EMPTY_DRAFT);
+      setAdvancing(false);
+      setErrors({});
+      setSubmitError(null);
     }
   }, [visible]);
 
   const patch = (p: Partial<CampaignDraft>) => setDraft(prev => ({ ...prev, ...p }));
+  const clearError = (key: string) => setErrors(prev => (prev[key] ? { ...prev, [key]: '' } : prev));
 
-  const validateStep = (): string | null => {
+  /** Per-field, matching web's real `validateStep` (`CreateCampaignModal.tsx:303`) — an
+   * `errors` record keyed by field name, not a single first-failure string, so every invalid
+   * required field can be highlighted at once instead of the user having to fix-and-resubmit
+   * one at a time to discover the next problem. */
+  const validateStep = (): Record<string, string> => {
+    const errs: Record<string, string> = {};
     if (step === 1) {
-      if (!draft.brandName.trim() || !draft.advertiserType || !draft.contactEmail.trim() || !draft.campaignName.trim()) {
-        return 'Please fill in all required fields.';
-      }
-      if (!draft.policyAgreed) return 'You must agree to the TSB Advertising Policies.';
+      if (!draft.brandName.trim()) errs.brandName = 'Brand name is required.';
+      if (!draft.advertiserType) errs.advertiserType = 'Advertiser type is required.';
+      if (!draft.contactEmail.trim()) errs.contactEmail = 'Contact email is required.';
+      if (!draft.campaignName.trim()) errs.campaignName = 'Campaign name is required.';
+      if (!draft.policyAgreed) errs.policyAgreed = 'You must agree to the TSB Advertising Policies.';
     }
     if (step === 2) {
       const needsEta = draft.placement === 'eta' || draft.placement === 'both';
-      if (needsEta && draft.chapterIds.length === 0) return 'Select at least one ETA chapter.';
+      if (needsEta && draft.chapterIds.length === 0) errs.chapterIds = 'Select at least one ETA chapter.';
     }
     if (step === 3) {
-      if (!draft.bannerFile) return 'Upload a banner image.';
-      if (!draft.headline.trim()) return 'Add a headline.';
-      if (!draft.destUrl.trim()) return 'Add a destination URL.';
+      if (!draft.bannerFile) errs.bannerFile = 'Upload a banner image.';
+      if (!draft.headline.trim()) errs.headline = 'Add a headline.';
+      if (!draft.destUrl.trim()) errs.destUrl = 'Add a destination URL.';
     }
     if (step === 5) {
-      if (!draft.startDate) return 'Select a campaign start date.';
-      if (actualDays(draft) < 1) return 'Enter a valid campaign duration.';
+      if (!draft.startDate) errs.startDate = 'Select a campaign start date.';
+      if (actualDays(draft) < 1) errs.duration = 'Enter a valid campaign duration.';
     }
-    return null;
+    return errs;
   };
 
   const goNext = () => {
-    const error = validateStep();
-    if (error) {
-      Toast.show({ type: 'error', text1: error });
+    if (advancing || submitting) return;
+    const errs = validateStep();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      Toast.show({ type: 'error', text1: 'Please fix the highlighted fields' });
       return;
     }
+    setErrors({});
+    setSubmitError(null);
     if (step === TOTAL_STEPS) {
       handleSubmit();
       return;
     }
-    setStep(s => s + 1);
+    setAdvancing(true);
+    setTimeout(() => {
+      setStep(s => s + 1);
+      setAdvancing(false);
+    }, 220);
   };
 
   const handleSubmit = async () => {
-    if (!draft.bannerFile) return;
+    setSubmitError(null);
+    if (!draft.bannerFile) {
+      setSubmitError('A banner image is required — go back to the Creative step to upload one.');
+      return;
+    }
     setSubmitting(true);
     try {
       const bannerUrl = await uploadFileDirectToSupabase(
@@ -115,7 +140,11 @@ export function CreateCampaignWizard({ visible, onClose }: { visible: boolean; o
       Toast.show({ type: 'success', text1: 'Campaign submitted!', text2: 'It will go live after review.' });
       onClose();
     } catch (err: any) {
-      Toast.show({ type: 'error', text1: 'Could not submit campaign', text2: err?.message ?? 'Please try again.' });
+      // A toast alone isn't enough feedback here — this full-screen `Modal` renders above the
+      // app root, including the root-level `<Toast/>` from `App.tsx`, so an error toast fires
+      // invisibly behind it and the modal never closes on failure. An inline banner is the only
+      // way to actually surface a submit error to the user.
+      setSubmitError(err?.message || 'Could not submit campaign. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -123,7 +152,11 @@ export function CreateCampaignWizard({ visible, onClose }: { visible: boolean; o
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <View style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}>
+      <KeyboardAvoidingView
+        style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
         <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
           <View style={styles.headerTop}>
             <View style={[styles.headerIconWell, { backgroundColor: colors.feedFill, borderRadius: radius.lg }]}>
@@ -150,34 +183,56 @@ export function CreateCampaignWizard({ visible, onClose }: { visible: boolean; o
         </View>
 
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-          {step === 1 && <StepBrand draft={draft} onChange={patch} />}
-          {step === 2 && <StepPlacement draft={draft} onChange={patch} />}
-          {step === 3 && <StepCreative draft={draft} onChange={patch} />}
+          {step === 1 && <StepBrand draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
+          {step === 2 && <StepPlacement draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
+          {step === 3 && <StepCreative draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
           {step === 4 && <StepTargeting draft={draft} onChange={patch} />}
-          {step === 5 && <StepSchedule draft={draft} onChange={patch} />}
+          {step === 5 && <StepSchedule draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
           {step === 6 && <StepReview draft={draft} />}
         </ScrollView>
+
+        {!!submitError && (
+          <View style={[styles.submitErrorBanner, { backgroundColor: colors.dangerSurface, borderTopColor: colors.danger, borderTopWidth: borderWidth.thin }]}>
+            <Text style={[fonts.semibold, styles.submitErrorText, { color: colors.danger }]}>{submitError}</Text>
+          </View>
+        )}
 
         <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
           {step > 1 && (
             <Pressable
-              onPress={() => setStep(s => s - 1)}
-              style={[styles.backButton, { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}
+              onPress={() => {
+                setSubmitError(null);
+                setStep(s => s - 1);
+              }}
+              disabled={advancing || submitting}
+              style={({ pressed }) => [
+                styles.backButton,
+                { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.xl, borderWidth: borderWidth.thin },
+                pressed && styles.pressed,
+              ]}
             >
               <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>← Back</Text>
             </Pressable>
           )}
           <Pressable
             onPress={goNext}
-            disabled={submitting}
-            style={[styles.nextButton, { backgroundColor: colors.gold, borderRadius: radius.xl, opacity: submitting ? 0.6 : 1 }]}
+            disabled={advancing || submitting}
+            style={({ pressed }) => [
+              styles.nextButton,
+              { backgroundColor: colors.gold, borderRadius: radius.xl, opacity: advancing || submitting ? 0.7 : 1 },
+              pressed && !(advancing || submitting) && styles.pressed,
+            ]}
           >
-            <Text style={[fonts.bold, { fontSize: fontSize.body, color: '#fff' }]}>
-              {submitting ? 'Submitting…' : step === TOTAL_STEPS ? 'Submit Campaign →' : 'Continue →'}
-            </Text>
+            {advancing || submitting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={[fonts.bold, { fontSize: fontSize.body, color: '#fff' }]}>
+                {step === TOTAL_STEPS ? 'Submit Campaign →' : 'Continue →'}
+              </Text>
+            )}
           </Pressable>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -245,6 +300,14 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 24,
   },
+  submitErrorBanner: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  submitErrorText: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
   footer: {
     flexDirection: 'row',
     gap: 9,
@@ -261,5 +324,8 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.75,
   },
 });

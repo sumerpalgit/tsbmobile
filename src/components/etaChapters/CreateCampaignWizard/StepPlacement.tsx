@@ -16,8 +16,18 @@ const BANNER_TIERS: { value: CampaignDraft['bannerTier']; title: string; sub: st
   { value: 'premium', title: 'Premium Banner', sub: '260 × 200 · priority rotation slot, 2× visibility', rate: '2.5× base' },
 ];
 
-export function StepPlacement({ draft, onChange }: { draft: CampaignDraft; onChange: (patch: Partial<CampaignDraft>) => void }) {
-  const { colors, fonts, fontSize, radius } = useTheme();
+export function StepPlacement({
+  draft,
+  onChange,
+  errors,
+  clearError,
+}: {
+  draft: CampaignDraft;
+  onChange: (patch: Partial<CampaignDraft>) => void;
+  errors: Record<string, string>;
+  clearError: (key: string) => void;
+}) {
+  const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const [chapterQuery, setChapterQuery] = useState('');
   const [chapterResults, setChapterResults] = useState<EtaChapter[]>([]);
   const needsEta = draft.placement === 'eta' || draft.placement === 'both';
@@ -26,14 +36,16 @@ export function StepPlacement({ draft, onChange }: { draft: CampaignDraft; onCha
     if (!needsEta) return;
     const timer = setTimeout(() => {
       searchEtaChapters(chapterQuery.trim())
-        .then(res => setChapterResults(res.slice(0, 10)))
+        .then(setChapterResults)
         .catch(() => setChapterResults([]));
     }, 300);
     return () => clearTimeout(timer);
   }, [chapterQuery, needsEta]);
 
-  const toggleChapter = (id: string) =>
+  const toggleChapter = (id: string) => {
     onChange({ chapterIds: draft.chapterIds.includes(id) ? draft.chapterIds.filter(c => c !== id) : [...draft.chapterIds, id] });
+    clearError('chapterIds');
+  };
 
   return (
     <View style={styles.gap}>
@@ -62,7 +74,13 @@ export function StepPlacement({ draft, onChange }: { draft: CampaignDraft; onCha
       </View>
 
       {needsEta && (
-        <View style={[styles.chapterPicker, { backgroundColor: colors.surfaceSunken, borderRadius: radius.xl }]}>
+        <View
+          style={[
+            styles.chapterPicker,
+            { backgroundColor: colors.surfaceSunken, borderRadius: radius.xl },
+            !!errors.chapterIds && { borderColor: colors.danger, borderWidth: borderWidth.thin },
+          ]}
+        >
           <Text style={[fonts.semibold, { fontSize: fontSize.small, color: colors.ink2 }]}>Choose ETA chapters</Text>
           <TextInput
             value={chapterQuery}
@@ -90,6 +108,7 @@ export function StepPlacement({ draft, onChange }: { draft: CampaignDraft; onCha
               );
             })}
           </View>
+          {!!errors.chapterIds && <Text style={[fonts.semibold, styles.errorText, { color: colors.danger }]}>{errors.chapterIds}</Text>}
         </View>
       )}
 
@@ -150,6 +169,9 @@ const styles = StyleSheet.create({
   chapterPicker: {
     padding: 12,
     gap: 8,
+  },
+  errorText: {
+    fontSize: 10.5,
   },
   chapterSearchInput: {
     height: 40,

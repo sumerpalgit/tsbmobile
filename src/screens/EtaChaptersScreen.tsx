@@ -221,9 +221,13 @@ function EtaChaptersScreen() {
     [openChat],
   );
 
+  /** Matches the mockup's real `closeChat` (`ETAChapters_decoded.html:1841`) — back from an open
+   * chat always returns to the Chat List screen, not the main dashboard, regardless of which
+   * entry point the chat was opened from (chat list, "Open member chat", switch-chapter, etc). */
   const closeChat = () => {
     setActiveChatChapter(null);
     setChatMessages([]);
+    setChatListOpen(true);
   };
 
   const loadMoreChatMessages = useCallback(async () => {

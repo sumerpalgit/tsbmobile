@@ -7,7 +7,17 @@ import { Field } from './StepBrand';
 import { actualDays, computeCampaignCost, DURATION_PRESETS } from './types';
 import type { CampaignDraft } from './types';
 
-export function StepSchedule({ draft, onChange }: { draft: CampaignDraft; onChange: (patch: Partial<CampaignDraft>) => void }) {
+export function StepSchedule({
+  draft,
+  onChange,
+  errors,
+  clearError,
+}: {
+  draft: CampaignDraft;
+  onChange: (patch: Partial<CampaignDraft>) => void;
+  errors: Record<string, string>;
+  clearError: (key: string) => void;
+}) {
   const { colors, fonts, fontSize, radius } = useTheme();
   const days = actualDays(draft);
   const cost = computeCampaignCost(draft.placement, draft.bannerTier, draft.chapterIds.length, days);
@@ -16,18 +26,29 @@ export function StepSchedule({ draft, onChange }: { draft: CampaignDraft; onChan
     <View style={styles.gap}>
       <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink3 }]}>RUN TIME</Text>
 
-      <Field label="Campaign start date" required>
-        <DateTimeField value={draft.startDate} mode="date" placeholder="Select a start date" onChange={v => onChange({ startDate: v })} />
+      <Field label="Campaign start date" required error={errors.startDate}>
+        <DateTimeField
+          value={draft.startDate}
+          mode="date"
+          placeholder="Select a start date"
+          onChange={v => {
+            onChange({ startDate: v });
+            clearError('startDate');
+          }}
+        />
       </Field>
 
-      <Field label="Campaign duration" required>
+      <Field label="Campaign duration" required error={errors.duration}>
         <View style={styles.chipRow}>
           {DURATION_PRESETS.map(d => {
             const active = draft.durationDays === d;
             return (
               <Pressable
                 key={d}
-                onPress={() => onChange({ durationDays: d })}
+                onPress={() => {
+                  onChange({ durationDays: d });
+                  clearError('duration');
+                }}
                 style={[
                   styles.pill,
                   { borderRadius: radius.lg },
@@ -39,7 +60,10 @@ export function StepSchedule({ draft, onChange }: { draft: CampaignDraft; onChan
             );
           })}
           <Pressable
-            onPress={() => onChange({ durationDays: 'custom' })}
+            onPress={() => {
+              onChange({ durationDays: 'custom' });
+              clearError('duration');
+            }}
             style={[
               styles.pill,
               { borderRadius: radius.lg },
@@ -52,7 +76,10 @@ export function StepSchedule({ draft, onChange }: { draft: CampaignDraft; onChan
         {draft.durationDays === 'custom' && (
           <TextInput
             value={draft.customDays}
-            onChangeText={t => onChange({ customDays: t.replace(/[^0-9]/g, '') })}
+            onChangeText={t => {
+              onChange({ customDays: t.replace(/[^0-9]/g, '') });
+              clearError('duration');
+            }}
             placeholder="Number of days"
             placeholderTextColor={colors.ink3}
             keyboardType="number-pad"

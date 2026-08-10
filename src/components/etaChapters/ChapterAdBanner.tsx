@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { X } from 'lucide-react-native';
+import { Megaphone, X } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { fetchAdsForChapter } from '../../api/eta';
 import type { ChapterAd } from '../../types/etaChapters';
@@ -20,19 +20,28 @@ const DEST_LABEL: Record<string, string> = {
  * full read of `ETABanner.tsx` that the live banner doesn't render `ad_headline`/`ad_body_text`/
  * `ad_cta_text` at all (those exist on the fuller ad-management type used elsewhere, unused
  * here), so this doesn't fabricate copy the real component never shows. Dismiss is session-local
- * (resets whenever this chapter's chat is reopened), matching web's own per-mount state. */
+ * (resets whenever this chapter's chat is reopened), matching web's own per-mount state.
+ *
+ * The "+ Create Ad" entry point stays reachable in every state — with zero active ads (a
+ * placeholder card, matching web's "No active sponsors yet" copy) and after dismissal (a
+ * footer-only row, matching web's `AdFooterOnly`) — instead of the banner (and its only trigger
+ * for `CreateCampaignWizard`) disappearing entirely, which was a real gap: most chapters have no
+ * active paid ad, so that made the wizard unreachable for almost everyone. */
 export function ChapterAdBanner({ chapterId, onCreateAd }: { chapterId: string; onCreateAd: () => void }) {
   const { colors, fonts, fontSize, radius } = useTheme();
   const [ads, setAds] = useState<ChapterAd[]>([]);
   const [index, setIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     setDismissed(false);
     setIndex(0);
+    setLoading(true);
     fetchAdsForChapter(chapterId)
       .then(setAds)
-      .catch(() => setAds([]));
+      .catch(() => setAds([]))
+      .finally(() => setLoading(false));
   }, [chapterId]);
 
   useEffect(() => {
@@ -41,7 +50,19 @@ export function ChapterAdBanner({ chapterId, onCreateAd }: { chapterId: string; 
     return () => clearInterval(timer);
   }, [ads.length]);
 
-  if (dismissed || ads.length === 0) return null;
+  if (dismissed) {
+    return (
+      <View style={[styles.footerOnlyRow, { borderTopColor: colors.border }]}>
+        <Text style={[fonts.bold, styles.sponsoredLabel, { color: colors.ink3 }]}>SPONSORED CONTENT</Text>
+        <Pressable onPress={onCreateAd}>
+          <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.goldDark }]}>+ Create Ad</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (loading) return null;
+
   const ad = ads[index];
 
   const handlePress = () => {
@@ -50,39 +71,49 @@ export function ChapterAdBanner({ chapterId, onCreateAd }: { chapterId: string; 
 
   return (
     <View style={styles.wrap}>
-      <Pressable onPress={handlePress} style={[styles.card, { borderRadius: radius.xl, overflow: 'hidden' }]}>
-        {ad.bannerUrl ? (
-          <>
-            <Image source={{ uri: ad.bannerUrl }} style={styles.bannerImage} resizeMode="cover" />
-            <Pressable onPress={() => setDismissed(true)} hitSlop={8} accessibilityLabel="Dismiss ad" style={styles.imageDismissButton}>
-              <X size={12} color="#fff" strokeWidth={2} />
-            </Pressable>
-          </>
-        ) : (
-          <LinearGradient colors={[colors.hero1, colors.hero2]} style={styles.fallbackBanner} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-            <View style={styles.fallbackTop}>
-              <Text style={[fonts.bold, styles.adTag, { color: 'rgba(255,255,255,0.6)', backgroundColor: 'rgba(255,255,255,0.12)' }]}>AD</Text>
-              <Pressable onPress={() => setDismissed(true)} hitSlop={8} accessibilityLabel="Dismiss ad">
-                <X size={11} color="rgba(255,255,255,0.6)" strokeWidth={1.8} />
+      {!ad ? (
+        <LinearGradient colors={[colors.hero1, colors.hero2]} style={[styles.placeholderCard, { borderRadius: radius.xl }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <Megaphone size={22} color="rgba(255,255,255,0.4)" strokeWidth={1.6} />
+          <Text style={[fonts.regular, styles.placeholderText, { color: 'rgba(255,255,255,0.6)' }]}>
+            No active sponsors yet.{'\n'}
+            <Text style={[fonts.semibold, { color: colors.goldLight }]}>Be the first to advertise here.</Text>
+          </Text>
+        </LinearGradient>
+      ) : (
+        <Pressable onPress={handlePress} style={[styles.card, { borderRadius: radius.xl, overflow: 'hidden' }]}>
+          {ad.bannerUrl ? (
+            <>
+              <Image source={{ uri: ad.bannerUrl }} style={styles.bannerImage} resizeMode="cover" />
+              <Pressable onPress={() => setDismissed(true)} hitSlop={8} accessibilityLabel="Dismiss ad" style={styles.imageDismissButton}>
+                <X size={12} color="#fff" strokeWidth={2} />
               </Pressable>
-            </View>
-            <View style={styles.fallbackBrandRow}>
-              <View style={[styles.brandBadge, { backgroundColor: '#fff' }]}>
-                <Text style={[fonts.bold, { fontSize: 10, color: colors.feedFill }]}>
-                  {ad.brandName.slice(0, 2).toUpperCase()}
+            </>
+          ) : (
+            <LinearGradient colors={[colors.hero1, colors.hero2]} style={styles.fallbackBanner} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+              <View style={styles.fallbackTop}>
+                <Text style={[fonts.bold, styles.adTag, { color: 'rgba(255,255,255,0.6)', backgroundColor: 'rgba(255,255,255,0.12)' }]}>AD</Text>
+                <Pressable onPress={() => setDismissed(true)} hitSlop={8} accessibilityLabel="Dismiss ad">
+                  <X size={11} color="rgba(255,255,255,0.6)" strokeWidth={1.8} />
+                </Pressable>
+              </View>
+              <View style={styles.fallbackBrandRow}>
+                <View style={[styles.brandBadge, { backgroundColor: '#fff' }]}>
+                  <Text style={[fonts.bold, { fontSize: 10, color: colors.feedFill }]}>
+                    {ad.brandName.slice(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={[fonts.semibold, { fontSize: fontSize.small, color: 'rgba(255,255,255,0.85)' }]} numberOfLines={1}>
+                  {ad.brandName}
                 </Text>
               </View>
-              <Text style={[fonts.semibold, { fontSize: fontSize.small, color: 'rgba(255,255,255,0.85)' }]} numberOfLines={1}>
-                {ad.brandName}
+              <Text style={[fonts.display, styles.fallbackHeadline, { color: '#fff' }]} numberOfLines={2}>
+                {ad.campaignName || ad.brandName}
               </Text>
-            </View>
-            <Text style={[fonts.display, styles.fallbackHeadline, { color: '#fff' }]} numberOfLines={2}>
-              {ad.campaignName || ad.brandName}
-            </Text>
-            <Text style={[fonts.bold, styles.fallbackCta, { color: colors.goldLight }]}>{DEST_LABEL[ad.clickDestinationType] ?? 'Learn more →'}</Text>
-          </LinearGradient>
-        )}
-      </Pressable>
+              <Text style={[fonts.bold, styles.fallbackCta, { color: colors.goldLight }]}>{DEST_LABEL[ad.clickDestinationType] ?? 'Learn more →'}</Text>
+            </LinearGradient>
+          )}
+        </Pressable>
+      )}
       <View style={styles.footerRow}>
         <Text style={[fonts.bold, styles.sponsoredLabel, { color: colors.ink3 }]}>SPONSORED CONTENT</Text>
         <Pressable onPress={onCreateAd}>
@@ -99,6 +130,26 @@ const styles = StyleSheet.create({
   },
   card: {
     minHeight: 130,
+  },
+  placeholderCard: {
+    minHeight: 110,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+  },
+  placeholderText: {
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
+  footerOnlyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   bannerImage: {
     width: '100%',
