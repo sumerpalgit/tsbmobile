@@ -8,6 +8,7 @@ export { default as MessagesScreen } from './MessagesScreen';
 export { default as CreateEventScreen } from './CreateEventScreen';
 export { default as EventDetailScreen } from './EventDetailScreen';
 export { default as MemberProfileScreen } from './MemberProfileScreen';
+export { default as MyResourcesScreen } from './MyResourcesScreen';
 export {
   PlaceholderScreen,
   createPlaceholderScreen,

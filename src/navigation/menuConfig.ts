@@ -61,6 +61,12 @@ export const DRAWER_ITEMS: DrawerItem[] = [
   { kind: 'tab', name: 'Messages', label: 'Messages', icon: 'messages' },
   {
     kind: 'screen',
+    name: 'MyActivities',
+    label: 'My Activities',
+    icon: 'activities',
+  },
+  {
+    kind: 'screen',
     name: 'MyEvents',
     label: 'My Events',
     icon: 'events',
@@ -68,10 +74,9 @@ export const DRAWER_ITEMS: DrawerItem[] = [
   },
   {
     kind: 'screen',
-    name: 'AiToolkit',
-    label: 'AI Toolkit',
-    icon: 'toolkit',
-    phase: 'Phase 7',
+    name: 'MyResources',
+    label: 'My Resources',
+    icon: 'resources',
   },
   {
     kind: 'screen',

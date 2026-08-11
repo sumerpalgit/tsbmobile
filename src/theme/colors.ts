@@ -96,6 +96,20 @@ export type ThemeColors = {
   success: string;
   successSurface: string;
 
+  /** My Resources' per-content-type accents (Templates/Tools/Case Studies — Articles reuses
+   * `goldDark`/`chip`, Checklists reuses `success`/`successSurface` above). Sourced from
+   * `Resources.html`'s own `--indigo`/`--indigobg` tokens plus its two literal, undefined-as-
+   * tokens hex values (`#3B6FA0`/`#8B5A9E`) — same one-exception-to-"port-from-web" case as
+   * `chip`. Dark variants for the two literal ones are ours, following this file's existing
+   * invert-lightness-keep-hue approach (matching how the mockup's own `--indigo` lightens from
+   * light to dark). */
+  indigo: string;
+  indigoSurface: string;
+  toolsAccent: string;
+  toolsAccentSurface: string;
+  caseStudyAccent: string;
+  caseStudyAccentSurface: string;
+
   /** Fixed white/black that must not flip between themes. */
   onGold: string;
   onAccent: string;
@@ -230,6 +244,13 @@ export const lightColors: ThemeColors = {
   success: '#2F7A5B',
   successSurface: 'rgba(47,122,91,0.12)',
 
+  indigo: '#5B57A3',
+  indigoSurface: 'rgba(91,87,163,0.12)',
+  toolsAccent: '#3B6FA0',
+  toolsAccentSurface: 'rgba(59,111,160,0.12)',
+  caseStudyAccent: '#8B5A9E',
+  caseStudyAccentSurface: 'rgba(139,90,158,0.12)',
+
   onGold: '#ffffff',
   onAccent: '#ffffff',
 
@@ -317,6 +338,13 @@ export const darkColors: ThemeColors = {
 
   success: '#4FA37D',
   successSurface: 'rgba(79,163,125,0.16)',
+
+  indigo: '#8B87D6',
+  indigoSurface: 'rgba(139,135,214,0.18)',
+  toolsAccent: '#6FA0D9',
+  toolsAccentSurface: 'rgba(111,160,217,0.16)',
+  caseStudyAccent: '#B98BCB',
+  caseStudyAccentSurface: 'rgba(185,139,203,0.16)',
 
   onGold: '#15212e',
   onAccent: '#ffffff',

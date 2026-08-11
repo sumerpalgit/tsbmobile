@@ -5,7 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../theme';
 import { TopBar } from '../components/TopBar';
 import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
-import { EtaChaptersScreen, MyEventsScreen } from '../screens';
+import { EtaChaptersScreen, MyEventsScreen, MyResourcesScreen } from '../screens';
 import MainNavigator from './MainNavigator';
 import { DrawerContent } from './DrawerContent';
 import { AppStackParamList, DrawerParamList } from './types';
@@ -30,12 +30,12 @@ const SCREENS: Record<
     icon: 'matches',
     phase: 'Phase 5',
   }),
-  MyEvents: MyEventsScreen,
-  AiToolkit: createPlaceholderScreen({
-    title: 'AI Toolkit',
-    icon: 'toolkit',
-    phase: 'Phase 7',
+  MyActivities: createPlaceholderScreen({
+    title: 'My Activities',
+    icon: 'activities',
   }),
+  MyEvents: MyEventsScreen,
+  MyResources: MyResourcesScreen,
   Settings: createPlaceholderScreen({
     title: 'Settings',
     icon: 'settings',
@@ -106,13 +106,13 @@ function DrawerNavigator() {
           key={name}
           name={name}
           component={SCREENS[name]}
-          // My Events and ETA Chapters each render their own header (`MyEventsHeader`/
-          // `EtaChaptersHeader`, matching their own mockups) instead of the generic `TopBar`
-          // above, so they own `openDrawer()`/screen-specific actions without a cross-component
-          // bridge — same reasoning as `MyEvents`, and no `focusedTabName` workaround needed
-          // since both are plain `Drawer.Screen`s, not nested inside the `Tabs` screen the way
-          // AI Assist/Messages are.
-          options={name === 'MyEvents' || name === 'EtaChapters' ? { headerShown: false } : undefined}
+          // My Events, ETA Chapters, and My Resources each render their own header
+          // (`MyEventsHeader`/`EtaChaptersHeader`/`ResourcesHeader`, matching their own mockups)
+          // instead of the generic `TopBar` above, so they own `openDrawer()`/screen-specific
+          // actions without a cross-component bridge — same reasoning as `MyEvents`, and no
+          // `focusedTabName` workaround needed since all three are plain `Drawer.Screen`s, not
+          // nested inside the `Tabs` screen the way AI Assist/Messages are.
+          options={name === 'MyEvents' || name === 'EtaChapters' || name === 'MyResources' ? { headerShown: false } : undefined}
         />
       ))}
     </Drawer.Navigator>

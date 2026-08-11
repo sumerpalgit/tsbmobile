@@ -55,16 +55,23 @@ export type MainTabParamList = {
  * Side menu — item list and row chrome match the app bar/drawer reference
  * (`TSB Home FV.html`) instead of Phase 0's original Phase-plan list: Home, Directory, AI
  * Assist and Messages route into the bottom tabs (see `menuConfig.ts`'s `kind: 'tab'` items)
- * rather than being drawer-only screens; ETA Chapters/My Matches/My Events/AI Toolkit/Settings
- * are. Sign Out isn't in that reference's drawer — it already lives on the Profile screen, so
- * it's dropped here rather than duplicated.
+ * rather than being drawer-only screens; ETA Chapters/My Matches/My Activities/My Events/My
+ * Resources/Settings are. Sign Out isn't in that reference's drawer — it already lives on the
+ * Profile screen, so it's dropped here rather than duplicated. "AI Toolkit" (a Phase 0
+ * placeholder) was removed entirely — it has no concept anywhere in `webSrc`'s real dashboard
+ * nav, confirmed by reading `DashboardNavbar.tsx` directly (My Profile / Ad Management / Create
+ * Dual Profile / Settings only). My Activities/My Resources are real web sections
+ * (`webSrc/src/app/dashboard/layout.tsx`'s `sections`, `/dashboard/my-activities` and
+ * `/dashboard/my-resources`) that were simply missing here — added as placeholders for now,
+ * matching My Matches/Settings until built out.
  */
 export type DrawerParamList = {
   Tabs: NavigatorScreenParams<MainTabParamList>;
   EtaChapters: undefined;
   MyMatches: undefined;
+  MyActivities: undefined;
   MyEvents: undefined;
-  AiToolkit: undefined;
+  MyResources: undefined;
   Settings: undefined;
 };
 

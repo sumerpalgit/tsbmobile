@@ -109,3 +109,14 @@ export const ADS_ENDPOINTS = {
   ETA: '/ads/eta',
   CREATE: '/ads/create-ad',
 } as const;
+
+/** My Resources — matches `webSrc/src/actions/my-resources.ts` exactly. Resource ids are
+ * interpolated at the call site (`${DOWNLOAD}/${id}`, `${VIEW}/${id}`), same convention as
+ * `AI_ENDPOINTS`/`CHAT_ENDPOINTS`. */
+export const RESOURCE_ENDPOINTS = {
+  LIST: '/resource/list',
+  MY: '/resource/my',
+  CREATE: '/resource/create',
+  DOWNLOAD: '/resource/download',
+  VIEW: '/resource/view',
+} as const;
