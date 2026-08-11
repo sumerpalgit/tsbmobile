@@ -11,22 +11,25 @@ import {
 } from 'react-native';
 import { DrawerActions, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { useTheme } from '../theme';
 import { useMe } from '../hooks/useMe';
 import { useConversations } from '../hooks/useConversations';
 import { useMessageMutations } from '../hooks/useMessageMutations';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { fetchMessages, sendMessage, uploadChatFile } from '../api/messages';
+import { fetchProfileByUsername } from '../api/profile';
 import { CONVERSATIONS_QUERY_KEY } from '../api/queryKeys';
-import { appendUniqueMessages, groupMessages } from '../types/messages';
+import { appendUniqueMessages, getConversationPreview, getCopyableText, groupMessages, parseMessageContent } from '../types/messages';
 import type { Conversation, Message, PaginationInfo, ReplyTo } from '../types/messages';
 import type { UserSearchResult } from '../api/messages';
 import type { PickedFile } from '../components/FileUploadButton';
-import type { MainTabParamList } from '../navigation/types';
+import type { AppStackParamList, MainTabParamList } from '../navigation/types';
 
 import { MessagesHeader } from '../components/messages/MessagesHeader';
 import { InboxToolbar } from '../components/messages/InboxToolbar';
@@ -35,6 +38,7 @@ import { ThreadMessageGroup, DayDivider } from '../components/messages/ThreadMes
 import { ThreadComposer } from '../components/messages/ThreadComposer';
 import { NewMessageOverlay } from '../components/messages/NewMessageOverlay';
 import { ConversationOptionsSheet } from '../components/messages/ConversationOptionsSheet';
+import { MessageActionsSheet } from '../components/messages/MessageActionsSheet';
 
 type ThreadItem =
   | { key: string; kind: 'day'; label: string }
@@ -52,6 +56,7 @@ type ThreadItem =
 export default function MessagesScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList, 'Messages'>>();
+  const stackNavigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<MainTabParamList, 'Messages'>>();
   const queryClient = useQueryClient();
   const { data: me } = useMe();
@@ -82,6 +87,8 @@ export default function MessagesScreen() {
 
   const [newMessageOpen, setNewMessageOpen] = useState(false);
   const [optionsConversation, setOptionsConversation] = useState<Conversation | null>(null);
+  const [messageActionsTarget, setMessageActionsTarget] = useState<Message | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   const listRef = useRef<FlatList<ThreadItem>>(null);
   const shouldAutoScrollRef = useRef(true);
@@ -272,21 +279,34 @@ export default function MessagesScreen() {
     [activeConversationId, me, queryClient],
   );
 
-  // ── Send file (optimistic, matches webSrc's `sendFile` — minus the caption bug, see decision #2) ──
+  // ── Send file (optimistic) ──────────────────────────────────────────────────────────────────
+  // A typed caption goes out *inside* the same image/file message's JSON payload (`text` field),
+  // not as a separate message — confirmed with backend: the message JSON contract now supports
+  // an optional `text` alongside `type`/`fileName`/etc., and mobile's earlier two-message
+  // workaround (caption sent first, file second) is no longer needed now that this is fixed
+  // properly at the source. Existing image/file messages with no caption are unaffected — `text`
+  // is simply omitted when there's nothing typed.
   const sendFileOptimistic = useCallback(
-    async (file: PickedFile) => {
+    async (file: PickedFile, caption: string, capturedReplyTo: ReplyTo | null) => {
       if (!activeConversationId) return;
       const isImage = (file.mimeType ?? '').startsWith('image/');
       setIsUploadingFile(true);
       const tempId = `temp-${Date.now()}`;
-      const tempPayload = JSON.stringify({ type: isImage ? 'image' : 'file', fileName: file.name, fileSize: file.size ?? 0, mimeType: file.mimeType ?? '', fileUrl: file.uri });
+      const tempPayload = JSON.stringify({
+        type: isImage ? 'image' : 'file',
+        fileName: file.name,
+        fileSize: file.size ?? 0,
+        mimeType: file.mimeType ?? '',
+        fileUrl: file.uri,
+        ...(caption ? { text: caption } : {}),
+      });
       const tempMsg: Message = {
         id: tempId,
         message: tempPayload,
         created_at: new Date().toISOString(),
         isSenderMe: true,
         sender: { name: me?.name || 'You', username: me?.username, profile_img: me?.profileImg },
-        reply_to: null,
+        reply_to: capturedReplyTo ? { id: capturedReplyTo.id, message: capturedReplyTo.text, sender_name: capturedReplyTo.author } : null,
       };
       setMessages(prev => appendUniqueMessages(prev, [tempMsg]));
       shouldAutoScrollRef.current = true;
@@ -295,9 +315,18 @@ export default function MessagesScreen() {
       );
       try {
         const fileUrl = await uploadChatFile(file);
-        const finalPayload = JSON.stringify({ type: isImage ? 'image' : 'file', fileName: file.name, fileSize: file.size ?? 0, mimeType: file.mimeType ?? '', fileUrl });
-        const saved = await sendMessage(activeConversationId, finalPayload);
-        setMessages(prev => prev.map(m => (m.id === tempId ? { ...m, id: saved.id, message: finalPayload, created_at: saved.created_at } : m)));
+        const finalPayload = JSON.stringify({
+          type: isImage ? 'image' : 'file',
+          fileName: file.name,
+          fileSize: file.size ?? 0,
+          mimeType: file.mimeType ?? '',
+          fileUrl,
+          ...(caption ? { text: caption } : {}),
+        });
+        const saved = await sendMessage(activeConversationId, finalPayload, capturedReplyTo?.id);
+        setMessages(prev =>
+          prev.map(m => (m.id === tempId ? { ...m, id: saved.id, message: finalPayload, created_at: saved.created_at, reply_to: saved.reply_to ?? null } : m)),
+        );
       } catch {
         setMessages(prev => prev.filter(m => m.id !== tempId));
         showToast('Failed to send file. Please try again.', 'error');
@@ -312,25 +341,18 @@ export default function MessagesScreen() {
     if (!activeConversationId) return;
     const text = inputText.trim();
     const file = pendingFile;
+    const capturedReply = replyTo;
+    setReplyTo(null);
 
     if (file) {
-      // Decision #2 (fixing web's bug): a typed caption is sent as its own message first
-      // (instant), then the file follows as a second message — nothing typed is silently lost.
-      if (text) {
-        setInputText('');
-        const capturedReply = replyTo;
-        setReplyTo(null);
-        await sendTextOptimistic(text, capturedReply);
-      }
+      setInputText('');
       setPendingFile(null);
-      await sendFileOptimistic(file);
+      await sendFileOptimistic(file, text, capturedReply);
       return;
     }
 
     if (!text) return;
     setInputText('');
-    const capturedReply = replyTo;
-    setReplyTo(null);
     await sendTextOptimistic(text, capturedReply);
   };
 
@@ -371,9 +393,39 @@ export default function MessagesScreen() {
     }
   };
 
-  // ── Reply-to (hover-reveal on web → tap "..." isn't in the mockup's message bubble, so this
-  // is wired from a long-press on a bubble; kept minimal since the mockup has no explicit affordance) ──
+  // ── Reply-to / Copy (hover-reveal icon buttons on web → collapsed into one long-press action
+  // sheet on mobile, see `MessageActionsSheet`) ──────────────────────────────────────────────
   const activeConversation = conversations.find(c => c.id === activeConversationId) ?? null;
+
+  // "View profile" (thread header + the inbox row's "More" sheet) used to be a toast stub —
+  // now navigates into the real `MemberProfileScreen` Directory already built. `Conversation`
+  // carries no username field (confirmed on web too — `participantId` there is a raw
+  // backend-controlled id, verified on-device NOT to be the username `fetchProfileByUsername`
+  // needs), so the other participant's real username is read off a message's `sender.username`
+  // instead — reused from state when this is the open thread, otherwise fetched fresh.
+  const resolveParticipantUsername = async (conversation: Conversation): Promise<string | null> => {
+    if (conversation.id === activeConversationId) {
+      const fromState = messages.find(m => !m.isSenderMe && m.sender.username)?.sender.username;
+      if (fromState) return fromState;
+    }
+    try {
+      const { messages: fetched } = await fetchMessages(conversation.id, 1, 20);
+      return fetched.find(m => !m.isSenderMe && m.sender.username)?.sender.username ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleViewProfile = async (conversation: Conversation) => {
+    try {
+      const username = await resolveParticipantUsername(conversation);
+      if (!username) throw new Error('Could not resolve participant username');
+      const profile = await fetchProfileByUsername(username);
+      stackNavigation.navigate('MemberProfile', { profile, initialSaved: false });
+    } catch {
+      showToast('Could not open this profile', 'error');
+    }
+  };
 
   const threadItems: ThreadItem[] = [];
   groupMessages(messages).forEach((dateGroup, di) => {
@@ -382,6 +434,34 @@ export default function MessagesScreen() {
       threadItems.push({ key: `group-${di}-${gi}`, kind: 'group', group, senderName: group.senderName });
     });
   });
+
+  // Swipe-right-to-reply (see `SwipeToReply` in `ThreadMessageBubble.tsx`) — fires directly on
+  // release past the swipe threshold, no confirmation sheet.
+  const handleSwipeReply = (message: Message, author: string) =>
+    setReplyTo({ id: message.id, author, text: getConversationPreview(message.message) });
+
+  // Long-press-to-copy — `ThreadMessageBubble` only wires this at all when the message actually
+  // has copyable text (an uncaptioned image/file or a shared post has none), so the sheet never
+  // opens with nothing to show.
+  const handleLongPressCopy = (message: Message) => setMessageActionsTarget(message);
+
+  const copyableText = messageActionsTarget ? getCopyableText(parseMessageContent(messageActionsTarget.message)) : null;
+  const handleCopyFromSheet = () => {
+    if (copyableText) Clipboard.setString(copyableText);
+    setMessageActionsTarget(null);
+    showToast('Copied to clipboard', 'success');
+  };
+
+  // Tapping a reply quote scrolls to + briefly highlights the original message — only if it's
+  // already loaded in the current scrollback (matches web's own limitation: no auto-fetch-to-
+  // locate for older, not-yet-loaded pages).
+  const scrollToMessage = (messageId: string) => {
+    const index = threadItems.findIndex(item => item.kind === 'group' && item.group.messages.some(m => m.id === messageId));
+    if (index === -1) return;
+    listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    setHighlightedMessageId(messageId);
+    setTimeout(() => setHighlightedMessageId(current => (current === messageId ? null : current)), 1500);
+  };
 
   const allCount = conversations.length;
   const unreadTotal = conversations.reduce((n, c) => n + (c.unreadCount > 0 ? 1 : 0), 0);
@@ -400,10 +480,11 @@ export default function MessagesScreen() {
           name={activeConversation?.name ?? ''}
           role="Member"
           presence={activeConversation && onlineUsers.includes(activeConversation.participantId) ? 'Online' : 'Offline'}
-          initials={(activeConversation?.name ?? '').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()}
           avatarColor={colors.navy2}
+          profileImg={activeConversation?.profileImg}
+          isOnline={!!(activeConversation && onlineUsers.includes(activeConversation.participantId))}
           onBack={() => setView('inbox')}
-          onViewProfile={() => showToast('Opening profile', 'info')}
+          onViewProfile={() => activeConversation && handleViewProfile(activeConversation)}
           onOptions={() => activeConversation && setOptionsConversation(activeConversation)}
         />
       )}
@@ -448,8 +529,22 @@ export default function MessagesScreen() {
               scrollEventThrottle={32}
               keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
+              onScrollToIndexFailed={info => {
+                setTimeout(() => listRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 }), 100);
+              }}
               renderItem={({ item }) =>
-                item.kind === 'day' ? <DayDivider label={item.label} /> : <ThreadMessageGroup group={item.group} senderName={item.senderName} />
+                item.kind === 'day' ? (
+                  <DayDivider label={item.label} />
+                ) : (
+                  <ThreadMessageGroup
+                    group={item.group}
+                    senderName={item.senderName}
+                    highlightedMessageId={highlightedMessageId}
+                    onSwipeReply={handleSwipeReply}
+                    onLongPressCopy={handleLongPressCopy}
+                    onPressReplyQuote={scrollToMessage}
+                  />
+                )
               }
             />
           )}
@@ -481,8 +576,10 @@ export default function MessagesScreen() {
         conversation={optionsConversation}
         onOpen={() => optionsConversation && openConversation(optionsConversation)}
         onMarkRead={() => optionsConversation && markRead(optionsConversation.id)}
-        onViewProfile={() => showToast('Opening profile', 'info')}
+        onViewProfile={() => optionsConversation && handleViewProfile(optionsConversation)}
       />
+
+      <MessageActionsSheet visible={!!messageActionsTarget} onClose={() => setMessageActionsTarget(null)} onCopy={handleCopyFromSheet} />
     </View>
   );
 }

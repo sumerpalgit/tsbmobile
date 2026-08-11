@@ -3,7 +3,9 @@ import { PROFILE_ENDPOINTS, SAVED_CONTACTS_ENDPOINTS } from './endpoints';
 import { ROLE_TYPES } from '../types/directory';
 import type { DirectoryPagination, DirectoryStats, Profile } from '../types/directory';
 
-function normalizeProfile(item: unknown): Profile {
+/** Exported for reuse by `api/profile.ts`'s `fetchProfileByUsername` — same real `Profile` shape,
+ * different endpoint (single lookup by username vs. a search list). */
+export function normalizeProfile(item: unknown): Profile {
   const r = item as Record<string, unknown>;
   const dual = r?.dual_profile as Record<string, unknown> | null | undefined;
   return {

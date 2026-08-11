@@ -1,6 +1,8 @@
 import { apiClient } from './client';
 import { PROFILE_ENDPOINTS } from './endpoints';
+import { normalizeProfile } from './directory';
 import type { PickedFile } from '../components/FileUploadButton';
+import type { Profile } from '../types/directory';
 
 export type User = {
   id: string;
@@ -78,4 +80,15 @@ export function uploadDocument(file: PickedFile, fileType: string) {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     .then(res => res.data);
+}
+
+/** `GET /profile/username/:username` — matches web's real single-profile lookup
+ * (`profiles/[username]/page.tsx:632-638`): `{ data: { profile, targetId, roleProfile } }`, with
+ * the profile's real `id` coming from `targetId`, not the nested `profile` object (`setProfile({
+ * ...json.data.profile, id: json.data.targetId })` on web). Powers "View profile" from a message
+ * thread, navigating into the same `MemberProfileScreen` Directory already built. */
+export async function fetchProfileByUsername(username: string): Promise<Profile> {
+  const data = await apiClient.get(`${PROFILE_ENDPOINTS.BY_USERNAME}/${username}`).then(res => res.data);
+  const raw = data?.data?.profile ?? data?.profile ?? {};
+  return normalizeProfile({ ...raw, id: data?.data?.targetId ?? data?.targetId ?? raw?.id });
 }

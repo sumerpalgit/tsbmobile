@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
+import { SvgUri } from 'react-native-svg';
 import { useTheme } from '../theme';
 
 /**
@@ -24,6 +25,13 @@ type AvatarProps = {
 
 export function Avatar({ name, imageUri, size = 36, fallbackColor, textColor }: AvatarProps) {
   const { colors, fonts, borderWidth } = useTheme();
+  // Some profile photos are uploaded as `.svg` (a real, if unusual, case seen in live data) —
+  // RN's `Image` only decodes raster formats (PNG/JPEG/WebP/GIF) and silently renders nothing
+  // for an SVG source, so those need `react-native-svg`'s own URI renderer instead. `failed`
+  // covers the general case too (any image, SVG or not, that 404s/fails to load falls back to
+  // initials instead of staying blank).
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [imageUri]);
 
   const initials = (name || 'U')
     .trim()
@@ -32,6 +40,9 @@ export function Avatar({ name, imageUri, size = 36, fallbackColor, textColor }: 
     .join('')
     .toUpperCase()
     .slice(0, 2);
+
+  const isSvg = !!imageUri && /\.svg(\?|#|$)/i.test(imageUri);
+  const showImage = !!imageUri && !failed;
 
   return (
     <View
@@ -47,12 +58,17 @@ export function Avatar({ name, imageUri, size = 36, fallbackColor, textColor }: 
         },
       ]}
     >
-      {imageUri ? (
-        <Image
-          source={{ uri: imageUri }}
-          style={{ width: size, height: size }}
-          resizeMode="cover"
-        />
+      {showImage ? (
+        isSvg ? (
+          <SvgUri uri={imageUri!} width={size} height={size} onError={() => setFailed(true)} />
+        ) : (
+          <Image
+            source={{ uri: imageUri! }}
+            style={{ width: size, height: size }}
+            resizeMode="cover"
+            onError={() => setFailed(true)}
+          />
+        )
       ) : (
         <Text
           style={[

@@ -42,8 +42,8 @@ export type PaginationInfo = {
  * that fails to parse as JSON is treated as plain text. */
 export type MessageContent =
   | { type: 'text'; text: string }
-  | { type: 'image'; fileName: string; fileSize: number; mimeType: string; fileUrl: string }
-  | { type: 'file'; fileName: string; fileSize: number; mimeType: string; fileUrl: string }
+  | { type: 'image'; fileName: string; fileSize: number; mimeType: string; fileUrl: string; text?: string }
+  | { type: 'file'; fileName: string; fileSize: number; mimeType: string; fileUrl: string; text?: string }
   | { type: 'shared_feed'; feedId: string };
 
 export function parseMessageContent(raw: string): MessageContent {
@@ -67,6 +67,17 @@ export function getConversationPreview(rawMessage?: string | null): string {
   if (parsed.type === 'file') return `📄 ${parsed.fileName || 'Document'}`;
   if (parsed.type === 'image') return `🖼 ${parsed.fileName || 'Image'}`;
   return (parsed.text || '').slice(0, 40);
+}
+
+/** What "Copy" (the message long-press action) copies — matches web's own
+ * `navigator.clipboard.writeText(parsed.text || "")`: a text message's own text, an image/file
+ * message's caption (`null` if it wasn't captioned — copying an empty string isn't useful), or
+ * `null` for a shared-post message (nothing textual to copy). `null` also tells the action sheet
+ * to hide the Copy row entirely rather than show a no-op. */
+export function getCopyableText(parsed: MessageContent): string | null {
+  if (parsed.type === 'text') return parsed.text;
+  if (parsed.type === 'image' || parsed.type === 'file') return parsed.text || null;
+  return null;
 }
 
 /** Matches webSrc's `formatFileSize` exactly. */

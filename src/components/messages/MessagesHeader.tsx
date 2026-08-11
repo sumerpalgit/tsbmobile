@@ -5,6 +5,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { ChevronLeft, MoreVertical, Plus } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { Icon } from '../icons/Icon';
+import { Avatar } from '../Avatar';
 
 const INBOX_HEADER_HEIGHT = 58;
 
@@ -30,14 +31,15 @@ export function MessagesHeader(
         name: string;
         role: string;
         presence: string;
-        initials: string;
         avatarColor: string;
+        profileImg?: string | null;
+        isOnline: boolean;
         onBack: () => void;
         onViewProfile: () => void;
         onOptions: () => void;
       },
 ) {
-  const { colors, fonts, fontSize, borderWidth, radius, isDark, toggleTheme } = useTheme();
+  const { colors, fonts, fontSize, borderWidth, isDark, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
 
   if (props.view === 'inbox') {
@@ -98,13 +100,11 @@ export function MessagesHeader(
       </View>
 
       <View style={styles.threadIdentityRow}>
-        <View
-          style={[
-            styles.threadAvatar,
-            { backgroundColor: props.avatarColor, borderRadius: radius.pill },
-          ]}
-        >
-          <Text style={[fonts.bold, { fontSize: 18, color: '#fff' }]}>{props.initials}</Text>
+        <View style={styles.threadAvatarWrap}>
+          <Avatar name={props.name} imageUri={props.profileImg} size={52} fallbackColor={props.avatarColor} />
+          {props.isOnline && (
+            <View style={[styles.threadPresenceDot, { backgroundColor: colors.success, borderColor: colors.hero1 }]} />
+          )}
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={styles.eyebrowRow}>
@@ -212,13 +212,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: 2,
   },
-  threadAvatar: {
-    width: 52,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
+  threadAvatarWrap: {
+    position: 'relative',
+  },
+  threadPresenceDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 13,
+    height: 13,
+    borderRadius: 7,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.22)',
   },
   eyebrowRow: {
     flexDirection: 'row',

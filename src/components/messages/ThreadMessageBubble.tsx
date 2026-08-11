@@ -1,11 +1,61 @@
 import React, { useEffect, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Check, FileText } from 'lucide-react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Check, FileText, Reply } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { Avatar } from '../Avatar';
-import { avatarColor, formatFileSize, parseMessageContent } from '../../types/messages';
+import { avatarColor, formatFileSize, getConversationPreview, getCopyableText, parseMessageContent } from '../../types/messages';
 import { fetchSharedFeedPreview } from '../../api/messages';
 import type { Message, MsgGroup } from '../../types/messages';
+
+// Swipe-to-reply thresholds — same drag-then-snap-back shape as WhatsApp/Telegram (not a
+// reveal-and-hold panel like `ConversationRow`'s swipe, since there's no persistent action to
+// leave open here — the bubble always springs back, whether or not the swipe crossed the
+// threshold). Right-only: `activeOffsetX([-10, 10])` lets the pan activate off a small movement
+// in either direction (so it doesn't fight the FlatList's vertical scroll), but `onUpdate` clamps
+// to positive values only, matching the single swipe direction used for both incoming (left-
+// aligned) and outgoing (right-aligned) bubbles.
+const REPLY_SWIPE_MAX = 56;
+const REPLY_THRESHOLD = 40;
+
+/** Wraps a bubble with WhatsApp-style swipe-right-to-reply: drag right reveals a reply icon to
+ * the bubble's left, crossing `REPLY_THRESHOLD` on release fires `onReply` (the bubble always
+ * snaps back to 0, it never stays open — there's nothing to leave revealed). Long-press (wired
+ * separately on the bubble itself) remains the trigger for Copy, per explicit product decision:
+ * reply is swipe-triggered, copy stays a long-press action, rather than collapsing both into one
+ * gesture or one sheet. */
+function SwipeToReply({ onReply, children }: { onReply?: () => void; children: React.ReactNode }) {
+  const { colors } = useTheme();
+  const translateX = useSharedValue(0);
+
+  const pan = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .onUpdate(e => {
+      translateX.value = Math.max(0, Math.min(REPLY_SWIPE_MAX, e.translationX));
+    })
+    .onEnd(() => {
+      const shouldReply = translateX.value > REPLY_THRESHOLD;
+      translateX.value = withTiming(0, { duration: 200 });
+      if (shouldReply && onReply) runOnJS(onReply)();
+    });
+
+  const bubbleStyle = useAnimatedStyle(() => ({ transform: [{ translateX: translateX.value }] }));
+  const iconStyle = useAnimatedStyle(() => ({ opacity: Math.min(1, translateX.value / REPLY_THRESHOLD) }));
+
+  if (!onReply) return <>{children}</>;
+
+  return (
+    <View style={styles.swipeWrap}>
+      <Animated.View style={[styles.replyIconWell, iconStyle]}>
+        <Reply size={16} color={colors.gold} strokeWidth={2} />
+      </Animated.View>
+      <GestureDetector gesture={pan}>
+        <Animated.View style={bubbleStyle}>{children}</Animated.View>
+      </GestureDetector>
+    </View>
+  );
+}
 
 /** Centered day-section divider — matches the mockup's `m.isDay` row (a line/label/line). */
 export function DayDivider({ label }: { label: string }) {
@@ -24,12 +74,33 @@ export function DayDivider({ label }: { label: string }) {
 /** One `MsgGroup` (consecutive messages from the same sender — matches webSrc's `groupMessages`)
  * — avatar shown once for an incoming group, never for an outgoing one (right-aligned, matches
  * mockup). Each message in the group keeps its own timestamp/bubble. */
-export function ThreadMessageGroup({ group, senderName }: { group: MsgGroup; senderName: string }) {
+export function ThreadMessageGroup({
+  group,
+  senderName,
+  highlightedMessageId,
+  onSwipeReply,
+  onLongPressCopy,
+  onPressReplyQuote,
+}: {
+  group: MsgGroup;
+  senderName: string;
+  highlightedMessageId?: string | null;
+  onSwipeReply?: (message: Message, authorName: string) => void;
+  onLongPressCopy?: (message: Message) => void;
+  onPressReplyQuote?: (messageId: string) => void;
+}) {
   if (group.isMine) {
     return (
       <View style={styles.outGroup}>
         {group.messages.map(m => (
-          <OutgoingBubble key={m.id} message={m} />
+          <OutgoingBubble
+            key={m.id}
+            message={m}
+            highlighted={m.id === highlightedMessageId}
+            onSwipeReply={onSwipeReply ? () => onSwipeReply(m, 'You') : undefined}
+            onLongPressCopy={onLongPressCopy ? () => onLongPressCopy(m) : undefined}
+            onPressReplyQuote={onPressReplyQuote}
+          />
         ))}
       </View>
     );
@@ -42,7 +113,14 @@ export function ThreadMessageGroup({ group, senderName }: { group: MsgGroup; sen
       </View>
       <View style={{ flex: 1, gap: 6 }}>
         {group.messages.map(m => (
-          <IncomingBubble key={m.id} message={m} />
+          <IncomingBubble
+            key={m.id}
+            message={m}
+            highlighted={m.id === highlightedMessageId}
+            onSwipeReply={onSwipeReply ? () => onSwipeReply(m, senderName) : undefined}
+            onLongPressCopy={onLongPressCopy ? () => onLongPressCopy(m) : undefined}
+            onPressReplyQuote={onPressReplyQuote}
+          />
         ))}
       </View>
     </View>
@@ -53,46 +131,115 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
-function IncomingBubble({ message }: { message: Message }) {
+function IncomingBubble({
+  message,
+  highlighted,
+  onSwipeReply,
+  onLongPressCopy,
+  onPressReplyQuote,
+}: {
+  message: Message;
+  highlighted?: boolean;
+  onSwipeReply?: () => void;
+  onLongPressCopy?: () => void;
+  onPressReplyQuote?: (messageId: string) => void;
+}) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
+  const isCopyable = !!getCopyableText(parseMessageContent(message.message));
   return (
-    <View
-      style={[
-        styles.inBubble,
-        { backgroundColor: colors.surface, borderColor: colors.borderSoft, borderWidth: borderWidth.thin, borderRadius: radius.xl },
-      ]}
-    >
-      {message.reply_to ? <ReplyQuote authorName={message.reply_to.sender_name} text={message.reply_to.message} light={false} /> : null}
-      <MessageBody message={message} textColor={colors.ink} />
-      <Text style={[fonts.semibold, styles.timeIn, { color: colors.ink2, fontSize: fontSize.small - 0.5 }]}>
-        {formatTime(message.created_at)}
-      </Text>
-    </View>
+    <SwipeToReply onReply={onSwipeReply}>
+      <Pressable
+        onLongPress={isCopyable ? onLongPressCopy : undefined}
+        style={[
+          styles.inBubble,
+          {
+            backgroundColor: highlighted ? colors.chip : colors.surface,
+            borderColor: highlighted ? colors.gold : colors.borderSoft,
+            borderWidth: borderWidth.thin,
+            borderRadius: radius.xl,
+          },
+        ]}
+      >
+        {message.reply_to ? (
+          <ReplyQuote
+            authorName={message.reply_to.sender_name}
+            text={message.reply_to.message}
+            light={false}
+            onPress={onPressReplyQuote ? () => onPressReplyQuote(message.reply_to!.id) : undefined}
+          />
+        ) : null}
+        <MessageBody message={message} textColor={colors.ink} />
+        <Text style={[fonts.semibold, styles.timeIn, { color: colors.ink2, fontSize: fontSize.small - 0.5 }]}>
+          {formatTime(message.created_at)}
+        </Text>
+      </Pressable>
+    </SwipeToReply>
   );
 }
 
-function OutgoingBubble({ message }: { message: Message }) {
+function OutgoingBubble({
+  message,
+  highlighted,
+  onSwipeReply,
+  onLongPressCopy,
+  onPressReplyQuote,
+}: {
+  message: Message;
+  highlighted?: boolean;
+  onSwipeReply?: () => void;
+  onLongPressCopy?: () => void;
+  onPressReplyQuote?: (messageId: string) => void;
+}) {
   const { colors, fonts, radius } = useTheme();
+  const isCopyable = !!getCopyableText(parseMessageContent(message.message));
   return (
-    <View style={[styles.outBubble, { backgroundColor: colors.feedFill, borderRadius: radius.xl }]}>
-      {message.reply_to ? <ReplyQuote authorName={message.reply_to.sender_name} text={message.reply_to.message} light /> : null}
-      <MessageBody message={message} textColor={colors.feedOnFill} />
-      <View style={styles.outMeta}>
-        <Text style={[fonts.semibold, styles.timeOut]}>{formatTime(message.created_at)}</Text>
-        {/* Static "sent" indicator, not a real seen/delivered state — webSrc has no read-receipt
-            backend at all (no WS event, no seen-at field), so this can't reflect real data. */}
-        <Check size={12} color={colors.goldLight} strokeWidth={2} />
-      </View>
-    </View>
+    <SwipeToReply onReply={onSwipeReply}>
+      <Pressable
+        onLongPress={isCopyable ? onLongPressCopy : undefined}
+        style={[styles.outBubble, { backgroundColor: highlighted ? colors.goldDark : colors.feedFill, borderRadius: radius.xl }]}
+      >
+        {message.reply_to ? (
+          <ReplyQuote
+            authorName={message.reply_to.sender_name}
+            text={message.reply_to.message}
+            light
+            onPress={onPressReplyQuote ? () => onPressReplyQuote(message.reply_to!.id) : undefined}
+          />
+        ) : null}
+        <MessageBody message={message} textColor={colors.feedOnFill} />
+        <View style={styles.outMeta}>
+          <Text style={[fonts.semibold, styles.timeOut]}>{formatTime(message.created_at)}</Text>
+          {/* Static "sent" indicator, not a real seen/delivered state — webSrc has no read-receipt
+              backend at all (no WS event, no seen-at field), so this can't reflect real data. */}
+          <Check size={12} color={colors.goldLight} strokeWidth={2} />
+        </View>
+      </Pressable>
+    </SwipeToReply>
   );
 }
 
-function ReplyQuote({ authorName, text, light }: { authorName: string; text: string; light: boolean }) {
+/** `text` is the raw stored string of the quoted original message (server-supplied, via
+ * `reply_to.message` — the client only ever sends `reply_to_message_id`, never this string) —
+ * for an image/file original that's raw JSON, so it's run through the same
+ * `getConversationPreview` used for the inbox's last-message line rather than printed as-is. Tap
+ * scrolls to + briefly highlights the original if it's already loaded in the current scrollback;
+ * a no-op otherwise (matches web's own limitation — no auto-fetch-to-locate). */
+function ReplyQuote({
+  authorName,
+  text,
+  light,
+  onPress,
+}: {
+  authorName: string;
+  text: string;
+  light: boolean;
+  onPress?: () => void;
+}) {
   const { colors, fonts, fontSize } = useTheme();
-  const parsed = parseMessageContent(text);
-  const preview = parsed.type === 'text' ? parsed.text : parsed.type === 'shared_feed' ? 'Shared post' : parsed.fileName;
+  const preview = getConversationPreview(text);
   return (
-    <View
+    <Pressable
+      onPress={onPress}
       style={[
         styles.replyQuote,
         {
@@ -110,7 +257,7 @@ function ReplyQuote({ authorName, text, light }: { authorName: string; text: str
       <Text numberOfLines={1} style={[fonts.regular, { fontSize: fontSize.small, color: light ? 'rgba(255,255,255,0.7)' : colors.ink2 }]}>
         {preview}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -122,21 +269,29 @@ function MessageBody({ message, textColor }: { message: Message; textColor: stri
     return <Text style={[fonts.regular, styles.bodyText, { color: textColor, fontSize: fontSize.body }]}>{parsed.text}</Text>;
   }
   if (parsed.type === 'image') {
-    return <ImageBody fileUrl={parsed.fileUrl} />;
+    return <ImageBody fileUrl={parsed.fileUrl} caption={parsed.text} textColor={textColor} />;
   }
   if (parsed.type === 'file') {
-    return <FileBody fileName={parsed.fileName} fileSize={parsed.fileSize} fileUrl={parsed.fileUrl} textColor={textColor} />;
+    return <FileBody fileName={parsed.fileName} fileSize={parsed.fileSize} fileUrl={parsed.fileUrl} caption={parsed.text} textColor={textColor} />;
   }
   return <SharedFeedBody feedId={parsed.feedId} textColor={textColor} />;
 }
 
-function ImageBody({ fileUrl }: { fileUrl: string }) {
-  const { radius } = useTheme();
+/** `caption` is the optional `text` field alongside an image/file message's own JSON fields —
+ * sent together as one message now (not a separate text message first), rendered under the
+ * image/attachment, same as web. */
+function ImageBody({ fileUrl, caption, textColor }: { fileUrl: string; caption?: string; textColor: string }) {
+  const { fonts, fontSize, radius } = useTheme();
   if (!fileUrl) return null;
   return (
-    <Pressable onPress={() => Linking.openURL(fileUrl)}>
-      <Image source={{ uri: fileUrl }} style={[styles.image, { borderRadius: radius.lg }]} resizeMode="cover" />
-    </Pressable>
+    <View>
+      <Pressable onPress={() => Linking.openURL(fileUrl)}>
+        <Image source={{ uri: fileUrl }} style={[styles.image, { borderRadius: radius.lg }]} resizeMode="cover" />
+      </Pressable>
+      {!!caption && (
+        <Text style={[fonts.regular, styles.caption, { color: textColor, fontSize: fontSize.body }]}>{caption}</Text>
+      )}
+    </View>
   );
 }
 
@@ -144,26 +299,33 @@ function FileBody({
   fileName,
   fileSize,
   fileUrl,
+  caption,
   textColor,
 }: {
   fileName: string;
   fileSize: number;
   fileUrl: string;
+  caption?: string;
   textColor: string;
 }) {
   const { fonts, fontSize, radius } = useTheme();
   return (
-    <Pressable onPress={() => fileUrl && Linking.openURL(fileUrl)} style={[styles.fileRow, { borderRadius: radius.md }]}>
-      <FileText size={20} color={textColor} strokeWidth={1.6} />
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={[fonts.semibold, { fontSize: fontSize.body, color: textColor }]}>
-          {fileName}
-        </Text>
-        <Text style={[fonts.regular, { fontSize: fontSize.small, color: textColor, opacity: 0.7 }]}>
-          {formatFileSize(fileSize)} · Tap to open
-        </Text>
-      </View>
-    </Pressable>
+    <View>
+      <Pressable onPress={() => fileUrl && Linking.openURL(fileUrl)} style={[styles.fileRow, { borderRadius: radius.md }]}>
+        <FileText size={20} color={textColor} strokeWidth={1.6} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text numberOfLines={1} style={[fonts.semibold, { fontSize: fontSize.body, color: textColor }]}>
+            {fileName}
+          </Text>
+          <Text style={[fonts.regular, { fontSize: fontSize.small, color: textColor, opacity: 0.7 }]}>
+            {formatFileSize(fileSize)} · Tap to open
+          </Text>
+        </View>
+      </Pressable>
+      {!!caption && (
+        <Text style={[fonts.regular, styles.caption, { color: textColor, fontSize: fontSize.body }]}>{caption}</Text>
+      )}
+    </View>
   );
 }
 
@@ -206,6 +368,18 @@ function SharedFeedBody({ feedId, textColor }: { feedId: string; textColor: stri
 }
 
 const styles = StyleSheet.create({
+  swipeWrap: {
+    position: 'relative',
+  },
+  replyIconWell: {
+    position: 'absolute',
+    left: -30,
+    top: 0,
+    bottom: 0,
+    width: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dayRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -275,6 +449,10 @@ const styles = StyleSheet.create({
   image: {
     width: 200,
     height: 150,
+  },
+  caption: {
+    lineHeight: 19,
+    marginTop: 8,
   },
   fileRow: {
     flexDirection: 'row',

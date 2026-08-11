@@ -20,6 +20,9 @@ export const PROFILE_ENDPOINTS = {
   UPLOAD_DOCUMENT: '/profile/upload-document',
   COMPLETION: '/profile/completion',
   SEARCH: '/profile/search',
+  /** Single-profile lookup — matches web's real `profiles/[username]/page.tsx:634`
+   * (`GET /api/profile/username/:username`). Username interpolated at the call site. */
+  BY_USERNAME: '/profile/username',
 } as const;
 
 export const FEED_ENDPOINTS = {
