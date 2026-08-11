@@ -42,7 +42,8 @@ export default function MyResourcesScreen() {
     loadMore,
     refetch,
     refetchMyStats,
-    updateResource,
+    incrementViewCount,
+    incrementDownloadCount,
     filters,
     setFilters,
   } = useResources();
@@ -65,6 +66,9 @@ export default function MyResourcesScreen() {
     setTimeout(() => setRefreshing(false), 600);
   };
 
+  // Matches web's real `handleView` (`page.tsx:493-499`) exactly: a local +1 off the previous
+  // count once `trackView` resolves and isn't `skipped` — web ignores the response's own
+  // `viewCount` field entirely, so this does too (see `incrementViewCount`).
   const handleOpen = (item: ResourceItem) => {
     const url = item.resource_link || item.file_url;
     if (url) {
@@ -72,17 +76,23 @@ export default function MyResourcesScreen() {
     }
     trackView(item.id)
       .then(res => {
-        if (!res?.skipped && res?.viewCount != null) updateResource(item.id, { view_count: res.viewCount });
+        if (!res?.skipped) incrementViewCount(item.id);
       })
       .catch(() => {});
   };
 
+  // Matches web's real `handleDownload` (`page.tsx:501-514`) exactly: only opens + increments
+  // (local +1, not the response's `downloadCount`) when the *successful* response actually
+  // carries a `fileUrl` — a success with no `fileUrl` does nothing, same as web. The
+  // `item.file_url` fallback only applies when the request itself throws (the `catch` below),
+  // not merely when `fileUrl` is missing from a successful response.
   const handleDownload = (item: ResourceItem) => {
     trackDownload(item.id)
       .then(res => {
-        if (res?.fileUrl) Linking.openURL(res.fileUrl).catch(() => {});
-        else if (item.file_url) Linking.openURL(item.file_url).catch(() => {});
-        if (!res?.skipped && res?.downloadCount != null) updateResource(item.id, { download_count: res.downloadCount });
+        if (res?.fileUrl) {
+          Linking.openURL(res.fileUrl).catch(() => {});
+          if (!res?.skipped) incrementDownloadCount(item.id);
+        }
       })
       .catch(() => {
         if (item.file_url) Linking.openURL(item.file_url).catch(() => {});

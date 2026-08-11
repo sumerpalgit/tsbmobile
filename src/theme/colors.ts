@@ -107,6 +107,15 @@ export type ThemeColors = {
   indigoSurface: string;
   toolsAccent: string;
   toolsAccentSurface: string;
+
+  /** `MemberCard`'s LinkedIn icon well (Directory) — a subtle brand-blue-tinted background behind
+   * the LinkedIn glyph, which already draws its own solid-blue rounded square. Was hardcoded as a
+   * single light-only hex (`#E6F0FB`) with no dark variant, so it rendered as a stark bright box
+   * against a dark card — same one-exception-to-"port-from-web" case as `chip` (no web
+   * equivalent, this is mobile-only chrome). Dark variant is a translucent wash of LinkedIn's own
+   * brand blue (`#0A66C2`, matching `LinkedInIcon`'s own fill), same alpha-tint convention as
+   * `indigoSurface`/`successSurface` above rather than a flat light color. */
+  linkedinIconSurface: string;
   caseStudyAccent: string;
   caseStudyAccentSurface: string;
 
@@ -251,6 +260,8 @@ export const lightColors: ThemeColors = {
   caseStudyAccent: '#8B5A9E',
   caseStudyAccentSurface: 'rgba(139,90,158,0.12)',
 
+  linkedinIconSurface: '#E6F0FB',
+
   onGold: '#ffffff',
   onAccent: '#ffffff',
 
@@ -345,6 +356,8 @@ export const darkColors: ThemeColors = {
   toolsAccentSurface: 'rgba(111,160,217,0.16)',
   caseStudyAccent: '#B98BCB',
   caseStudyAccentSurface: 'rgba(185,139,203,0.16)',
+
+  linkedinIconSurface: 'rgba(10,102,194,0.18)',
 
   onGold: '#15212e',
   onAccent: '#ffffff',

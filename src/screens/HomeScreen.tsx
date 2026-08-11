@@ -14,7 +14,9 @@ import type { FeedItem } from '../api/feed';
 import type { DrawerParamList, MainTabParamList } from '../navigation/types';
 
 /** Ignores scroll jitter smaller than this (a stationary thumb still fires tiny deltas) so the
- * bars don't flicker on a near-still list. */
+ * bars don't flicker on a near-still list. Only referenced inside the temporarily-disabled
+ * `handleScroll` block below — restore that block to bring this back into use. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const SCROLL_DIRECTION_THRESHOLD = 12;
 
 /**
@@ -51,7 +53,20 @@ function HomeScreen() {
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const { items, engagements, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useHomeFeed(query, filters);
 
+  // Only referenced inside the temporarily-disabled `handleScroll` block below.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const lastScrollY = useRef(0);
+  // Distance accumulated in the *current* scroll direction since the last show/hide decision —
+  // not a raw frame-to-frame delta. Older/slower Android devices (confirmed: flickers on Android
+  // 10, not on Android 13 — same code, just enough CPU headroom to matter) deliver `onScroll`
+  // events with uneven, noisy per-frame deltas under load; comparing only two consecutive frames
+  // let a single janky frame (or a frame that overshoots then the next one "corrects" back) flip
+  // `chromeHidden` back and forth, each flip forcing a real `tabBarStyle`/`headerShown` layout
+  // pass — visibly a flicker on hardware too slow to absorb repeated layout passes within a
+  // frame. Accumulating distance and resetting the counter on any direction reversal means a
+  // single noisy frame just gets discarded instead of counted, so a real flip only happens once
+  // the scroll has genuinely moved `SCROLL_DIRECTION_THRESHOLD`px in one direction.
+  const scrollDelta = useRef(0);
   const chromeHidden = useRef(false);
 
   const setChromeHidden = useCallback(
@@ -67,28 +82,50 @@ function HomeScreen() {
     [navigation, colors.surface, colors.borderSoft, borderWidth.thin],
   );
 
+  // TEMP DISABLED for testing whether the Android 10 scroll flicker is actually caused by this
+  // hide-on-scroll feature (the tabBarStyle/headerShown toggling forces a real layout pass) —
+  // `handleScroll` is a no-op below so the bars never hide, isolating the variable for a release
+  // APK test. Restore the block below (and delete the no-op) once confirmed either way.
+  /*
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const currentY = e.nativeEvent.contentOffset.y;
-      const delta = currentY - lastScrollY.current;
+      const frameDelta = currentY - lastScrollY.current;
+      lastScrollY.current = currentY;
 
       if (currentY <= 0) {
+        scrollDelta.current = 0;
         if (chromeHidden.current) setChromeHidden(false);
-      } else if (delta > SCROLL_DIRECTION_THRESHOLD && !chromeHidden.current) {
-        setChromeHidden(true);
-      } else if (delta < -SCROLL_DIRECTION_THRESHOLD && chromeHidden.current) {
-        setChromeHidden(false);
+        return;
       }
 
-      lastScrollY.current = currentY;
+      // A frame that moves opposite to the direction accumulated so far is noise (or a genuine
+      // direction change) — either way, it shouldn't add toward a flip in the old direction.
+      if (frameDelta !== 0 && scrollDelta.current !== 0 && Math.sign(frameDelta) !== Math.sign(scrollDelta.current)) {
+        scrollDelta.current = 0;
+      }
+      scrollDelta.current += frameDelta;
+
+      if (scrollDelta.current > SCROLL_DIRECTION_THRESHOLD && !chromeHidden.current) {
+        setChromeHidden(true);
+        scrollDelta.current = 0;
+      } else if (scrollDelta.current < -SCROLL_DIRECTION_THRESHOLD && chromeHidden.current) {
+        setChromeHidden(false);
+        scrollDelta.current = 0;
+      }
     },
     [setChromeHidden],
   );
+  */
+  const handleScroll = useCallback((_e: NativeSyntheticEvent<NativeScrollEvent>) => {}, []);
 
   // Always land back on Home with both bars visible — e.g. after switching tabs mid-scroll,
-  // rather than leaving them stuck hidden from a previous visit.
+  // rather than leaving them stuck hidden from a previous visit. Also clears the accumulated
+  // direction distance so a stale value from before the tab switch can't skew the first decision
+  // after returning.
   useFocusEffect(
     useCallback(() => {
+      scrollDelta.current = 0;
       setChromeHidden(false);
     }, [setChromeHidden]),
   );

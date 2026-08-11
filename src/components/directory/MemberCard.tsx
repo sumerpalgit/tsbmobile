@@ -146,7 +146,7 @@ export function MemberCard({
             accessibilityLabel="View LinkedIn profile"
             style={({ pressed }) => [styles.linkedinButton, pressed && styles.pressed]}
           >
-            <View style={styles.linkedinWell}>
+            <View style={[styles.linkedinWell, { backgroundColor: colors.linkedinIconSurface }]}>
               <LinkedInIcon />
             </View>
           </Pressable>
@@ -284,7 +284,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 9,
-    backgroundColor: '#E6F0FB',
     alignItems: 'center',
     justifyContent: 'center',
   },

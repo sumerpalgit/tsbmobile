@@ -36,6 +36,11 @@ function MainNavigator() {
 
   return (
     <Tab.Navigator
+      // Default (`'firstRoute'`) sends the hardware back button to `Home` — the first tab —
+      // regardless of which tab you actually came from (e.g. Directory → Message → hardware back
+      // landed on Home instead of Directory). `'history'` returns to whichever tab was actually
+      // focused before, matching what a back button should do.
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.gold,

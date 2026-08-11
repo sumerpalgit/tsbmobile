@@ -124,11 +124,16 @@ export function useResources() {
 
   const clearFilters = useCallback(() => setFiltersState(EMPTY_FILTERS), []);
 
-  // "Confirmed-then-applied" local count bump after `trackView`/`trackDownload` resolves — not
-  // blind-optimistic, matching web's own `handleView`/`handleDownload` (only applied when the
-  // backend didn't report `skipped`).
-  const updateResource = useCallback((id: number, patch: Partial<ResourceItem>) => {
-    setResources(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
+  // "Confirmed-then-applied" local +1 bump after `trackView`/`trackDownload` resolves — not
+  // blind-optimistic, matching web's own `handleView`/`handleDownload` (`page.tsx:493-514`)
+  // exactly: a local increment off the previous count, gated on `!skipped`, not the server's
+  // returned `viewCount`/`downloadCount` (web ignores those fields entirely).
+  const incrementViewCount = useCallback((id: number) => {
+    setResources(prev => prev.map(r => (r.id === id ? { ...r, view_count: (r.view_count || 0) + 1 } : r)));
+  }, []);
+
+  const incrementDownloadCount = useCallback((id: number) => {
+    setResources(prev => prev.map(r => (r.id === id ? { ...r, download_count: (r.download_count || 0) + 1 } : r)));
   }, []);
 
   return {
@@ -140,7 +145,8 @@ export function useResources() {
     loadMore,
     refetch,
     refetchMyStats: loadMyStats,
-    updateResource,
+    incrementViewCount,
+    incrementDownloadCount,
     filters,
     setFilters,
     clearFilters,

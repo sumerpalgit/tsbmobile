@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   KeyboardAvoidingView,
   NativeScrollEvent,
@@ -8,7 +9,7 @@ import {
   Platform,
   View,
 } from 'react-native';
-import { DrawerActions, useNavigation, useRoute } from '@react-navigation/native';
+import { DrawerActions, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { RouteProp } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
@@ -185,6 +186,25 @@ export default function MessagesScreen() {
     navigation.setParams({ openConversation: undefined });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.params?.openConversation]);
+
+  // An open thread is local `view` state, not a real navigation screen, so the hardware back
+  // button doesn't know about it on its own — it would otherwise skip straight past "close the
+  // thread" to whatever the tab navigator does next. Intercept it here (only while this tab is
+  // focused) to close the thread first, same as tapping the thread header's own back arrow;
+  // returning `false` once already on the inbox lets the event fall through to the tab
+  // navigator's normal back handling.
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (view === 'thread') {
+          setView('inbox');
+          return true;
+        }
+        return false;
+      });
+      return () => subscription.remove();
+    }, [view]),
+  );
 
   const loadMoreMessages = useCallback(async () => {
     if (!activeConversationId || !pagination?.hasMore || loadingMore) return;
