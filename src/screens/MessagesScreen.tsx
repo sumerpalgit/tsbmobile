@@ -354,7 +354,7 @@ export default function MessagesScreen() {
         <MessagesHeader
           view="inbox"
           onOpenMenu={() => navigation.dispatch(DrawerActions.openDrawer())}
-          onBellPress={() => showToast('3 new notifications', 'info')}
+          onNewMessage={() => setNewMessageOpen(true)}
         />
       ) : (
         <MessagesHeader
@@ -366,6 +366,7 @@ export default function MessagesScreen() {
           avatarColor={colors.navy2}
           onBack={() => setView('inbox')}
           onViewProfile={() => showToast('Opening profile', 'info')}
+          onOptions={() => activeConversation && setOptionsConversation(activeConversation)}
         />
       )}
 
@@ -378,7 +379,6 @@ export default function MessagesScreen() {
             onSegmentChange={setSegment}
             allCount={allCount}
             unreadCount={unreadTotal}
-            onNewMessage={() => setNewMessageOpen(true)}
           />
           <ConversationList
             conversations={conversations}

@@ -2,20 +2,19 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
-import { Bell, ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, MoreVertical, Plus } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { Icon } from '../icons/Icon';
-import { Logo } from '../Logo';
 
 const INBOX_HEADER_HEIGHT = 58;
 
 /** Messages' own header, replacing the shared `TopBar` for this tab (see
  * `DrawerNavigator.tsx`'s `focusedTabName` check, extended from AI Assist's to also cover
- * `'Messages'`). Two states matching the mockup: inbox (menu/logo left, theme+bell right, same
- * leading-group layout as `AiHeader.tsx`'s empty state) and thread (hero-gradient bar — back,
- * avatar+name+role+presence, view-profile). No "more"/options button here — the only real action
- * it exposed (mark as read) is already handled on open, and the rest duplicated the row-level
- * swipe menu, so it was dropped rather than kept as dead chrome.
+ * `'Messages'`). Two states matching the redesigned mockup (`Messages New.html`): inbox
+ * (menu + plain "Messages" title on the left, theme toggle + new-message compose button on the
+ * right — replaces the earlier logo+tagline title and the fake "3 new notifications" bell, which
+ * is dropped entirely rather than kept as dead chrome) and thread (hero-gradient bar — back,
+ * avatar+name+role+presence, view-profile, conversation options).
  *
  * The leading hamburger opens the app's main side Drawer (`onOpenMenu`) — same convention
  * `AiHeader.tsx` established, not repurposed for anything else here either. */
@@ -24,7 +23,7 @@ export function MessagesHeader(
     | {
         view: 'inbox';
         onOpenMenu: () => void;
-        onBellPress: () => void;
+        onNewMessage: () => void;
       }
     | {
         view: 'thread';
@@ -35,6 +34,7 @@ export function MessagesHeader(
         avatarColor: string;
         onBack: () => void;
         onViewProfile: () => void;
+        onOptions: () => void;
       },
 ) {
   const { colors, fonts, fontSize, borderWidth, radius, isDark, toggleTheme } = useTheme();
@@ -58,9 +58,7 @@ export function MessagesHeader(
             <IconButton accessibilityLabel="Open menu" onPress={props.onOpenMenu}>
               <Icon name="menu" size={20} color={colors.ink} />
             </IconButton>
-            <View style={{ marginLeft: 2 }}>
-              <Logo size="small" showTagline />
-            </View>
+            <Text style={[fonts.display, styles.inboxTitle, { color: colors.ink }]}>Messages</Text>
           </View>
           <View style={styles.trailing}>
             <IconButton
@@ -70,8 +68,8 @@ export function MessagesHeader(
             >
               <Icon name={isDark ? 'sun' : 'moon'} size={17} color={colors.ink2} />
             </IconButton>
-            <IconButton accessibilityLabel="Notifications" onPress={props.onBellPress} chip>
-              <Bell size={17} color={colors.ink2} strokeWidth={1.6} />
+            <IconButton accessibilityLabel="New message" onPress={props.onNewMessage} chip>
+              <Plus size={17} color={colors.ink2} strokeWidth={1.7} />
             </IconButton>
           </View>
         </View>
@@ -93,6 +91,9 @@ export function MessagesHeader(
         <View style={{ flex: 1 }} />
         <IconButton accessibilityLabel="View profile" onPress={props.onViewProfile} light>
           <Icon name="account" size={18} color="rgba(255,255,255,0.85)" />
+        </IconButton>
+        <IconButton accessibilityLabel="Conversation options" onPress={props.onOptions} light>
+          <MoreVertical size={18} color="rgba(255,255,255,0.85)" strokeWidth={1.8} />
         </IconButton>
       </View>
 
@@ -183,6 +184,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 1,
+    gap: 4,
+  },
+  inboxTitle: {
+    fontSize: 22,
+    letterSpacing: -0.4,
   },
   trailing: {
     flexDirection: 'row',

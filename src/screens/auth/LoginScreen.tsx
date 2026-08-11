@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Controller, useForm } from 'react-hook-form';
@@ -105,13 +105,20 @@ function LoginScreen() {
       <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}>
         <AuthHero topInset={insets.top} />
 
-        {/* White bottom sheet */}
-        <View
+        {/* White bottom sheet — `SafeAreaView` (edges: ['bottom']) instead of manually adding
+            `insets.bottom` to `paddingBottom`: `useSafeAreaInsets()` reports 0 for a frame or two
+            on first mount before the native side delivers real values, so the sheet under-pads
+            on that first paint and the native window's white background peeks through behind the
+            transparent system nav bar until something (e.g. the keyboard opening) forces a fresh
+            inset measurement. `SafeAreaView` applies the real inset at the native layout level
+            instead of through a JS re-render round trip, so it's correct from the first frame. */}
+        <SafeAreaView
+          edges={['bottom']}
           style={[
             authStyles.sheet,
             {
               backgroundColor: colors.surface,
-              paddingBottom: 34 + insets.bottom,
+              paddingBottom: 34,
               ...elevation('lg'),
             },
           ]}
@@ -240,7 +247,7 @@ function LoginScreen() {
               </Text>
             </Pressable>
           </View>
-        </View>
+        </SafeAreaView>
       </ScrollView>
     </KeyboardAvoidingView>
   );

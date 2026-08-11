@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 
@@ -12,9 +12,13 @@ const MAX_INPUT_HEIGHT = 120;
  * file/image variant to wire up, unlike DMs). Non-members see a disabled input with a read-only
  * banner instead of the composer row, matching web's `isSelectedGroupMember` gate exactly.
  *
- * Pads for the bottom safe-area inset (home indicator / gesture-nav area) itself — without it,
- * the composer's own background stops at a fixed `paddingBottom` and the screen's page
- * background shows through below it as a visible gap (confirmed on-device via screenshot). */
+ * Uses `SafeAreaView`'s own `edges={['bottom']}` rather than manually reading
+ * `useSafeAreaInsets().bottom` into a `paddingBottom` — a manual `Math.max(insets.bottom, N)`
+ * floor still left a visible gap (the page's cream background showing through below the white
+ * composer bar, confirmed via screenshot) on at least one device, most likely because
+ * `insets.bottom` doesn't always resolve to the real system gesture-nav height in this screen's
+ * position in the navigator tree. `SafeAreaView` computes and applies the correct bottom inset
+ * itself instead of trusting a hook value read once here. */
 export function ChapterChatComposer({
   value,
   onChangeText,
@@ -27,29 +31,30 @@ export function ChapterChatComposer({
   canPost: boolean;
 }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
-  const insets = useSafeAreaInsets();
   const canSend = canPost && value.trim().length > 0;
 
   if (!canPost) {
     return (
-      <View
+      <SafeAreaView
+        edges={['bottom']}
         style={[
           styles.readOnly,
-          { paddingBottom: Math.max(insets.bottom, 14), backgroundColor: colors.surface, borderTopColor: colors.borderSoft, borderTopWidth: borderWidth.thin },
+          { backgroundColor: colors.surface, borderTopColor: colors.borderSoft, borderTopWidth: borderWidth.thin },
         ]}
       >
         <Text style={[fonts.regular, styles.readOnlyText, { color: colors.ink3 }]}>
           Read-only — join this chapter to send messages.
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View
+    <SafeAreaView
+      edges={['bottom']}
       style={[
         styles.container,
-        { paddingBottom: Math.max(insets.bottom, 10), backgroundColor: colors.surface, borderTopColor: colors.borderSoft, borderTopWidth: borderWidth.thin },
+        { backgroundColor: colors.surface, borderTopColor: colors.borderSoft, borderTopWidth: borderWidth.thin },
       ]}
     >
       <View style={[styles.inputWrap, { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xxl, backgroundColor: colors.surfaceSunken }]}>
@@ -70,7 +75,7 @@ export function ChapterChatComposer({
       >
         <Send size={17} color={canSend ? '#fff' : colors.ink3} strokeWidth={1.9} />
       </Pressable>
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -74,7 +74,7 @@ react {
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = true
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -135,7 +135,27 @@ android {
             // a debug-signed "release" build.
             signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
+            // Strips unused Android resources (drawables/layouts/strings pulled in by
+            // libraries) that R8's code shrinking alone doesn't touch. Requires minifyEnabled.
+            shrinkResources enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            // Team-distributed release APKs only ever get installed on real phones (arm64-v8a) —
+            // dropping the other 3 architectures (armeabi-v7a/x86/x86_64, needed only for old
+            // 32-bit devices and emulators) out of the single universal APK cuts its
+            // native-library weight to roughly a quarter. Debug builds are untouched (no `ndk`
+            // override here), so emulator testing on x86/x86_64 still works.
+            ndk {
+                abiFilters "arm64-v8a"
+            }
+        }
+    }
+    packagingOptions {
+        // Modern AGP defaults to storing native libraries uncompressed in the APK (faster
+        // install, bigger download). For internal team-shared APKs the download size matters
+        // more than install speed, so force them back to compressed — same single file, no
+        // compatibility trade-off, just smaller. Applies to both build types; harmless for debug.
+        jniLibs {
+            useLegacyPackaging true
         }
     }
 }

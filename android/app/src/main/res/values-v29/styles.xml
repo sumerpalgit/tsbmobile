@@ -1,0 +1,27 @@
+<resources>
+
+    <!--
+      Same fix as MainActivity.kt's `window.isNavigationBarContrastEnforced = false`, but applied
+      declaratively on the theme instead of programmatically in onCreate() — the programmatic
+      version runs after RN's own edge-to-edge setup (WindowUtil.enableEdgeToEdge, inside
+      super.onCreate()), which re-asserts the OS's default translucent white scrim behind the nav
+      bar on the very first frame; only a later window-inset recalculation (e.g. the keyboard
+      opening) picks up the override. Setting it here bakes it into the window's style before the
+      window is even created, so there's no first-frame race to lose.
+
+      API 29+ only (`android:enforceNavigationBarContrast` doesn't exist before Android Q) —
+      values-v29 keeps this resource-qualified rather than needing tools:targetApi in the base
+      styles.xml. Below API 29 the OS never enforces this scrim in the first place, so there's
+      nothing to override there.
+    -->
+    <!-- A style resource in a qualified folder (values-v29) fully replaces the base
+         values/styles.xml version for matching devices rather than merging with it item-by-item
+         — so every item from the base AppTheme has to be repeated here too, or API 29+ devices
+         would silently lose the edit-text theming and splash windowBackground. -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <item name="android:windowBackground">@drawable/splash_screen</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+    </style>
+
+</resources>

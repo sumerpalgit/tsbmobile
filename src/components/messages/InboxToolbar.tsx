@@ -1,13 +1,15 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Plus, Search, X } from 'lucide-react-native';
+import { Search, X } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 
-/** Inbox title + New-message button, search field, and All/Unread segmented tabs with live
- * counts — matches the mockup's inbox toolbar. Not `SegmentedControl` (the shared generic
- * component) since these segments need an inline count badge per option, which that component
- * doesn't support — same reasoning `PromptLibrary.tsx`'s own category tabs are custom-built
- * rather than reusing it. */
+/** Inbox search field + All/Unread segmented tabs with live counts — matches the redesigned
+ * mockup's inbox toolbar (`Messages New.html`). The title and "New message" action used to live
+ * here too (a big "Inbox" eyebrow + "Messages" display title + round "+" button); the redesign
+ * consolidates both into the slim `MessagesHeader` above instead, so this component now starts
+ * directly at the search bar. Not `SegmentedControl` (the shared generic component) since these
+ * segments need an inline count badge per option, which that component doesn't support — same
+ * reasoning `PromptLibrary.tsx`'s own category tabs are custom-built rather than reusing it. */
 export function InboxToolbar({
   query,
   onQueryChange,
@@ -15,7 +17,6 @@ export function InboxToolbar({
   onSegmentChange,
   allCount,
   unreadCount,
-  onNewMessage,
 }: {
   query: string;
   onQueryChange: (text: string) => void;
@@ -23,7 +24,6 @@ export function InboxToolbar({
   onSegmentChange: (segment: 'all' | 'unread') => void;
   allCount: number;
   unreadCount: number;
-  onNewMessage: () => void;
 }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
 
@@ -34,26 +34,6 @@ export function InboxToolbar({
         { backgroundColor: colors.surface, borderBottomColor: colors.borderSoft, borderBottomWidth: borderWidth.thin },
       ]}
     >
-      <View style={styles.titleRow}>
-        <View>
-          <View style={styles.eyebrowRow}>
-            <View style={[styles.eyebrowDash, { backgroundColor: colors.gold }]} />
-            <Text style={[fonts.bold, styles.eyebrow, { color: colors.goldDark }]}>Inbox</Text>
-          </View>
-          <Text style={[fonts.display, styles.title, { color: colors.ink }]}>Messages</Text>
-        </View>
-        <Pressable
-          onPress={onNewMessage}
-          accessibilityLabel="New message"
-          style={({ pressed }) => [
-            styles.newButton,
-            { backgroundColor: colors.feedFill, borderRadius: radius.xl, opacity: pressed ? 0.9 : 1 },
-          ]}
-        >
-          <Plus size={17} color={colors.feedOnFill} strokeWidth={1.8} />
-        </Pressable>
-      </View>
-
       <View
         style={[
           styles.searchRow,
@@ -101,7 +81,7 @@ export function InboxToolbar({
               <View
                 style={[
                   styles.countBadge,
-                  { borderRadius: radius.sm, backgroundColor: active ? colors.chip : 'transparent' },
+                  { backgroundColor: active ? colors.chip : 'transparent' },
                 ]}
               >
                 <Text style={[fonts.bold, styles.countText, { color: active ? colors.goldDark : colors.ink3 }]}>
@@ -119,40 +99,8 @@ export function InboxToolbar({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingTop: 4,
+    paddingTop: 12,
     paddingBottom: 14,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  eyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  eyebrowDash: {
-    width: 14,
-    height: 2,
-    borderRadius: 2,
-  },
-  eyebrow: {
-    fontSize: 10,
-    letterSpacing: 1.3,
-    textTransform: 'uppercase',
-  },
-  title: {
-    fontSize: 27,
-    lineHeight: 30,
-    marginTop: 9,
-  },
-  newButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   searchRow: {
     flexDirection: 'row',
@@ -160,7 +108,6 @@ const styles = StyleSheet.create({
     gap: 9,
     height: 44,
     paddingHorizontal: 13,
-    marginTop: 13,
   },
   searchInput: {
     flex: 1,
@@ -191,6 +138,9 @@ const styles = StyleSheet.create({
   countBadge: {
     paddingHorizontal: 6,
     paddingVertical: 1,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   countText: {
     fontSize: 10.5,
