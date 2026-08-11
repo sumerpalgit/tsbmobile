@@ -1,7 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
-import { ProfileScreen, CreateEventScreen, EventDetailScreen } from '../screens';
+import { ProfileScreen, CreateEventScreen, EventDetailScreen, MemberProfileScreen } from '../screens';
 import DrawerNavigator from './DrawerNavigator';
 import { AppStackParamList } from './types';
 
@@ -29,6 +29,7 @@ function AppNavigator() {
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
       <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+      <Stack.Screen name="MemberProfile" component={MemberProfileScreen} />
     </Stack.Navigator>
   );
 }

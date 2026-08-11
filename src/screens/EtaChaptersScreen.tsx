@@ -119,12 +119,14 @@ function EtaChaptersScreen() {
     }
   };
 
-  /** "View member directory" navigates to the app's real Directory tab — matches web's
-   * `router.push('/dashboard/directory?group_id=...')`. Directory is still a Phase-7 placeholder
-   * on mobile (not this feature's scope to build out), so this is a plain tab navigation, no
-   * params threaded through — same reasoning as not building the standalone directory here. */
-  const handleViewMemberDirectory = () => {
-    navigation.navigate('Tabs', { screen: 'Directory' });
+  /** "View member directory" navigates to the app's real Directory tab, scoped to this chapter —
+   * matches web's `router.push('/dashboard/directory?group_id=...&chapterName=...')`. Directory
+   * is now a real feature (was a Phase-7 placeholder when this only did a bare tab switch with no
+   * params threaded through), so the chapter scope now actually carries over instead of landing
+   * on an unfiltered list. */
+  const handleViewMemberDirectory = (chapter: EtaGroup | null) => {
+    if (!chapter) return;
+    navigation.navigate('Tabs', { screen: 'Directory', params: { groupId: chapter.id, chapterName: chapter.name } });
   };
 
   // ── Chapter chat state (mirrors MessagesScreen.tsx's proven WS/pagination/optimistic-send
@@ -704,7 +706,7 @@ function EtaChaptersScreen() {
         onClose={() => setOptionsOpen(false)}
         onNotificationPrefs={() => setNotifPrefsChapter(activeChatChapter)}
         onSearchMessages={() => setChatSearchOpen(true)}
-        onViewMembers={handleViewMemberDirectory}
+        onViewMembers={() => handleViewMemberDirectory(activeChatChapter)}
         onUpcomingEvents={() => setUpcomingEventsChapter(activeChatChapter)}
         onCommunityGuidelines={() => {
           setGuidelineViewOnly(true);
@@ -757,7 +759,7 @@ function EtaChaptersScreen() {
             key: 'members',
             label: 'View member directory',
             icon: <Users size={17} color={colors.ink2} strokeWidth={1.6} />,
-            onPress: handleViewMemberDirectory,
+            onPress: () => handleViewMemberDirectory(cardSettingsChapter),
           },
           {
             key: 'events',

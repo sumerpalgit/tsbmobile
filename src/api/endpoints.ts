@@ -43,6 +43,14 @@ export const SAVES_ENDPOINTS = {
   TOGGLE: '/saves/toggle',
 } as const;
 
+/** Directory's bookmark-a-member system — a distinct endpoint/data shape from `SAVES_ENDPOINTS`
+ * above (that one toggles a feed post via `{feed_id}`; this one is a real REST resource keyed by
+ * username: `POST`/`DELETE ${TOGGLE}/:username`). */
+export const SAVED_CONTACTS_ENDPOINTS = {
+  LIST: '/saved-contacts',
+  TOGGLE: '/saved-contacts',
+} as const;
+
 export const MY_ACTIVITY_ENDPOINTS = {
   SAVED_POSTS: '/my-activity/saved-posts',
 } as const;

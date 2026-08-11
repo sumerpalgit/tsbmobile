@@ -90,7 +90,9 @@ function DrawerNavigator() {
               onMenuPress={() => navigation.openDrawer()}
               onBellPress={() => stackNavigation.navigate('Notifications')}
               onAvatarPress={() => stackNavigation.navigate('Profile')}
-              showAvatar={focusedTabName !== 'Home'}
+              // Directory's own mockup header (menu/logo/theme/bell only, no profile icon) also
+              // excludes the avatar — same reasoning as Home.
+              showAvatar={focusedTabName !== 'Home' && focusedTabName !== 'Directory'}
             />
           )),
         };

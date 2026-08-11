@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../theme';
 import { Icon } from './icons/Icon';
 
@@ -10,6 +10,10 @@ import { Icon } from './icons/Icon';
  *
  * `onFilterPress` is optional — omit it to render just the plain search input with no filter
  * button, for screens that don't need one.
+ *
+ * `filterCount` renders a numeric badge (Directory's mockup wants an actual active-filter count)
+ * instead of the plain dot — omit it (or pass 0) to keep Home's existing boolean-dot behavior via
+ * `filtersActive` unchanged.
  */
 export function SearchBar({
   value,
@@ -17,14 +21,16 @@ export function SearchBar({
   placeholder = 'Search…',
   onFilterPress,
   filtersActive = false,
+  filterCount,
 }: {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
   onFilterPress?: () => void;
   filtersActive?: boolean;
+  filterCount?: number;
 }) {
-  const { colors, fontSize, radius, borderWidth, spacing, elevation } = useTheme();
+  const { colors, fonts, fontSize, radius, borderWidth, spacing, elevation } = useTheme();
 
   return (
     <View style={styles.row}>
@@ -64,13 +70,19 @@ export function SearchBar({
           ]}
         >
           <Icon name="filter" size={17} color={colors.onAccent} />
-          {filtersActive && (
-            <View
-              style={[
-                styles.activeDot,
-                { backgroundColor: colors.gold, borderColor: colors.surface },
-              ]}
-            />
+          {!!filterCount && filterCount > 0 ? (
+            <View style={[styles.countBadge, { backgroundColor: colors.gold, borderColor: colors.surface }]}>
+              <Text style={[fonts.bold, styles.countText, { color: '#fff' }]}>{filterCount}</Text>
+            </View>
+          ) : (
+            filtersActive && (
+              <View
+                style={[
+                  styles.activeDot,
+                  { backgroundColor: colors.gold, borderColor: colors.surface },
+                ]}
+              />
+            )
           )}
         </Pressable>
       )}
@@ -108,5 +120,20 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     borderWidth: 2,
+  },
+  countBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countText: {
+    fontSize: 9.5,
   },
 });

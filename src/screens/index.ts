@@ -7,6 +7,7 @@ export { default as AiAssistScreen } from './AiAssistScreen';
 export { default as MessagesScreen } from './MessagesScreen';
 export { default as CreateEventScreen } from './CreateEventScreen';
 export { default as EventDetailScreen } from './EventDetailScreen';
+export { default as MemberProfileScreen } from './MemberProfileScreen';
 export {
   PlaceholderScreen,
   createPlaceholderScreen,

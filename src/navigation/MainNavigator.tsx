@@ -2,7 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../theme';
 import { Icon } from '../components/icons/Icon';
-import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
+import DirectoryScreen from '../screens/DirectoryScreen';
 import { AiAssistScreen, HomeScreen, MessagesScreen, ProfileScreen } from '../screens';
 import { TAB_ITEMS } from './menuConfig';
 import { MainTabParamList } from './types';
@@ -25,11 +25,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
  */
 const TAB_SCREENS: Record<keyof MainTabParamList, React.ComponentType> = {
   Home: HomeScreen,
-  Directory: createPlaceholderScreen({
-    title: 'Directory',
-    icon: 'directory',
-    phase: 'Phase 7',
-  }),
+  Directory: DirectoryScreen,
   AiAssist: AiAssistScreen,
   Messages: MessagesScreen,
   Profile: ProfileScreen,

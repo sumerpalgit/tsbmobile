@@ -1,5 +1,7 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { MyEventItem } from '../types/events';
+import type { Conversation } from '../types/messages';
+import type { Profile } from '../types/directory';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -35,9 +37,17 @@ export type AuthStackParamList = {
  */
 export type MainTabParamList = {
   Home: undefined;
-  Directory: undefined;
+  /** Optional chapter scope — set when arriving from ETA Chapters' "View member directory"
+   * (matches web's `?group_id=&chapterName=`, scoping every search call to that chapter). */
+  Directory: { groupId?: string; chapterName?: string } | undefined;
   AiAssist: undefined;
-  Messages: undefined;
+  /** `openConversation` is set (by Directory's "Message" action, or anywhere else that starts a
+   * conversation and wants to land directly in its thread) to the exact stub shape
+   * `MessagesScreen.tsx`'s own `handleSelectNewUser` already constructs — avoids depending on the
+   * conversations list query having resolved by the time this tab is focused. Cleared via
+   * `navigation.setParams` once consumed, since tab screens stay mounted and a stale param would
+   * otherwise re-fire on the next focus. */
+  Messages: { openConversation?: Pick<Conversation, 'id' | 'name' | 'profileImg' | 'participantId' | 'unreadCount'> } | undefined;
   Profile: undefined;
 };
 
@@ -78,4 +88,11 @@ export type AppStackParamList = {
    * (`useSafeAreaInsets()` read inside a `Modal` isn't reliable on Android in every case — the
    * hero banner touching the top of the screen "in some cases" was that, not a spacing mistake). */
   EventDetail: { event: MyEventItem };
+  /** Directory's "View Profile" — real navigation (matches web's own
+   * `router.push('/dashboard/profiles/:username')`), not a `Modal` sheet. `initialSaved` is a
+   * snapshot of the Directory list's save-state at the moment of navigation; this screen manages
+   * its own local save toggle independently rather than sharing `DirectoryScreen`'s list state —
+   * syncing the two back together (so the list reflects a toggle made here) is a separate,
+   * later task, not part of this navigation fix. */
+  MemberProfile: { profile: Profile; initialSaved: boolean };
 };

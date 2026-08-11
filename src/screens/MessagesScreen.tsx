@@ -8,7 +8,9 @@ import {
   Platform,
   View,
 } from 'react-native';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { DrawerActions, useNavigation, useRoute } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { RouteProp } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
@@ -23,6 +25,7 @@ import { appendUniqueMessages, groupMessages } from '../types/messages';
 import type { Conversation, Message, PaginationInfo, ReplyTo } from '../types/messages';
 import type { UserSearchResult } from '../api/messages';
 import type { PickedFile } from '../components/FileUploadButton';
+import type { MainTabParamList } from '../navigation/types';
 
 import { MessagesHeader } from '../components/messages/MessagesHeader';
 import { InboxToolbar } from '../components/messages/InboxToolbar';
@@ -47,7 +50,8 @@ type ThreadItem =
  * checkmark is a static sent-indicator, not real read-receipt data (web has none). */
 export default function MessagesScreen() {
   const { colors } = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList, 'Messages'>>();
+  const route = useRoute<RouteProp<MainTabParamList, 'Messages'>>();
   const queryClient = useQueryClient();
   const { data: me } = useMe();
   const { conversations, isLoading: conversationsLoading, refetch: refetchConversations } = useConversations();
@@ -167,6 +171,20 @@ export default function MessagesScreen() {
     },
     [markRead, scrollToBottom],
   );
+
+  // Cross-tab deep link (e.g. Directory's "Message" action): a caller that already knows the
+  // target user's name/profileImg and just got `conversationId` back from `startConversation`
+  // passes the exact same stub shape `handleSelectNewUser` below builds, so this opens the thread
+  // directly with zero dependency on `conversations` (the list query) having resolved yet.
+  // Cleared via `setParams` once consumed — this tab screen stays mounted, so a stale param would
+  // otherwise re-open the same thread on every later focus.
+  useEffect(() => {
+    if (!route.params?.openConversation) return;
+    const conversation = route.params.openConversation;
+    openConversation(conversation);
+    navigation.setParams({ openConversation: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params?.openConversation]);
 
   const loadMoreMessages = useCallback(async () => {
     if (!activeConversationId || !pagination?.hasMore || loadingMore) return;
