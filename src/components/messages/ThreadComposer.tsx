@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { FileText, Paperclip, Send, X } from 'lucide-react-native';
+import { Check, FileText, Paperclip, Send, X } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { formatFileSize } from '../../types/messages';
 import type { ReplyTo } from '../../types/messages';
@@ -23,6 +23,9 @@ export function ThreadComposer({
   replyTo,
   onCancelReply,
   disabled,
+  editingPreview,
+  onCancelEdit,
+  editingAllowsAttach,
 }: {
   value: string;
   onChangeText: (text: string) => void;
@@ -34,16 +37,40 @@ export function ThreadComposer({
   replyTo: ReplyTo | null;
   onCancelReply: () => void;
   disabled: boolean;
+  /** Set while editing an existing message — swaps the reply bar for an "Editing message" bar and
+   * the send icon for a checkmark. `onSend` still fires either way; the caller (`MessagesScreen`)
+   * branches on whether an edit target is set. */
+  editingPreview?: string | null;
+  onCancelEdit?: () => void;
+  /** Attach stays enabled while editing an image/file message (swap or add an attachment, per the
+   * real edit contract) but disabled while editing a plain-text message (converting a text
+   * message into an attachment one isn't part of that contract) — the caller decides which
+   * applies based on the edit target's original content type. Ignored when not editing. */
+  editingAllowsAttach?: boolean;
 }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
+  const isEditing = !!editingPreview;
   const canSend = (value.trim().length > 0 || !!pendingFile) && !disabled;
   const isPendingImage = pendingFile?.mimeType?.startsWith('image/');
+  const attachDisabled = isUploadingFile || (isEditing && !editingAllowsAttach);
 
   return (
     <View
       style={[styles.container, { backgroundColor: colors.surface, borderTopColor: colors.borderSoft, borderTopWidth: borderWidth.thin }]}
     >
-      {replyTo ? (
+      {isEditing ? (
+        <View style={[styles.replyBar, { backgroundColor: colors.surfaceSunken, borderRadius: radius.lg }]}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.goldDark }]}>Editing message</Text>
+            <Text numberOfLines={1} style={[fonts.regular, { fontSize: fontSize.small, color: colors.ink2 }]}>
+              {editingPreview}
+            </Text>
+          </View>
+          <Pressable onPress={onCancelEdit} hitSlop={8}>
+            <X size={15} color={colors.ink3} strokeWidth={1.8} />
+          </Pressable>
+        </View>
+      ) : replyTo ? (
         <View style={[styles.replyBar, { backgroundColor: colors.surfaceSunken, borderRadius: radius.lg }]}>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.goldDark }]}>Replying to {replyTo.author}</Text>
@@ -83,11 +110,11 @@ export function ThreadComposer({
       <View style={styles.row}>
         <Pressable
           onPress={onAttach}
-          disabled={isUploadingFile}
+          disabled={attachDisabled}
           accessibilityLabel="Attach file"
           style={[
             styles.iconButton,
-            { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xl, backgroundColor: colors.surfaceSunken, opacity: isUploadingFile ? 0.6 : 1 },
+            { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xl, backgroundColor: colors.surfaceSunken, opacity: attachDisabled ? 0.4 : 1 },
           ]}
         >
           {isUploadingFile ? <ActivityIndicator size="small" color={colors.gold} /> : <Paperclip size={17} color={colors.ink2} strokeWidth={1.5} />}
@@ -96,7 +123,7 @@ export function ThreadComposer({
           <TextInput
             value={value}
             onChangeText={onChangeText}
-            placeholder="Type a message…"
+            placeholder={isEditing ? 'Edit message…' : 'Type a message…'}
             placeholderTextColor={colors.ink3}
             multiline
             style={[fonts.regular, styles.input, { fontSize: fontSize.ui, color: colors.ink, maxHeight: MAX_INPUT_HEIGHT }]}
@@ -105,10 +132,14 @@ export function ThreadComposer({
         <Pressable
           onPress={onSend}
           disabled={!canSend}
-          accessibilityLabel="Send message"
+          accessibilityLabel={isEditing ? 'Save edit' : 'Send message'}
           style={[styles.sendButton, { borderRadius: radius.xl, backgroundColor: canSend ? colors.gold : colors.surfaceSunken }]}
         >
-          <Send size={17} color={canSend ? '#fff' : colors.ink3} strokeWidth={1.9} />
+          {isEditing ? (
+            <Check size={18} color={canSend ? '#fff' : colors.ink3} strokeWidth={2.2} />
+          ) : (
+            <Send size={17} color={canSend ? '#fff' : colors.ink3} strokeWidth={1.9} />
+          )}
         </Pressable>
       </View>
     </View>

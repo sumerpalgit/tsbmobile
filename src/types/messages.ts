@@ -11,6 +11,11 @@ export type Conversation = {
   latestMessage?: { message: string; created_at: string; sender: { name: string } } | null;
   participantId: string;
   unreadCount: number;
+  /** Read-receipt timestamp used to compute Edit eligibility (see `isMessageEditable` below) —
+   * a message becomes un-editable the moment this crosses its `created_at`, even under the 1hr
+   * edit window. Present on the conversation-list response; the open thread refreshes its own,
+   * fresher copy from `fetchMessages`'s response envelope instead of this one. */
+  otherParticipantLastReadAt?: string | null;
 };
 
 export type ReplyTo = {
@@ -26,6 +31,9 @@ export type Message = {
   isSenderMe: boolean;
   sender: { name: string; username?: string; profile_img?: string };
   reply_to?: { id: string; message: string; sender_name: string } | null;
+  /** Null until first edit — set by both the PATCH response and the `MESSAGE_EDITED` socket
+   * event. Purely a display concern (an "Edited" label); doesn't affect edit eligibility. */
+  edited_at?: string | null;
 };
 
 export type PaginationInfo = {
@@ -44,12 +52,16 @@ export type MessageContent =
   | { type: 'text'; text: string }
   | { type: 'image'; fileName: string; fileSize: number; mimeType: string; fileUrl: string; text?: string }
   | { type: 'file'; fileName: string; fileSize: number; mimeType: string; fileUrl: string; text?: string }
-  | { type: 'shared_feed'; feedId: string };
+  | { type: 'shared_feed'; feedId: string }
+  /** Soft-delete tombstone — the server replaces a deleted message's real content with this
+   * literal payload server-side (every future fetch of it, its conversation-preview, and any
+   * reply-quote pointing at it), so the client never needs to hide content itself. */
+  | { type: 'deleted' };
 
 export function parseMessageContent(raw: string): MessageContent {
   try {
     const parsed = JSON.parse(raw);
-    if (parsed?.type === 'image' || parsed?.type === 'file' || parsed?.type === 'shared_feed') {
+    if (parsed?.type === 'image' || parsed?.type === 'file' || parsed?.type === 'shared_feed' || parsed?.type === 'deleted') {
       return parsed;
     }
     return { type: 'text', text: parsed?.text ?? raw };
@@ -63,6 +75,7 @@ export function parseMessageContent(raw: string): MessageContent {
 export function getConversationPreview(rawMessage?: string | null): string {
   if (!rawMessage) return '';
   const parsed = parseMessageContent(rawMessage);
+  if (parsed.type === 'deleted') return 'This message was deleted';
   if (parsed.type === 'shared_feed') return '📎 Shared a post';
   if (parsed.type === 'file') return `📄 ${parsed.fileName || 'Document'}`;
   if (parsed.type === 'image') return `🖼 ${parsed.fileName || 'Image'}`;
@@ -157,4 +170,46 @@ export function appendUniqueMessages(prev: Message[], incoming: Message[]): Mess
   for (const msg of prev) map.set(msg.id, msg);
   for (const msg of incoming) map.set(msg.id, msg);
   return Array.from(map.values());
+}
+
+const EDIT_WINDOW_MS = 60 * 60 * 1000;
+
+/** An optimistic message hasn't round-tripped to the server yet, so it has no real id to send an
+ * edit/delete PATCH/DELETE against. */
+function isPendingMessage(message: Message): boolean {
+  return message.id.startsWith('temp-');
+}
+
+/** Client-side mirror of the eligibility rule the backend independently re-checks (a stale client
+ * just gets a 409): editable = own message, text/image/file (a shared-post message has no
+ * orchestration path per the real contract — there's no "edit" for a repost — so it stays
+ * un-editable), under 1hr old, and not yet seen by the other participant.
+ * `otherParticipantLastReadAt` is a snapshot from the last fetch, not real-time — there's no
+ * socket event for it, so a message can flip un-editable between renders; the 409 path in
+ * `MessagesScreen` is the backstop for that race. */
+export function isMessageEditable(message: Message, otherParticipantLastReadAt?: string | null): boolean {
+  if (!message.isSenderMe || isPendingMessage(message)) return false;
+  const parsed = parseMessageContent(message.message);
+  if (parsed.type !== 'text' && parsed.type !== 'image' && parsed.type !== 'file') return false;
+  const createdAt = new Date(message.created_at).getTime();
+  if (Date.now() - createdAt >= EDIT_WINDOW_MS) return false;
+  if (otherParticipantLastReadAt && new Date(otherParticipantLastReadAt).getTime() >= createdAt) return false;
+  return true;
+}
+
+/** Delete has no time/read restriction (matches the real contract) — only "is it mine, and has it
+ * actually been saved server-side yet, and is it not already a tombstone". */
+export function isMessageDeletable(message: Message): boolean {
+  if (!message.isSenderMe || isPendingMessage(message)) return false;
+  return parseMessageContent(message.message).type !== 'deleted';
+}
+
+/** Read-receipt check — matches the real contract exactly: there's no per-message "seen" flag,
+ * just one conversation-level `otherParticipantLastReadAt` timestamp (the same field used for
+ * Edit eligibility above). Every one of my own messages sent at or before that instant flips to
+ * "seen" simultaneously — that's the real behavior, not a bug to work around. Only meaningful for
+ * `isSenderMe` messages; a received message is never "seen" by me in this sense. */
+export function isMessageSeen(message: Message, otherParticipantLastReadAt?: string | null): boolean {
+  if (!message.isSenderMe || !otherParticipantLastReadAt) return false;
+  return new Date(message.created_at).getTime() <= new Date(otherParticipantLastReadAt).getTime();
 }

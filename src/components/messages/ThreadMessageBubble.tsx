@@ -1,11 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { Check, FileText, Reply } from 'lucide-react-native';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { Check, CheckCheck, FileText, MoreVertical, Reply } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { Avatar } from '../Avatar';
-import { avatarColor, formatFileSize, getConversationPreview, getCopyableText, parseMessageContent } from '../../types/messages';
+import { avatarColor, formatFileSize, getConversationPreview, getCopyableText, isMessageDeletable, isMessageSeen, parseMessageContent } from '../../types/messages';
 import { fetchSharedFeedPreview } from '../../api/messages';
 import type { Message, MsgGroup } from '../../types/messages';
 
@@ -21,10 +29,10 @@ const REPLY_THRESHOLD = 40;
 
 /** Wraps a bubble with WhatsApp-style swipe-right-to-reply: drag right reveals a reply icon to
  * the bubble's left, crossing `REPLY_THRESHOLD` on release fires `onReply` (the bubble always
- * snaps back to 0, it never stays open — there's nothing to leave revealed). Long-press (wired
- * separately on the bubble itself) remains the trigger for Copy, per explicit product decision:
- * reply is swipe-triggered, copy stays a long-press action, rather than collapsing both into one
- * gesture or one sheet. */
+ * snaps back to 0, it never stays open — there's nothing to leave revealed). Reply stays on its
+ * own swipe gesture rather than folding into the Copy/Edit/Delete sheet — that sheet has its own
+ * two triggers instead (long-press on the bubble, or the visible `MoreVertical` button beside it,
+ * both wired separately on the bubble itself, see `IncomingBubble`/`OutgoingBubble`). */
 function SwipeToReply({ onReply, children }: { onReply?: () => void; children: React.ReactNode }) {
   const { colors } = useTheme();
   const translateX = useSharedValue(0);
@@ -47,7 +55,14 @@ function SwipeToReply({ onReply, children }: { onReply?: () => void; children: R
 
   return (
     <View style={styles.swipeWrap}>
-      <Animated.View style={[styles.replyIconWell, iconStyle]}>
+      {/* Purely decorative — invisible at rest but still a native view sitting in the touch
+          hierarchy, and its absolute `left: -30` box extends outside the bubble into the space
+          where the new "more actions" button lives for outgoing bubbles (button first, bubble
+          second in JSX there, so this renders on top and was silently swallowing the tap).
+          `pointerEvents="none"` lets every touch pass straight through it — it never needed to be
+          interactive itself, the swipe gesture lives on the `GestureDetector`-wrapped bubble
+          below, not on this well. */}
+      <Animated.View style={[styles.replyIconWell, iconStyle]} pointerEvents="none">
         <Reply size={16} color={colors.gold} strokeWidth={2} />
       </Animated.View>
       <GestureDetector gesture={pan}>
@@ -71,6 +86,48 @@ export function DayDivider({ label }: { label: string }) {
   );
 }
 
+/** Live "X is typing…" row — pure socket state (`TYPING`/`STOP_TYPING`), nothing persisted or
+ * fetched, see `MessagesScreen`'s doc comment. Styled like an `IncomingBubble` (avatar + bubble)
+ * but not attached to any real message — `MessagesScreen` appends it as a synthetic trailing
+ * `ThreadItem` so it always renders at the bottom of the thread. Three dots pulse in a staggered
+ * loop, same technique as `ai-assist/TypingIndicator.tsx` (built with `Animated`/`Reanimated`
+ * instead of CSS keyframes — this file already uses Reanimated for `SwipeToReply`). */
+export function TypingIndicatorBubble({ senderName }: { senderName: string }) {
+  const { colors, radius, borderWidth } = useTheme();
+  return (
+    <View style={styles.inGroup}>
+      <View style={styles.inAvatarSlot}>
+        <Avatar name={senderName} size={26} fallbackColor={avatarColor(senderName)} />
+      </View>
+      <View
+        style={[
+          styles.inBubble,
+          styles.typingBubble,
+          { backgroundColor: colors.surface, borderColor: colors.borderSoft, borderWidth: borderWidth.thin, borderRadius: radius.xl },
+        ]}
+      >
+        <TypingDot delay={0} color={colors.ink3} />
+        <TypingDot delay={200} color={colors.ink3} />
+        <TypingDot delay={400} color={colors.ink3} />
+      </View>
+    </View>
+  );
+}
+
+function TypingDot({ delay, color }: { delay: number; color: string }) {
+  const opacity = useSharedValue(0.25);
+
+  useEffect(() => {
+    opacity.value = withDelay(
+      delay,
+      withRepeat(withSequence(withTiming(1, { duration: 260 }), withTiming(0.25, { duration: 660 })), -1, false),
+    );
+  }, [delay, opacity]);
+
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return <Animated.View style={[styles.typingDot, { backgroundColor: color }, style]} />;
+}
+
 /** One `MsgGroup` (consecutive messages from the same sender — matches webSrc's `groupMessages`)
  * — avatar shown once for an incoming group, never for an outgoing one (right-aligned, matches
  * mockup). Each message in the group keeps its own timestamp/bubble. */
@@ -78,15 +135,19 @@ export function ThreadMessageGroup({
   group,
   senderName,
   highlightedMessageId,
+  otherParticipantLastReadAt,
   onSwipeReply,
-  onLongPressCopy,
+  onMessageActions,
   onPressReplyQuote,
 }: {
   group: MsgGroup;
   senderName: string;
   highlightedMessageId?: string | null;
+  /** Read-receipt timestamp, only meaningful for (and only passed down into) the outgoing side —
+   * see `isMessageSeen` in `types/messages.ts`. */
+  otherParticipantLastReadAt?: string | null;
   onSwipeReply?: (message: Message, authorName: string) => void;
-  onLongPressCopy?: (message: Message) => void;
+  onMessageActions?: (message: Message) => void;
   onPressReplyQuote?: (messageId: string) => void;
 }) {
   if (group.isMine) {
@@ -97,8 +158,9 @@ export function ThreadMessageGroup({
             key={m.id}
             message={m}
             highlighted={m.id === highlightedMessageId}
+            seen={isMessageSeen(m, otherParticipantLastReadAt)}
             onSwipeReply={onSwipeReply ? () => onSwipeReply(m, 'You') : undefined}
-            onLongPressCopy={onLongPressCopy ? () => onLongPressCopy(m) : undefined}
+            onMessageActions={onMessageActions ? () => onMessageActions(m) : undefined}
             onPressReplyQuote={onPressReplyQuote}
           />
         ))}
@@ -118,7 +180,7 @@ export function ThreadMessageGroup({
             message={m}
             highlighted={m.id === highlightedMessageId}
             onSwipeReply={onSwipeReply ? () => onSwipeReply(m, senderName) : undefined}
-            onLongPressCopy={onLongPressCopy ? () => onLongPressCopy(m) : undefined}
+            onMessageActions={onMessageActions ? () => onMessageActions(m) : undefined}
             onPressReplyQuote={onPressReplyQuote}
           />
         ))}
@@ -135,21 +197,23 @@ function IncomingBubble({
   message,
   highlighted,
   onSwipeReply,
-  onLongPressCopy,
+  onMessageActions,
   onPressReplyQuote,
 }: {
   message: Message;
   highlighted?: boolean;
   onSwipeReply?: () => void;
-  onLongPressCopy?: () => void;
+  onMessageActions?: () => void;
   onPressReplyQuote?: (messageId: string) => void;
 }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
-  const isCopyable = !!getCopyableText(parseMessageContent(message.message));
-  return (
-    <SwipeToReply onReply={onSwipeReply}>
+  const parsed = parseMessageContent(message.message);
+  const isDeleted = parsed.type === 'deleted';
+  const isCopyable = !isDeleted && !!getCopyableText(parsed);
+  const bubble = (
+    <SwipeToReply onReply={isDeleted ? undefined : onSwipeReply}>
       <Pressable
-        onLongPress={isCopyable ? onLongPressCopy : undefined}
+        onLongPress={isCopyable ? onMessageActions : undefined}
         style={[
           styles.inBubble,
           {
@@ -171,31 +235,51 @@ function IncomingBubble({
         <MessageBody message={message} textColor={colors.ink} />
         <Text style={[fonts.semibold, styles.timeIn, { color: colors.ink2, fontSize: fontSize.small - 0.5 }]}>
           {formatTime(message.created_at)}
+          {message.edited_at ? ' · Edited' : ''}
         </Text>
       </Pressable>
     </SwipeToReply>
+  );
+  if (!isCopyable) return bubble;
+  return (
+    <View style={styles.bubbleRow}>
+      {bubble}
+      <Pressable onPress={onMessageActions} hitSlop={8} accessibilityLabel="Message actions" style={styles.moreButton}>
+        <MoreVertical size={16} color={colors.ink3} strokeWidth={1.8} />
+      </Pressable>
+    </View>
   );
 }
 
 function OutgoingBubble({
   message,
   highlighted,
+  seen,
   onSwipeReply,
-  onLongPressCopy,
+  onMessageActions,
   onPressReplyQuote,
 }: {
   message: Message;
   highlighted?: boolean;
+  /** From `isMessageSeen` — real read-receipt state now (conversation-level
+   * `otherParticipantLastReadAt`, not per-message), see `ThreadMessageGroup`. */
+  seen?: boolean;
   onSwipeReply?: () => void;
-  onLongPressCopy?: () => void;
+  onMessageActions?: () => void;
   onPressReplyQuote?: (messageId: string) => void;
 }) {
   const { colors, fonts, radius } = useTheme();
-  const isCopyable = !!getCopyableText(parseMessageContent(message.message));
-  return (
-    <SwipeToReply onReply={onSwipeReply}>
+  const parsed = parseMessageContent(message.message);
+  const isDeleted = parsed.type === 'deleted';
+  // Own messages open the actions sheet on long-press even when there's nothing copyable in them
+  // (an uncaptioned image, say) — Delete has no content-type restriction, so it's still on offer.
+  // `isMessageDeletable` also excludes a still-sending optimistic message, so a pending
+  // uncaptioned attachment correctly stays non-actionable rather than opening an empty sheet.
+  const isActionable = !isDeleted && (!!getCopyableText(parsed) || isMessageDeletable(message));
+  const bubble = (
+    <SwipeToReply onReply={isDeleted ? undefined : onSwipeReply}>
       <Pressable
-        onLongPress={isCopyable ? onLongPressCopy : undefined}
+        onLongPress={isActionable ? onMessageActions : undefined}
         style={[styles.outBubble, { backgroundColor: highlighted ? colors.goldDark : colors.feedFill, borderRadius: radius.xl }]}
       >
         {message.reply_to ? (
@@ -208,13 +292,32 @@ function OutgoingBubble({
         ) : null}
         <MessageBody message={message} textColor={colors.feedOnFill} />
         <View style={styles.outMeta}>
-          <Text style={[fonts.semibold, styles.timeOut]}>{formatTime(message.created_at)}</Text>
-          {/* Static "sent" indicator, not a real seen/delivered state — webSrc has no read-receipt
-              backend at all (no WS event, no seen-at field), so this can't reflect real data. */}
-          <Check size={12} color={colors.goldLight} strokeWidth={2} />
+          <Text style={[fonts.semibold, styles.timeOut]}>
+            {formatTime(message.created_at)}
+            {message.edited_at ? ' · Edited' : ''}
+          </Text>
+          {/* Sent-vs-seen only — no intermediate "delivered" state exists in the real contract.
+              Seen is timestamp-based (conversation-level `otherParticipantLastReadAt`), not
+              per-message, so every eligible message flips to double-tick at once when it fires —
+              that's the real behavior, not a bug. */}
+          {!isDeleted &&
+            (seen ? (
+              <CheckCheck size={13} color={colors.gold} strokeWidth={2.2} />
+            ) : (
+              <Check size={12} color={colors.goldLight} strokeWidth={2} />
+            ))}
         </View>
       </Pressable>
     </SwipeToReply>
+  );
+  if (!isActionable) return bubble;
+  return (
+    <View style={[styles.bubbleRow, styles.bubbleRowOut]}>
+      <Pressable onPress={onMessageActions} hitSlop={8} accessibilityLabel="Message actions" style={styles.moreButton}>
+        <MoreVertical size={16} color={colors.ink3} strokeWidth={1.8} />
+      </Pressable>
+      {bubble}
+    </View>
   );
 }
 
@@ -273,6 +376,13 @@ function MessageBody({ message, textColor }: { message: Message; textColor: stri
   }
   if (parsed.type === 'file') {
     return <FileBody fileName={parsed.fileName} fileSize={parsed.fileSize} fileUrl={parsed.fileUrl} caption={parsed.text} textColor={textColor} />;
+  }
+  if (parsed.type === 'deleted') {
+    return (
+      <Text style={[fonts.regular, styles.bodyText, styles.deletedText, { color: textColor, fontSize: fontSize.body, opacity: 0.65 }]}>
+        This message was deleted
+      </Text>
+    );
   }
   return <SharedFeedBody feedId={parsed.feedId} textColor={textColor} />;
 }
@@ -403,6 +513,21 @@ const styles = StyleSheet.create({
     maxWidth: '84%',
     alignSelf: 'flex-start',
   },
+  bubbleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 2,
+    alignSelf: 'flex-start',
+  },
+  bubbleRowOut: {
+    alignSelf: 'flex-end',
+  },
+  moreButton: {
+    width: 24,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   inAvatarSlot: {
     marginBottom: 2,
   },
@@ -417,6 +542,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomLeftRadius: 5,
   },
+  typingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 13,
+  },
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   outBubble: {
     paddingHorizontal: 13,
     paddingVertical: 10,
@@ -424,6 +560,9 @@ const styles = StyleSheet.create({
   },
   bodyText: {
     lineHeight: 19,
+  },
+  deletedText: {
+    fontStyle: 'italic',
   },
   timeIn: {
     marginTop: 4,

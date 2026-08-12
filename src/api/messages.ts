@@ -16,6 +16,7 @@ export async function fetchConversations(): Promise<Conversation[]> {
     latestMessage: c.latestMessage ?? null,
     participantId: c.participantId,
     unreadCount: c.unreadCount ?? 0,
+    otherParticipantLastReadAt: c.otherParticipantLastReadAt ?? null,
   }));
 }
 
@@ -33,6 +34,10 @@ export async function startConversation(username2: string): Promise<string> {
 export type MessagesPage = {
   messages: Message[];
   pagination: PaginationInfo | null;
+  /** Freshest available snapshot of the other participant's read-receipt — used for Edit
+   * eligibility (`isMessageEditable` in `types/messages.ts`). Present on the response envelope
+   * per page fetched; each call just overwrites the caller's copy with the latest. */
+  otherParticipantLastReadAt: string | null;
 };
 
 /** Matches webSrc's `handleConversationClick`/`loadMoreMessages`: `GET
@@ -56,9 +61,14 @@ export async function fetchMessages(
       isSenderMe: m.isSenderMe,
       sender: { name: m.sender?.name || 'Unknown', username: m.sender?.username, profile_img: m.sender?.profile_img },
       reply_to: m.reply_to ?? null,
+      edited_at: m.edited_at ?? null,
     }))
     .reverse();
-  return { messages, pagination: data?.pagination ?? null };
+  return {
+    messages,
+    pagination: data?.pagination ?? null,
+    otherParticipantLastReadAt: (!Array.isArray(data) && data?.otherParticipantLastReadAt) ?? null,
+  };
 }
 
 /** Matches webSrc's `sendMessage`/`sendFile` shared save call: `POST
@@ -75,6 +85,35 @@ export async function sendMessage(
   if (replyToMessageId) body.reply_to_message_id = replyToMessageId;
   return apiClient
     .post(`${CHAT_ENDPOINTS.CONVERSATIONS}/${conversationId}/messages`, body)
+    .then(res => res.data);
+}
+
+/** `PATCH /chat/conversations/:id/messages/:messageId` body `{ message }` — content-agnostic like
+ * `sendMessage`, the caller decides the shape: a plain string for a text edit or to remove an
+ * image/file message's attachment (converts it to a text message), or the full
+ * `JSON.stringify({type, fileName, fileUrl, ...})` payload to keep or replace an attachment while
+ * editing its caption (see `MessagesScreen`'s `handleSaveEdit`). Returns the updated row;
+ * `edited_at` on it is authoritative, used to patch local state in place. Caller must catch
+ * 401/403/404/409 — 409 covers three distinct reasons (edit window expired, already read, or
+ * deleted) the response body doesn't distinguish between, so callers show one generic "can no
+ * longer be edited" message for it. */
+export async function editMessage(
+  conversationId: string,
+  messageId: string,
+  message: string,
+): Promise<{ id: string; message: string; created_at: string; edited_at: string }> {
+  return apiClient
+    .patch(`${CHAT_ENDPOINTS.CONVERSATIONS}/${conversationId}/messages/${messageId}`, { message })
+    .then(res => res.data);
+}
+
+/** `DELETE /chat/conversations/:id/messages/:messageId` — soft delete, no body, no time/read
+ * restriction. The server replaces the message's real content with a `{"type":"deleted"}`
+ * tombstone for every future response that includes it (history, conversation preview, reply
+ * quotes) — the caller only needs to patch its own local copy to the same tombstone shape. */
+export async function deleteMessage(conversationId: string, messageId: string): Promise<{ success: boolean; deletedAt: string }> {
+  return apiClient
+    .delete(`${CHAT_ENDPOINTS.CONVERSATIONS}/${conversationId}/messages/${messageId}`)
     .then(res => res.data);
 }
 

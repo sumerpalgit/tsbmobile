@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { X } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 
 /**
@@ -10,6 +11,7 @@ import { useTheme } from '../../theme';
  */
 export function ConfirmDialog({
   visible,
+  eyebrow,
   title,
   message,
   confirmLabel,
@@ -21,6 +23,9 @@ export function ConfirmDialog({
   onShow,
 }: {
   visible: boolean;
+  /** Small caps label above the title (e.g. "DELETE MESSAGE") with a top-right close (×) button
+   * that also calls `onCancel` — opt-in, existing callers are unaffected when omitted. */
+  eyebrow?: string;
   title: string;
   message: string;
   confirmLabel: string;
@@ -54,6 +59,14 @@ export function ConfirmDialog({
             { backgroundColor: colors.surface, borderRadius: radius.xxl, borderColor: colors.homeCardBorder, borderWidth: borderWidth.thin },
           ]}
         >
+          {eyebrow ? (
+            <View style={styles.eyebrowRow}>
+              <Text style={[fonts.bold, styles.eyebrow, { color: colors.ink3 }]}>{eyebrow}</Text>
+              <Pressable onPress={onCancel} hitSlop={8}>
+                <X size={16} color={colors.ink3} strokeWidth={1.8} />
+              </Pressable>
+            </View>
+          ) : null}
           <Text style={[fonts.display, styles.title, { color: colors.ink }]}>{title}</Text>
           <Text style={[fonts.regular, styles.message, { fontSize: fontSize.body, color: colors.ink2 }]}>{message}</Text>
 
@@ -97,6 +110,16 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 340,
     padding: 20,
+  },
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  eyebrow: {
+    fontSize: 10.5,
+    letterSpacing: 0.8,
   },
   title: {
     fontSize: 19,
