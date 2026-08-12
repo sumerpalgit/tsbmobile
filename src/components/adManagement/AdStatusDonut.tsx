@@ -17,6 +17,10 @@ const STATUS_ORDER: AdStatus[] = ['active', 'review', 'paused', 'draft', 'ended'
 export function AdStatusDonut({ counts, total }: { counts: Record<AdStatus, number>; total: number }) {
   const { colors, fonts, fontSize } = useTheme();
 
+  if (total === 0) {
+    return <Text style={[fonts.regular, styles.empty, { color: colors.ink3 }]}>No campaigns yet.</Text>;
+  }
+
   let cumulative = 0;
   const segments = STATUS_ORDER.filter(s => counts[s] > 0).map(status => {
     const count = counts[status];
@@ -69,6 +73,10 @@ export function AdStatusDonut({ counts, total }: { counts: Record<AdStatus, numb
 }
 
 const styles = StyleSheet.create({
+  empty: {
+    fontSize: 13,
+    marginTop: 12,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

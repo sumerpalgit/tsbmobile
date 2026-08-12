@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../../../theme';
-import { searchEtaChapters } from '../../../api/eta';
+import { fetchEtaChaptersForAds } from '../../../api/eta';
 import type { EtaChapter } from '../../../api/eta';
 import type { CampaignDraft } from './types';
 
@@ -35,7 +35,10 @@ export function StepPlacement({
   useEffect(() => {
     if (!needsEta) return;
     const timer = setTimeout(() => {
-      searchEtaChapters(chapterQuery.trim())
+      // `fetchEtaChaptersForAds` — matches web's real `fetchEtaChaptersForAds()` (the ad flow's
+      // own chapter endpoint), not `searchEtaChapters` (onboarding's chapter-suggestions search,
+      // a different route this was wrongly wired to before).
+      fetchEtaChaptersForAds(chapterQuery)
         .then(setChapterResults)
         .catch(() => setChapterResults([]));
     }, 300);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -16,15 +16,18 @@ import {
   formatShortDate,
   getBudgetAmount,
   getBudgetProgress,
+  getCampaignEndDate,
   getCpc,
   getCpm,
   getCtr,
   getDaysElapsed,
   getDaysRemaining,
   getPlacementSub,
+  hasBudgetSet,
   money,
   PLACEMENT_LABELS,
 } from '../types/adManagement';
+import type { AdActivityColor } from '../types/adManagement';
 import { avatarColor, getInitials } from '../types/messages';
 import { AdScreenHeader } from '../components/adManagement/AdScreenHeader';
 import { AdStatusBadge } from '../components/adManagement/AdStatusBadge';
@@ -45,7 +48,7 @@ function AdCampaignDetailScreen() {
   const route = useRoute<RouteProp<AppStackParamList, 'AdCampaignDetail'>>();
   const { adId } = route.params;
 
-  const { ad, isLoading, refetch } = useAdCampaign(adId);
+  const { ad, isLoading, error, refetch } = useAdCampaign(adId);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [pausing, setPausing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -84,10 +87,18 @@ function AdCampaignDetailScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
         <AdScreenHeader title="Campaign" onBack={() => navigation.goBack()} />
-        {isLoading && (
+        {isLoading ? (
           <ScrollView>
             <AdCampaignDetailSkeleton />
           </ScrollView>
+        ) : (
+          // Matches web's explicit "Error: {message}" / "Campaign not found." states — the
+          // earlier version silently rendered nothing here for both cases.
+          <View style={styles.errorWrap}>
+            <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2, textAlign: 'center' }]}>
+              {error || 'Campaign not found.'}
+            </Text>
+          </View>
         )}
       </View>
     );
@@ -101,9 +112,15 @@ function AdCampaignDetailScreen() {
   const budget = getBudgetAmount(ad);
   const progress = getBudgetProgress(ad);
 
+  const hasAnalytics = ad.impressions != null || ad.clicks != null;
+  const hasBudget = hasBudgetSet(ad);
+  const endDate = getCampaignEndDate(ad);
+  const endDateLabel = endDate ? endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const remaining = hasBudget ? Math.max(0, budget - (ad.spendToDate ?? 0)) : null;
+
   const metrics = [
-    { label: 'Impressions', value: (ad.impressions ?? 0).toLocaleString('en-US') },
-    { label: 'Clicks', value: (ad.clicks ?? 0).toLocaleString('en-US') },
+    { label: 'Impressions', value: hasAnalytics && ad.impressions != null ? ad.impressions.toLocaleString('en-US') : '—' },
+    { label: 'Clicks', value: hasAnalytics && ad.clicks != null ? ad.clicks.toLocaleString('en-US') : '—' },
     { label: 'CTR', value: ctr != null ? `${ctr.toFixed(2)}%` : '—' },
     { label: 'Spend', value: money(ad.spendToDate) },
     { label: 'CPM', value: cpm != null ? `$${cpm.toFixed(2)}` : '—' },
@@ -116,13 +133,22 @@ function AdCampaignDetailScreen() {
     { k: 'Audience', v: ad.targetAudience.join(', ') || 'All audiences' },
     { k: 'Geography', v: ad.targetGeography.join(', ') || 'All regions' },
     { k: 'Tier', v: ad.tier ? ADVERTISER_TIER_LABELS[ad.tier] : '—' },
+    {
+      k: 'Destination',
+      v: ad.clickDestinationUrl || '—',
+      onPress: ad.clickDestinationUrl
+        ? () => Linking.openURL(ad.clickDestinationUrl!).catch(() => Toast.show({ type: 'error', text1: 'Could not open link' }))
+        : undefined,
+    },
   ];
 
   const scheduleRows = [
     { k: 'Start date', v: formatShortDate(ad.campaignStartDate) },
+    { k: 'End date', v: endDateLabel },
     { k: 'Days elapsed', v: getDaysElapsed(ad) },
     { k: 'Days remaining', v: getDaysRemaining(ad) },
-    { k: 'Total budget', v: money(budget) },
+    { k: 'Total budget', v: hasBudget ? money(budget) : '—' },
+    { k: 'Remaining', v: remaining != null ? money(remaining) : '—' },
   ];
 
   return (
@@ -137,7 +163,7 @@ function AdCampaignDetailScreen() {
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={[fonts.bold, styles.tierEyebrow, { color: colors.goldDark }]}>
-                {(ad.tier ? ADVERTISER_TIER_LABELS[ad.tier] : 'Advertiser').toUpperCase()}
+                {(ad.tier ? ADVERTISER_TIER_LABELS[ad.tier] : 'Standard Advertiser').toUpperCase()}
               </Text>
               <Text style={[fonts.display, styles.campaignName, { color: colors.ink }]} numberOfLines={2}>
                 {ad.campaignName || 'Untitled campaign'}
@@ -153,17 +179,23 @@ function AdCampaignDetailScreen() {
             </Text>
           </View>
           <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 7 }]}>
-            {formatShortDate(ad.campaignStartDate)} → {getDaysRemaining(ad) === '—' ? '—' : `${getDaysRemaining(ad)} left`}
+            {formatShortDate(ad.campaignStartDate)} → {endDateLabel}
           </Text>
 
           <View style={styles.actionsRow}>
             <ActionButton label="Edit" Icon={Pencil} onPress={() => navigation.navigate('AdCampaignEdit', { adId: ad.id })} />
-            <ActionButton
-              label={status === 'active' ? 'Pause' : 'Resume'}
-              Icon={status === 'active' ? Pause : Play}
-              onPress={handleTogglePause}
-              loading={pausing}
-            />
+            {/* Matches web's `canPause`/`canResume` gating exactly — Pause only exists for an
+             * active campaign, Resume only for a paused one; draft/review/ended campaigns get
+             * neither button, not a mis-wired "Resume" that calls an action web never allows in
+             * that state (the earlier version always rendered one via a plain ternary). */}
+            {(status === 'active' || status === 'paused') && (
+              <ActionButton
+                label={status === 'active' ? 'Pause' : 'Resume'}
+                Icon={status === 'active' ? Pause : Play}
+                onPress={handleTogglePause}
+                loading={pausing}
+              />
+            )}
             <ActionButton label="Delete" Icon={Trash2} onPress={() => setConfirmDeleteOpen(true)} danger />
           </View>
         </View>
@@ -190,12 +222,41 @@ function AdCampaignDetailScreen() {
           <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 3 }]}>
             Impressions and clicks for the selected range
           </Text>
+          <View style={styles.rangeRow}>
+            {['7d', '30d', 'All'].map(r => (
+              <View key={r} style={[styles.rangeChip, { backgroundColor: colors.surfaceSunken, borderRadius: radius.pill }]}>
+                <Text style={[fonts.semibold, { fontSize: fontSize.small, color: colors.ink3 }]}>{r}</Text>
+              </View>
+            ))}
+          </View>
           <View style={[styles.placeholderBox, { borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken }]}>
             <TrendingUp size={20} color={colors.ink3} strokeWidth={1.5} />
-            <Text style={[fonts.bold, { fontSize: fontSize.body, color: colors.ink, marginTop: 8 }]}>No performance data yet</Text>
-            <Text style={[fonts.regular, styles.placeholderDesc, { fontSize: fontSize.caption, color: colors.ink3 }]}>
-              Trend lines appear here once your campaign is live and collecting impressions.
+            <Text style={[fonts.bold, { fontSize: fontSize.body, color: colors.ink, marginTop: 8 }]}>
+              {hasAnalytics ? 'Daily trends coming soon' : 'No performance data yet'}
             </Text>
+            <Text style={[fonts.regular, styles.placeholderDesc, { fontSize: fontSize.caption, color: colors.ink3 }]}>
+              {hasAnalytics
+                ? 'Your campaign is collecting data — a day-by-day breakdown will appear here soon.'
+                : 'Trend lines appear here once your campaign is live and collecting impressions.'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
+          <Text style={[fonts.display, styles.cardTitle, { color: colors.ink }]}>Where it runs</Text>
+          <View style={styles.whereRunsRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[fonts.bold, { fontSize: fontSize.caption, color: colors.ink }]}>Home Feed</Text>
+              <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 3 }]}>
+                {ad.homePlacement ? (hasAnalytics && ad.impressions != null ? `${ad.impressions.toLocaleString('en-US')} impressions` : 'Active — platform-wide') : 'Not enabled'}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[fonts.bold, { fontSize: fontSize.caption, color: colors.ink }]}>ETA Chapter Pages</Text>
+              <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 3 }]}>
+                {ad.etaChapterIds.length > 0 ? getPlacementSub(ad) : 'Not enabled'}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -215,11 +276,14 @@ function AdCampaignDetailScreen() {
               <Text style={[fonts.bold, { fontSize: fontSize.body, color: colors.ink, marginTop: 5 }]} numberOfLines={1}>
                 {ad.adHeadline || 'No headline set'}
               </Text>
-              {!!ad.adCtaText && (
-                <View style={[styles.ctaButton, { backgroundColor: colors.feedFill, borderRadius: radius.sm }]}>
-                  <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.feedOnFill }]}>{ad.adCtaText} →</Text>
-                </View>
+              {!!ad.adBodyText && (
+                <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink2, marginTop: 4 }]} numberOfLines={3}>
+                  {ad.adBodyText}
+                </Text>
               )}
+              <View style={[styles.ctaButton, { backgroundColor: colors.feedFill, borderRadius: radius.sm }]}>
+                <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.feedOnFill }]}>{ad.adCtaText || 'Learn more'} →</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -235,10 +299,10 @@ function AdCampaignDetailScreen() {
           <View style={styles.spentBlock}>
             <View style={styles.spentRow}>
               <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>Spent to date</Text>
-              <Text style={[fonts.semibold, { fontSize: fontSize.caption, color: colors.ink2 }]}>{money(ad.spendToDate)}</Text>
+              <Text style={[fonts.semibold, { fontSize: fontSize.caption, color: colors.ink2 }]}>{hasBudget ? money(ad.spendToDate) : '—'}</Text>
             </View>
             <View style={[styles.progressTrack, { backgroundColor: colors.surfaceSunken }]}>
-              <View style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: colors.gold }]} />
+              {hasBudget && <View style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: colors.gold }]} />}
             </View>
           </View>
         </View>
@@ -248,7 +312,7 @@ function AdCampaignDetailScreen() {
           <View style={styles.activityList}>
             {buildActivityLog(ad).map((entry, i) => (
               <View key={i} style={styles.activityRow}>
-                <View style={[styles.activityDot, { backgroundColor: colors.gold }]} />
+                <View style={[styles.activityDot, { backgroundColor: activityDotColor(entry.color, colors) }]} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[fonts.regular, { fontSize: fontSize.body, color: colors.ink }]}>{entry.text}</Text>
                   <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 2 }]}>{formatShortDate(entry.time)}</Text>
@@ -270,6 +334,21 @@ function AdCampaignDetailScreen() {
       />
     </View>
   );
+}
+
+/** Matches web's status→dot-color mapping (`buildActivityLog`'s `color` field, computed in
+ * `types/adManagement.ts`) — the earlier version hardcoded every dot gold regardless of event. */
+function activityDotColor(color: AdActivityColor, colors: ReturnType<typeof useTheme>['colors']): string {
+  switch (color) {
+    case 'active':
+      return colors.success;
+    case 'ended':
+      return colors.danger;
+    case 'review':
+      return colors.gold;
+    default:
+      return colors.ink3;
+  }
 }
 
 function ActionButton({
@@ -314,6 +393,12 @@ function ActionButton({
 }
 
 const styles = StyleSheet.create({
+  errorWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
   scroll: {
     padding: 16,
     gap: 13,
@@ -383,6 +468,20 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
+  },
+  rangeRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 10,
+  },
+  rangeChip: {
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+  },
+  whereRunsRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 12,
   },
   placeholderBox: {
     alignItems: 'center',

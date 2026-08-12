@@ -77,6 +77,12 @@ export const ETA_ENDPOINTS = {
   SUGGESTIONS: '/eta/eta-chapters/suggestions',
   ALL: '/eta/eta-chapters',
   SEARCH: '/eta/eta-chapters/search',
+  /** The real chapter picker the ad-campaign flow uses — `GET /api/eta/chapters?q=` on web
+   * (`fetchEtaChaptersForAds` in `actions/ad-management.ts`), a distinct, narrower endpoint from
+   * `SEARCH` above (which is the onboarding chapter-suggestions search). `CreateCampaignWizard`'s
+   * chapter picker was wrongly wired to `SEARCH` — different route, different query-param name
+   * (`query` vs this one's `q`) — until this was added. */
+  FOR_ADS: '/eta/chapters',
   BATCH_JOIN: '/eta/groups/batch-join',
   /** My ETA Chapters dashboard — a different endpoint set than the onboarding ones above
    * (`fetchMyEtaChapters`/join/leave/etc. in `api/eta.ts`). Group ids are interpolated at the

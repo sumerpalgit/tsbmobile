@@ -4,7 +4,7 @@ import type { ThemeColors } from '../theme/colors';
  * `status` PUT param for `updateAdStatus`/`updateAd`. */
 export type AdStatus = 'active' | 'review' | 'paused' | 'draft' | 'ended';
 
-export type AdPlacement = 'home' | 'eta' | 'both';
+export type AdPlacement = 'home' | 'eta' | 'both' | 'none';
 
 /** Flat — matches the real `GET /ads/:id` / `GET /ads/my-ads` record exactly (no nested
  * targeting/schedule/creative objects; confirmed by reading web's `manage/[adId]/page.tsx` and
@@ -100,18 +100,23 @@ export function getStatusColors(status: AdStatus, colors: ThemeColors): { fg: st
 }
 
 /** `home_placement` + `eta_chapter_ids.length` is the only real signal — matches web's own
- * derivation (there's no separate stored "placement" field). */
+ * derivation exactly, including the `'none'` case (`derivePlacement()`/`adHelpers.ts`): a
+ * campaign with neither flag set genuinely has no placement configured and must not be
+ * miscategorized as "Home Feed" — the earlier version's unconditional `return 'home'` fallback
+ * was a real bug (it also wrongly matched the "Home Feed" filter chip). */
 export function derivePlacement(ad: AdCampaign): AdPlacement {
   const hasEta = ad.etaChapterIds.length > 0;
   if (ad.homePlacement && hasEta) return 'both';
   if (hasEta) return 'eta';
-  return 'home';
+  if (ad.homePlacement) return 'home';
+  return 'none';
 }
 
 export const PLACEMENT_LABELS: Record<AdPlacement, string> = {
   home: 'Home Feed',
   eta: 'ETA Chapter',
   both: 'Home + ETA Chapter',
+  none: 'Not set',
 };
 
 /** e.g. "2 chapters" / "" — matches the mockup's `placementSub` field. */
@@ -131,11 +136,27 @@ export function formatShortDate(iso: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-/** e.g. "Sep 2 · 26 days left" / "Ended Jun 15" — matches the mockup's `endText`. */
-export function getEndText(ad: AdCampaign): string {
+/** Same as `formatShortDate` without the year — matches web's `fmtDateShort`, used for compact
+ * list-card contexts (e.g. "Created Aug 10"). */
+export function formatDateShort(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/** e.g. "Sep 2 · 26 days left" / "Ended Jun 15" — matches web's `endDateSub(ad, status)`
+ * (`adHelpers.ts`) exactly, including its status-aware branches: pure date arithmetic alone isn't
+ * enough — a paused campaign whose end date hasn't passed yet should read "Resumable", not
+ * "N days left" (which would misleadingly imply it's actively running down its schedule). */
+export function getEndText(ad: AdCampaign, status: AdStatus): string {
   const end = getCampaignEndDate(ad);
   if (!end) return '—';
   const dateLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (status === 'ended') return `Ended ${dateLabel}`;
+  if (status === 'paused') return `${dateLabel} · Resumable`;
+  if (status === 'review') return `${dateLabel} · Scheduled`;
+  if (status === 'draft') return `${dateLabel} · Not launched`;
   const daysLeft = Math.ceil((end.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
   return daysLeft > 0 ? `${dateLabel} · ${daysLeft} day${daysLeft === 1 ? '' : 's'} left` : `Ended ${dateLabel}`;
 }
@@ -174,6 +195,16 @@ export const ADVERTISER_TIER_LABELS: Record<'standard' | 'premium', string> = {
   standard: 'Standard Advertiser',
   premium: 'Premium Advertiser',
 };
+
+/** Matches web's `tierLabel(ad)` (`adHelpers.ts`) exactly — used for the dashboard card's compact
+ * meta line, which shows Tier rather than the detail screen's fuller "Standard/Premium Advertiser"
+ * eyebrow. Falls back to the raw `advertiserType` value, then `'Standard'`, when `tier` itself is
+ * unset — same fallback chain web uses, not a hardcoded literal. */
+export function getTierLabel(ad: AdCampaign): string {
+  if (ad.tier === 'premium') return 'Premium';
+  if (ad.tier === 'standard') return 'Standard';
+  return ad.advertiserType || 'Standard';
+}
 
 export type AdMetricKey = 'impressions' | 'clicks' | 'spend' | 'cpm';
 
@@ -219,6 +250,13 @@ export function getBudgetAmount(ad: AdCampaign): number {
   return ad.totalBudget ?? ad.priceAmount ?? 0;
 }
 
+/** Matches web's `hasBudget` check — a campaign with neither `total_budget` nor `price_amount`
+ * set genuinely has no budget configured, and should render as "—" rather than the misleading
+ * "$0 / $0" a bare `getBudgetAmount()` reading of 0 would otherwise produce. */
+export function hasBudgetSet(ad: AdCampaign): boolean {
+  return (ad.totalBudget != null && ad.totalBudget > 0) || (ad.priceAmount != null && ad.priceAmount > 0);
+}
+
 export function getBudgetProgress(ad: AdCampaign): number {
   const budget = getBudgetAmount(ad);
   if (budget <= 0) return 0;
@@ -232,6 +270,11 @@ export type AdKpis = {
   totalSpend: number;
   totalBudget: number;
   cpm: number | null;
+  /** Whether ANY campaign has real (non-null) impressions/clicks tracked yet — matches web's
+   * `hasAnalytics` distinction (`adHelpers.ts`): impressions/clicks/CPM are delivery data that
+   * genuinely doesn't exist pre-launch, unlike spend (ledger data, always meaningful as "$0"), so
+   * those three should render "—" rather than a misleading "0" when this is false. */
+  hasAnalytics: boolean;
 };
 
 /** Lifetime-cumulative aggregates over the whole account, computed client-side from the same
@@ -250,12 +293,16 @@ export function aggregateKpis(ads: AdCampaign[]): AdKpis {
     totalSpend,
     totalBudget,
     cpm: totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : null,
+    hasAnalytics: ads.some(ad => ad.impressions != null || ad.clicks != null),
   };
 }
+
+export type AdActivityColor = 'active' | 'ended' | 'review' | 'neutral';
 
 export type AdActivityEntry = {
   text: string;
   time: string;
+  color: AdActivityColor;
 };
 
 const STATUS_ACTIVITY_TEXT: Record<AdStatus, string> = {
@@ -266,19 +313,37 @@ const STATUS_ACTIVITY_TEXT: Record<AdStatus, string> = {
   ended: 'Campaign has ended',
 };
 
+/** Matches web's own status→dot-color mapping (`adHelpers.ts`) — active is green, ended is red,
+ * review/updated is gold, everything else (paused/draft) is a plain neutral dot. */
+const STATUS_ACTIVITY_COLOR: Record<AdStatus, AdActivityColor> = {
+  active: 'active',
+  ended: 'ended',
+  review: 'review',
+  paused: 'neutral',
+  draft: 'neutral',
+};
+
 /** No real activity-log endpoint exists (confirmed reading web's detail page in full) — web
  * synthesizes 2–3 entries client-side from `created_at`/`updated_at`/derived status
  * (`buildActivityLog()`), and this ports that exactly rather than inventing a richer log the
- * backend doesn't actually track. */
+ * backend doesn't actually track. Matches web's exact presentation too: newest-first order (the
+ * status line is always "now", so it's pinned first via a synthetic +1ms sort key) and
+ * status-colored dots — the earlier version pushed entries oldest-first with every dot hardcoded
+ * gold, both real regressions from web's behavior. */
 export function buildActivityLog(ad: AdCampaign): AdActivityEntry[] {
-  const entries: AdActivityEntry[] = [];
-  if (ad.createdAt) entries.push({ text: 'Campaign created', time: ad.createdAt });
+  const entries: { text: string; time: string; color: AdActivityColor; sortKey: number }[] = [];
+  if (ad.createdAt) {
+    entries.push({ text: 'Campaign created', time: ad.createdAt, color: 'neutral', sortKey: new Date(ad.createdAt).getTime() });
+  }
   if (ad.updatedAt && ad.updatedAt !== ad.createdAt) {
-    entries.push({ text: 'Campaign details updated', time: ad.updatedAt });
+    entries.push({ text: 'Campaign details updated', time: ad.updatedAt, color: 'review', sortKey: new Date(ad.updatedAt).getTime() });
   }
   const status = deriveStatus(ad);
-  entries.push({ text: STATUS_ACTIVITY_TEXT[status], time: ad.updatedAt ?? ad.createdAt ?? '' });
-  return entries;
+  const statusTime = ad.updatedAt ?? ad.createdAt ?? '';
+  const statusSortKey = (statusTime ? new Date(statusTime).getTime() : 0) + 1;
+  entries.push({ text: STATUS_ACTIVITY_TEXT[status], time: statusTime, color: STATUS_ACTIVITY_COLOR[status], sortKey: statusSortKey });
+
+  return entries.sort((a, b) => b.sortKey - a.sortKey).map(({ text, time, color }) => ({ text, time, color }));
 }
 
 export type AdFilters = {
@@ -330,4 +395,19 @@ export function matchesAdFilters(ad: AdCampaign, filters: AdFilters): boolean {
   }
 
   return true;
+}
+
+/** Matches web's `countActiveFilters()` exactly — counts active filter *categories* (status/
+ * placement/budget-range/date-range), max 4, not individual selected values within a category.
+ * Selecting 2 statuses is still 1 active filter, same as web; the earlier version counted every
+ * individual status/placement/date as its own item, so the same selection could read "4 active"
+ * on mobile vs web's "2". Shared by `useAdCampaigns` (dashboard badge) and `AdFiltersPanel` (its
+ * own header badge) so the two can't drift out of sync again. */
+export function countActiveFilterCategories(filters: AdFilters): number {
+  return [
+    filters.statuses.length > 0,
+    filters.placements.length > 0,
+    !!(filters.minBudget || filters.maxBudget),
+    !!(filters.startAfter || filters.endBefore),
+  ].filter(Boolean).length;
 }

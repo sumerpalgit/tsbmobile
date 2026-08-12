@@ -5,19 +5,30 @@ import type { AdCampaign } from '../types/adManagement';
 /** `target_audience`/`target_geography` are jsonb on the backend — real web's own types note they
  * "may be string[] or [{label|name|value}]" depending on how a given record was written, so this
  * normalizes defensively rather than assuming one shape (same defensive-mapping convention as
- * `normalizeProfile`/`mapProfileToUser`). */
+ * `normalizeProfile`/`mapProfileToUser`). Also handles the comma-separated-string shape web's own
+ * edit page explicitly guards against (`typeof ad.target_audience === "string"` →
+ * `.split(",")`) — the earlier version only branched on `Array.isArray`, so a string-shaped
+ * record silently loaded (and would have saved back) as empty, wiping real targeting data. */
 function normalizeStringArray(val: unknown): string[] {
-  if (!Array.isArray(val)) return [];
-  return val
-    .map(item => {
-      if (typeof item === 'string') return item;
-      if (item && typeof item === 'object') {
-        const o = item as Record<string, unknown>;
-        return String(o.label ?? o.name ?? o.value ?? '');
-      }
-      return '';
-    })
-    .filter(Boolean);
+  if (Array.isArray(val)) {
+    return val
+      .map(item => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') {
+          const o = item as Record<string, unknown>;
+          return String(o.label ?? o.name ?? o.value ?? '');
+        }
+        return '';
+      })
+      .filter(Boolean);
+  }
+  if (typeof val === 'string' && val.trim()) {
+    return val
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
+  return [];
 }
 
 /** Flat mapping — matches the real `GET /ads/:id` / `GET /ads/my-ads` record field-for-field
@@ -29,7 +40,11 @@ function mapAd(raw: any): AdCampaign {
     campaignName: String(raw?.campaign_name ?? ''),
     advertiserType: raw?.advertiser_type ?? null,
     primaryContactEmail: raw?.primary_contact_email ?? null,
-    homePlacement: !!raw?.home_placement,
+    // Matches web's exact default: `ad.home_placement ?? true` — a record where this column is
+    // genuinely null/undefined (not yet migrated) defaults ON on real web, not OFF. The earlier
+    // `!!raw?.home_placement` coerced null to `false`, silently flipping the field's real value
+    // the moment such a record was re-saved from mobile's edit screen.
+    homePlacement: raw?.home_placement ?? true,
     etaChapterIds: Array.isArray(raw?.eta_chapter_ids) ? raw.eta_chapter_ids.map(String) : [],
     adBannerUrl: raw?.ad_banner_url ?? null,
     clickDestinationType: raw?.click_destination_type ?? null,

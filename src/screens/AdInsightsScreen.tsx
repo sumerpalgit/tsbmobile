@@ -30,12 +30,26 @@ function AdInsightsScreen() {
   const [metric, setMetric] = useState<AdMetricKey>(route.params.metric);
   const { ads, isLoading, statusCounts, kpis } = useAdCampaigns();
 
-  const totalValue = ads.reduce((sum, ad) => sum + getMetricValue(ad, metric), 0);
+  // CPM is an account-level RATIO (total spend ÷ total impressions), not a sum of each
+  // campaign's own CPM — `kpis.cpm` already computes this correctly (`aggregateKpis`); summing
+  // per-campaign values here (the earlier version's approach, via `getMetricValue`) double-counts
+  // and inflates the number whenever more than one campaign has impressions.
+  const totalValue = metric === 'cpm' ? kpis.cpm ?? 0 : ads.reduce((sum, ad) => sum + getMetricValue(ad, metric), 0);
   const ctrDisplay = kpis.ctr != null ? `${kpis.ctr.toFixed(2)}%` : '—';
 
+  // Spend is ledger data, always meaningful as "$0" — impressions/clicks/CPM are delivery data
+  // that genuinely doesn't exist pre-launch, so those get web's honest "—" / no-data messaging
+  // instead of a misleading "0" (matches web's `hasAnalytics` gating).
+  const metricNeedsAnalytics = metric !== 'spend';
+  const heroValueDisplay = metricNeedsAnalytics && !kpis.hasAnalytics ? '—' : formatMetricValue(totalValue, metric);
+  const heroSubtext =
+    metricNeedsAnalytics && !kpis.hasAnalytics
+      ? `No delivery data yet — values populate once your ${ads.length} campaign${ads.length === 1 ? '' : 's'} start serving`
+      : `Across ${ads.length} campaigns`;
+
   const miniStats = [
-    { label: 'Impressions', value: kpis.totalImpressions.toLocaleString('en-US') },
-    { label: 'Clicks', value: kpis.totalClicks.toLocaleString('en-US') },
+    { label: 'Impressions', value: kpis.hasAnalytics ? kpis.totalImpressions.toLocaleString('en-US') : '—' },
+    { label: 'Clicks', value: kpis.hasAnalytics ? kpis.totalClicks.toLocaleString('en-US') : '—' },
     { label: 'CTR', value: ctrDisplay },
     { label: 'Spend', value: money(kpis.totalSpend) },
   ];
@@ -54,8 +68,8 @@ function AdInsightsScreen() {
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
             <Text style={[fonts.bold, styles.eyebrow, { color: colors.goldDark }]}>{METRIC_LABELS[metric].toUpperCase()} · INSIGHTS</Text>
-            <Text style={[fonts.display, styles.heroValue, { color: colors.ink }]}>{formatMetricValue(totalValue, metric)}</Text>
-            <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>Across {ads.length} campaigns</Text>
+            <Text style={[fonts.display, styles.heroValue, { color: colors.ink }]}>{heroValueDisplay}</Text>
+            <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>{heroSubtext}</Text>
 
             <View style={[styles.miniRow, { borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
               {miniStats.map(m => (

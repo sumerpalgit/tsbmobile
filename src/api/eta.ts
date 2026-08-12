@@ -62,6 +62,21 @@ export async function searchEtaChapters(query: string): Promise<EtaChapter[]> {
   return Array.isArray(data) ? data.map(normalizeChapter) : [];
 }
 
+/** `GET /eta/chapters?q=` (real web: `GET /api/eta/chapters?q=`) — matches web's real
+ * `fetchEtaChaptersForAds()` exactly, a distinct
+ * endpoint from `searchEtaChapters` above (used by the ad-campaign chapter picker specifically,
+ * not the onboarding chapter-suggestions search). `q` is only sent when non-empty, matching web's
+ * own conditional param. Reuses `normalizeChapter` — the response is a subset of the same shape
+ * (`{id, name, group_image_url?}`), so the extra fields just come back empty/zero. */
+export async function fetchEtaChaptersForAds(query: string): Promise<EtaChapter[]> {
+  const q = query.trim();
+  const data = await apiClient
+    .get(ETA_ENDPOINTS.FOR_ADS, { params: q ? { q } : {} })
+    .then(res => res.data);
+  const rows = Array.isArray(data) ? data : (data?.chapters ?? []);
+  return rows.map(normalizeChapter);
+}
+
 export type BatchJoinResponse = {
   success?: boolean;
   message?: string;

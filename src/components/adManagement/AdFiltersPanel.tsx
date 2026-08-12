@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, X } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { DateTimeField } from '../events/CreateEventWizard/DateTimeField';
-import { EMPTY_AD_FILTERS, PLACEMENT_LABELS, STATUS_LABELS } from '../../types/adManagement';
+import { countActiveFilterCategories, EMPTY_AD_FILTERS, PLACEMENT_LABELS, STATUS_LABELS } from '../../types/adManagement';
 import type { AdFilters, AdPlacement, AdStatus } from '../../types/adManagement';
 
 const STATUS_OPTIONS: AdStatus[] = ['active', 'review', 'paused', 'draft', 'ended'];
@@ -107,9 +107,7 @@ export function AdFiltersPanel({
   const togglePlacement = (p: AdPlacement) =>
     setDraft(d => ({ ...d, placements: d.placements.includes(p) ? d.placements.filter(x => x !== p) : [...d.placements, p] }));
 
-  const activeCount = [...draft.statuses, ...draft.placements, draft.minBudget, draft.maxBudget, draft.startAfter, draft.endBefore].filter(
-    Boolean,
-  ).length;
+  const activeCount = countActiveFilterCategories(draft);
 
   return (
     <Modal visible={shouldRender} animationType="none" transparent onRequestClose={onClose}>

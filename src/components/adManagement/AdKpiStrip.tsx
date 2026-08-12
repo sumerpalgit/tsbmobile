@@ -14,12 +14,21 @@ type MetricKey = 'impressions' | 'clicks' | 'spend' | 'cpm';
 export function AdKpiStrip({ kpis, onPressMetric }: { kpis: AdKpis; onPressMetric: (metric: MetricKey) => void }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
 
+  // Impressions/Clicks/CPM are delivery data that genuinely doesn't exist pre-launch — matches
+  // web's `hasAnalytics` distinction by showing "—" instead of a misleading "0" for those three.
+  // Spend stays numeric always, since it's ledger data (always meaningful as "$0").
   const cells: { key: MetricKey; label: string; value: string; sub: string; Icon: typeof Eye }[] = [
-    { key: 'impressions', label: 'Total impressions', value: kpis.totalImpressions.toLocaleString('en-US'), sub: 'Across all campaigns', Icon: Eye },
+    {
+      key: 'impressions',
+      label: 'Total impressions',
+      value: kpis.hasAnalytics ? kpis.totalImpressions.toLocaleString('en-US') : '—',
+      sub: 'Across all campaigns',
+      Icon: Eye,
+    },
     {
       key: 'clicks',
       label: 'Clicks',
-      value: kpis.totalClicks.toLocaleString('en-US'),
+      value: kpis.hasAnalytics ? kpis.totalClicks.toLocaleString('en-US') : '—',
       sub: kpis.ctr != null ? `CTR ${kpis.ctr.toFixed(2)}%` : 'No clicks yet',
       Icon: MousePointerClick,
     },
@@ -27,7 +36,7 @@ export function AdKpiStrip({ kpis, onPressMetric }: { kpis: AdKpis; onPressMetri
     {
       key: 'cpm',
       label: 'Avg. CPM',
-      value: kpis.cpm != null ? `$${kpis.cpm.toFixed(2)}` : '—',
+      value: kpis.hasAnalytics && kpis.cpm != null ? `$${kpis.cpm.toFixed(2)}` : '—',
       sub: 'Cost per 1k impressions',
       Icon: Activity,
     },

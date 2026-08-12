@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { types } from '@react-native-documents/picker';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '../../../theme';
 import { FileUploadButton } from '../../FileUploadButton';
 import { Field } from './StepBrand';
@@ -16,6 +17,10 @@ const DEST_OPTS: { value: DestType; title: string; sub: string }[] = [
 
 const HEADLINE_MAX = 80;
 const BODY_MAX = 160;
+/** Matches web's real `handleBannerSelect` restriction exactly — the OS picker's generic
+ * `types.images` filter (still needed to open the right picker UI) is broader than this and
+ * would let HEIC/WEBP/GIF etc. through unless checked here after the fact. */
+const ALLOWED_BANNER_MIME = ['image/jpeg', 'image/png', 'image/jpg'];
 
 export function StepCreative({
   draft,
@@ -37,6 +42,10 @@ export function StepCreative({
         <FileUploadButton
           value={draft.bannerFile}
           onChange={f => {
+            if (f && f.mimeType && !ALLOWED_BANNER_MIME.includes(f.mimeType)) {
+              Toast.show({ type: 'error', text1: 'Only JPG or PNG files are allowed.' });
+              return;
+            }
             onChange({ bannerFile: f });
             clearError('bannerFile');
           }}

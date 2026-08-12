@@ -25,20 +25,27 @@ import type { PickedFile } from '../components/FileUploadButton';
 const STATUS_OPTIONS = (['active', 'paused', 'review', 'draft', 'ended'] as AdStatus[]).map(s => ({ value: s, label: STATUS_LABELS[s] }));
 const TIER_OPTIONS = [
   { value: 'premium', label: 'Premium — Priority slot · 2.5×' },
-  { value: 'standard', label: 'Standard — Rotational slot · 1×' },
+  { value: 'standard', label: 'Standard — Base rate · 1×' },
 ];
-/** Matches web's real edit-page CTA select (`AE_CTAS`) — a different, slightly narrower list than
- * the create wizard's quick-fill chip presets (that one has "Apply Now" instead of "Visit Site"),
- * ported faithfully rather than reconciled (plan decision #8: real, flagged inconsistencies are
- * preserved, not silently fixed). */
-const CTA_OPTIONS = ['Contact Us', 'Learn More', 'Sign Up', 'Get Started', 'Book a Call', 'Visit Site'].map(v => ({ value: v, label: v }));
+/** Real edit-page CTA presets (`CTA_PRESETS` in `page.tsx`) — 7 items, one more than the create
+ * wizard's 6-item quick-fill chip row ("Schedule Demo" is edit-only). `'__custom__'` opens a free
+ * -text field, matching web's real "preset OR custom" toggle exactly — the earlier version was a
+ * flat preset-only dropdown with an invented "Visit Site" value that doesn't exist on web, and had
+ * no way to represent a legacy/custom CTA at all. */
+const CTA_PRESETS = ['Learn More', 'Get Started', 'Book a Call', 'Contact Us', 'Sign Up', 'Apply Now', 'Schedule Demo'];
+const CTA_OPTIONS = [...CTA_PRESETS.map(v => ({ value: v, label: v })), { value: '__custom__', label: 'Custom…' }];
+/** Real values (`DEST_TYPES` in `page.tsx`) — the earlier version invented `profile`/`chapter`/
+ * `email` values that don't exist on the backend; saving with one of those would have written a
+ * value real web never produces, and a real `calendar`/`mailto` record loaded from the backend
+ * couldn't be represented at all (silently showed the placeholder instead of the true value). */
 const DEST_OPTIONS = [
   { value: 'url', label: 'External Website' },
-  { value: 'profile', label: 'TSB Profile' },
-  { value: 'chapter', label: 'Chapter Page' },
-  { value: 'email', label: 'Email' },
+  { value: 'calendar', label: 'Calendar Booking Link' },
+  { value: 'mailto', label: 'Email CTA (mailto)' },
+  { value: 'custom', label: 'Custom URL' },
 ];
-const DURATION_WEEK_OPTIONS = [1, 2, 4, 8, 12].map(w => ({ value: String(w), label: `${w} week${w === 1 ? '' : 's'}` }));
+const DURATION_WEEK_OPTIONS = [1, 2, 4, 8, 12, 16].map(w => ({ value: String(w), label: `${w} week${w === 1 ? '' : 's'}` }));
+const ALLOWED_BANNER_MIME = ['image/jpeg', 'image/png', 'image/jpg'];
 
 const HEADLINE_MAX = 80;
 const BODY_MAX = 160;
@@ -88,9 +95,16 @@ function AdCampaignEditScreen() {
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
+  // Preset vs. free-text CTA — matches web's own `ctaMode` state, including auto-detecting an
+  // existing non-preset value on load (e.g. a legacy custom CTA) and switching straight into
+  // custom mode for it rather than showing a blank "Select label…".
+  const [ctaMode, setCtaMode] = useState<'preset' | 'custom'>('preset');
 
   useEffect(() => {
     if (ad && !draft) {
+      const cta = ad.adCtaText ?? 'Learn More';
+      setCtaMode(CTA_PRESETS.includes(cta) ? 'preset' : 'custom');
       setDraft({
         campaignName: ad.campaignName,
         brandName: ad.brandName,
@@ -103,13 +117,15 @@ function AdCampaignEditScreen() {
         existingBannerUrl: ad.adBannerUrl,
         headline: ad.adHeadline ?? '',
         body: ad.adBodyText ?? '',
-        cta: ad.adCtaText ?? 'Learn More',
+        cta,
         destType: ad.clickDestinationType ?? 'url',
         destUrl: ad.clickDestinationUrl ?? '',
         audience: ad.targetAudience,
         geography: ad.targetGeography,
         startDate: ad.campaignStartDate ?? '',
-        durationWeeks: String(ad.campaignDurationWeeks ?? 4),
+        // Matches web's real default (`Number(ad.campaign_duration_weeks) || 2`) — the earlier
+        // `?? 4` fallback didn't match either the real default or a null/zero duration record.
+        durationWeeks: String(ad.campaignDurationWeeks || 2),
       });
     }
   }, [ad, draft]);
@@ -169,11 +185,13 @@ function AdCampaignEditScreen() {
         ad_banner_url: bannerUrl,
       });
 
-      Toast.show({ type: 'success', text1: 'Campaign changes saved' });
-      navigation.goBack();
+      // Matches web's real post-save behavior — a persistent "Saved — redirecting…" banner, then
+      // navigate back after a short delay, rather than a transient toast + an immediate pop that
+      // gives no visible confirmation the save actually landed.
+      setSaved(true);
+      setTimeout(() => navigation.goBack(), 800);
     } catch (err: any) {
       Toast.show({ type: 'error', text1: err?.message || 'Could not save changes' });
-    } finally {
       setSubmitting(false);
     }
   };
@@ -194,6 +212,12 @@ function AdCampaignEditScreen() {
       <AdScreenHeader title="Edit campaign" onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.scroll}>
+        {saved && (
+          <View style={[styles.savedBanner, { backgroundColor: colors.successSurface, borderColor: colors.success, borderRadius: radius.lg }]}>
+            <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.success }]}>Saved — redirecting…</Text>
+          </View>
+        )}
+
         <SectionCard title="Campaign basics">
           <Field label="Campaign name" required error={errors.campaignName}>
             <TextInput
@@ -236,14 +260,19 @@ function AdCampaignEditScreen() {
         </SectionCard>
 
         <SectionCard title="Status & placement">
-          <Field label="Campaign status">
+          <Field label="Campaign status" hint="Setting to Paused removes it from all carousels immediately.">
             <FieldSelect value={draft.status} placeholder="Select status…" options={STATUS_OPTIONS} onChange={v => patch({ status: v as AdStatus })} />
           </Field>
           <Field label="Banner tier">
             <FieldSelect value={draft.tier} placeholder="Select tier…" options={TIER_OPTIONS} onChange={v => patch({ tier: v as 'standard' | 'premium' })} />
           </Field>
           <Pressable onPress={() => patch({ homeFeed: !draft.homeFeed })} style={styles.switchRow}>
-            <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink, flex: 1 }]}>Home Feed placement</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink }]}>Home Feed placement</Text>
+              <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 2 }]}>
+                Show in the right-rail banner carousel on the home dashboard
+              </Text>
+            </View>
             <View style={[styles.switchTrack, { backgroundColor: draft.homeFeed ? colors.gold : colors.surfaceSunken, borderRadius: radius.pill }]}>
               <View style={[styles.switchKnob, { borderRadius: radius.pill, transform: [{ translateX: draft.homeFeed ? 18 : 2 }] }]} />
             </View>
@@ -251,7 +280,7 @@ function AdCampaignEditScreen() {
         </SectionCard>
 
         <SectionCard title="Creative">
-          <Field label="Ad banner">
+          <Field label="Ad banner" error={errors.banner}>
             {draft.bannerFile || draft.existingBannerUrl ? (
               <View>
                 <View style={[styles.bannerFrame, { borderColor: colors.goldLight, backgroundColor: colors.chip, borderRadius: radius.lg }]}>
@@ -266,10 +295,26 @@ function AdCampaignEditScreen() {
                 </Pressable>
               </View>
             ) : (
-              <FileUploadButton value={null} onChange={f => patch({ bannerFile: f })} acceptedTypes={[types.images]} placeholder="Tap to upload a banner" />
+              <View>
+                <FileUploadButton
+                  value={null}
+                  onChange={f => {
+                    if (f && f.mimeType && !ALLOWED_BANNER_MIME.includes(f.mimeType)) {
+                      setErrors(prev => ({ ...prev, banner: 'Only JPG or PNG allowed.' }));
+                      Toast.show({ type: 'error', text1: 'Only JPG or PNG allowed.' });
+                      return;
+                    }
+                    clearError('banner');
+                    patch({ bannerFile: f });
+                  }}
+                  acceptedTypes={[types.images]}
+                  placeholder="Tap to upload a banner"
+                />
+                <Text style={[fonts.regular, styles.hintText, { color: colors.ink3 }]}>PNG, JPG · 260 × 200 px recommended</Text>
+              </View>
             )}
           </Field>
-          <Field label="Headline" required error={errors.headline}>
+          <Field label="Headline" error={errors.headline} hint={`${HEADLINE_MAX - draft.headline.length} characters left.`}>
             <TextInput
               value={draft.headline}
               onChangeText={t => patch({ headline: t.slice(0, HEADLINE_MAX) })}
@@ -277,7 +322,7 @@ function AdCampaignEditScreen() {
               style={[fonts.regular, styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.ink, borderRadius: radius.lg }]}
             />
           </Field>
-          <Field label="Body copy">
+          <Field label="Body copy" hint={`${BODY_MAX - draft.body.length} characters left.`}>
             <TextInput
               value={draft.body}
               onChangeText={t => patch({ body: t.slice(0, BODY_MAX) })}
@@ -286,8 +331,33 @@ function AdCampaignEditScreen() {
               style={[fonts.regular, styles.textarea, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.ink, borderRadius: radius.lg }]}
             />
           </Field>
-          <Field label="Call-to-action label">
-            <FieldSelect value={draft.cta} placeholder="Select label…" options={CTA_OPTIONS} onChange={v => patch({ cta: v })} />
+          <Field label="Call-to-action label" hint="Shown as a button on the ad slide.">
+            <View style={styles.ctaRow}>
+              <View style={{ flex: 1 }}>
+                <FieldSelect
+                  value={ctaMode === 'custom' ? '__custom__' : draft.cta}
+                  placeholder="Select label…"
+                  options={CTA_OPTIONS}
+                  onChange={v => {
+                    if (v === '__custom__') {
+                      setCtaMode('custom');
+                    } else {
+                      setCtaMode('preset');
+                      patch({ cta: v });
+                    }
+                  }}
+                />
+              </View>
+              {ctaMode === 'custom' && (
+                <TextInput
+                  value={draft.cta}
+                  onChangeText={t => patch({ cta: t.slice(0, 30) })}
+                  placeholder="Your custom label"
+                  placeholderTextColor={colors.ink3}
+                  style={[fonts.regular, styles.input, styles.ctaCustomInput, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.ink, borderRadius: radius.lg }]}
+                />
+              )}
+            </View>
           </Field>
         </SectionCard>
 
@@ -317,10 +387,16 @@ function AdCampaignEditScreen() {
                 <Chip key={a} label={a} active={draft.audience.includes(a)} onPress={() => toggleAudience(a)} />
               ))}
             </View>
+            <Text style={[fonts.regular, styles.hintText, { color: colors.ink3 }]}>
+              {draft.audience.length ? `${draft.audience.length} selected` : 'Leave empty to reach all members.'}
+            </Text>
           </View>
           <View style={{ gap: 7 }}>
             <Text style={[fonts.semibold, { fontSize: fontSize.small, color: colors.ink2 }]}>Geography focus</Text>
             <GeographyMultiSelect selected={draft.geography} onChange={g => patch({ geography: g })} />
+            <Text style={[fonts.regular, styles.hintText, { color: colors.ink3 }]}>
+              Ads only show to users whose geography focus matches. Leave empty to show to all users.
+            </Text>
           </View>
         </SectionCard>
 
@@ -345,17 +421,21 @@ function AdCampaignEditScreen() {
       <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
         <Pressable
           onPress={() => navigation.goBack()}
-          disabled={submitting}
+          disabled={submitting || saved}
           style={[styles.cancelButton, { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}
         >
           <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Cancel</Text>
         </Pressable>
         <Pressable
           onPress={handleSave}
-          disabled={submitting}
-          style={[styles.saveButton, { backgroundColor: colors.gold, borderRadius: radius.xl, opacity: submitting ? 0.7 : 1 }]}
+          disabled={submitting || saved}
+          style={[styles.saveButton, { backgroundColor: colors.gold, borderRadius: radius.xl, opacity: submitting || saved ? 0.7 : 1 }]}
         >
-          {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[fonts.bold, { fontSize: fontSize.body, color: '#fff' }]}>Save changes</Text>}
+          {submitting ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={[fonts.bold, { fontSize: fontSize.body, color: '#fff' }]}>{saved ? 'Saved ✓' : 'Save changes'}</Text>
+          )}
         </Pressable>
       </View>
     </View>
@@ -394,8 +474,25 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
     gap: 13,
   },
+  savedBanner: {
+    padding: 13,
+    borderWidth: 1,
+  },
   card: {
     padding: 14,
+  },
+  hintText: {
+    fontSize: 10.5,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+  ctaRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-start',
+  },
+  ctaCustomInput: {
+    flex: 1,
   },
   cardTitle: {
     fontSize: 16,

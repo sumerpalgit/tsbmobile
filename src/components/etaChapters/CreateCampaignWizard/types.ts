@@ -54,7 +54,9 @@ export const EMPTY_DRAFT: CampaignDraft = {
   geography: [],
 
   startDate: '',
-  durationDays: 7,
+  // Matches web's real default (`CreateCampaignModal.tsx` initializes `durationDays` state to
+  // `14`) — the earlier `7` didn't match either the real default or any particular real value.
+  durationDays: 14,
   customDays: '',
 };
 

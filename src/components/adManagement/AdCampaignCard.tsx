@@ -5,29 +5,31 @@ import { useTheme } from '../../theme';
 import { avatarColor, getInitials } from '../../types/messages';
 import {
   deriveStatus,
-  derivePlacement,
+  formatDateShort,
   getBudgetAmount,
   getBudgetProgress,
   getCtr,
   getEndText,
-  getPlacementSub,
+  getTierLabel,
+  hasBudgetSet,
   money,
-  PLACEMENT_LABELS,
 } from '../../types/adManagement';
 import { AdStatusBadge } from './AdStatusBadge';
 import type { AdCampaign } from '../../types/adManagement';
 
-/** Matches `Profile.html`'s `adCampaigns` card (~line 369) — avatar/name/meta/status, a 3-col
- * impressions/clicks/CTR row, a budget-used progress bar, and a footer (end date, "View →"). */
+/** Matches `Profile.html`'s `adCampaigns` card (~line 369) for layout, but the meta line's real
+ * *content* matches web's `AdCampaignTable.tsx` row instead of the mockup's own "brand · tier ·
+ * placement" — web actually shows "brand · tier · Created {date}", not placement (placement is
+ * still visible via the detail screen and the filter chips). A 3-col impressions/clicks/CTR row,
+ * a budget-used progress bar, and a footer (end date, "View →"). */
 export function AdCampaignCard({ ad, onOpen }: { ad: AdCampaign; onOpen: () => void }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
 
   const status = deriveStatus(ad);
-  const placement = derivePlacement(ad);
-  const placementSub = getPlacementSub(ad);
   const ctr = getCtr(ad);
   const budget = getBudgetAmount(ad);
   const progress = getBudgetProgress(ad);
+  const hasBudget = hasBudgetSet(ad);
 
   return (
     <Pressable
@@ -47,15 +49,15 @@ export function AdCampaignCard({ ad, onOpen }: { ad: AdCampaign; onOpen: () => v
             {ad.campaignName || 'Untitled campaign'}
           </Text>
           <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 2 }]} numberOfLines={1}>
-            {[ad.brandName, PLACEMENT_LABELS[placement], placementSub].filter(Boolean).join(' · ')}
+            {[ad.brandName, getTierLabel(ad), `Created ${formatDateShort(ad.createdAt)}`].filter(Boolean).join(' · ')}
           </Text>
         </View>
         <AdStatusBadge status={status} />
       </View>
 
       <View style={styles.metricsRow}>
-        <MetricCell label="Impressions" value={(ad.impressions ?? 0).toLocaleString('en-US')} />
-        <MetricCell label="Clicks" value={(ad.clicks ?? 0).toLocaleString('en-US')} />
+        <MetricCell label="Impressions" value={ad.impressions != null ? ad.impressions.toLocaleString('en-US') : '—'} />
+        <MetricCell label="Clicks" value={ad.clicks != null ? ad.clicks.toLocaleString('en-US') : '—'} />
         <MetricCell label="CTR" value={ctr != null ? `${ctr.toFixed(2)}%` : '—'} />
       </View>
 
@@ -63,18 +65,18 @@ export function AdCampaignCard({ ad, onOpen }: { ad: AdCampaign; onOpen: () => v
         <View style={styles.budgetLabelRow}>
           <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>Budget used</Text>
           <Text style={[fonts.semibold, { fontSize: fontSize.caption, color: colors.ink2 }]}>
-            {money(ad.spendToDate)} / {money(budget)}
+            {hasBudget ? `${money(ad.spendToDate)} / ${money(budget)}` : '—'}
           </Text>
         </View>
         <View style={[styles.progressTrack, { backgroundColor: colors.surfaceSunken }]}>
-          <View style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: colors.gold }]} />
+          {hasBudget && <View style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: colors.gold }]} />}
         </View>
       </View>
 
       <View style={[styles.footer, { borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
         <View style={styles.footerGroup}>
           <Calendar size={12} color={colors.ink3} strokeWidth={1.6} />
-          <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>{getEndText(ad)}</Text>
+          <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>{getEndText(ad, status)}</Text>
         </View>
         <View style={styles.footerGroup}>
           <Text style={[fonts.bold, { fontSize: fontSize.caption, color: colors.goldDark }]}>View</Text>

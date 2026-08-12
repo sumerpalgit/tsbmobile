@@ -6,11 +6,20 @@ import type { AdCampaign } from '../../types/adManagement';
 
 /** Matches `Profile.html`'s `ins.billing` table — real per-campaign amount + Paid/Pending from
  * `payment_completed`, and a real summed total (the mockup's own "$1,940" footer was a static
- * literal that only happened to match its fixture; this actually sums, see plan decision #8). */
+ * literal that only happened to match its fixture; this actually sums, see plan decision #8).
+ * The footer also breaks out the paid subset (`paidTotal`), matching web's own "Total billed ·
+ * {paidTotal} paid" line — the earlier version only showed the grand total. */
 export function AdBillingTable({ ads }: { ads: AdCampaign[] }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
 
   const total = ads.reduce((sum, ad) => sum + getBudgetAmount(ad), 0);
+  const paidTotal = ads.filter(ad => ad.paymentCompleted).reduce((sum, ad) => sum + getBudgetAmount(ad), 0);
+
+  if (ads.length === 0) {
+    return (
+      <Text style={[fonts.regular, styles.empty, { color: colors.ink3 }]}>No campaigns yet.</Text>
+    );
+  }
 
   return (
     <View>
@@ -41,7 +50,10 @@ export function AdBillingTable({ ads }: { ads: AdCampaign[] }) {
       </View>
 
       <View style={[styles.totalRow, { borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
-        <Text style={[fonts.bold, { fontSize: fontSize.body, color: colors.ink }]}>Total billed</Text>
+        <View>
+          <Text style={[fonts.bold, { fontSize: fontSize.body, color: colors.ink }]}>Total billed</Text>
+          <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 2 }]}>{money(paidTotal)} paid</Text>
+        </View>
         <Text style={[fonts.display, { fontSize: fontSize.h3, color: colors.ink }]}>{money(total)}</Text>
       </View>
     </View>
@@ -49,6 +61,10 @@ export function AdBillingTable({ ads }: { ads: AdCampaign[] }) {
 }
 
 const styles = StyleSheet.create({
+  empty: {
+    fontSize: 13,
+    marginTop: 12,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

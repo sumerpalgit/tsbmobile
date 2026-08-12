@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchMyAds } from '../api/adManagement';
-import { deriveStatus, matchesAdFilters, EMPTY_AD_FILTERS, aggregateKpis } from '../types/adManagement';
+import { deriveStatus, matchesAdFilters, EMPTY_AD_FILTERS, aggregateKpis, countActiveFilterCategories } from '../types/adManagement';
 import type { AdCampaign, AdFilters, AdStatus } from '../types/adManagement';
 
 /** `GET /ads/my-ads` has no server params at all (confirmed reading `actions/ad-management.ts` in
@@ -56,14 +56,7 @@ export function useAdCampaigns() {
 
   const kpis = useMemo(() => aggregateKpis(ads), [ads]);
 
-  const activeFilterCount = [
-    ...filters.statuses,
-    ...filters.placements,
-    filters.minBudget,
-    filters.maxBudget,
-    filters.startAfter,
-    filters.endBefore,
-  ].filter(Boolean).length;
+  const activeFilterCount = countActiveFilterCategories(filters);
 
   return {
     ads,

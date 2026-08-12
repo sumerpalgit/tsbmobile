@@ -20,8 +20,11 @@ export function AdRankingList({ ads, metric }: { ads: AdCampaign[]; metric: AdMe
   if (ranked.length === 0 || maxValue <= 0) {
     return (
       <View style={styles.empty}>
-        <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>
-          Rankings appear once your campaigns start generating {metric === 'spend' ? 'spend' : metric} data.
+        <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink }]}>
+          No {metric === 'spend' ? 'spend' : metric} recorded yet
+        </Text>
+        <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 4 }]}>
+          Rankings appear once your campaigns start delivering and this metric has data to compare.
         </Text>
       </View>
     );
