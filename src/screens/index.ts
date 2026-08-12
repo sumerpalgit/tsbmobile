@@ -9,6 +9,10 @@ export { default as CreateEventScreen } from './CreateEventScreen';
 export { default as EventDetailScreen } from './EventDetailScreen';
 export { default as MemberProfileScreen } from './MemberProfileScreen';
 export { default as MyResourcesScreen } from './MyResourcesScreen';
+export { default as AdManagementScreen } from './AdManagementScreen';
+export { default as AdCampaignDetailScreen } from './AdCampaignDetailScreen';
+export { default as AdInsightsScreen } from './AdInsightsScreen';
+export { default as AdCampaignEditScreen } from './AdCampaignEditScreen';
 export {
   PlaceholderScreen,
   createPlaceholderScreen,

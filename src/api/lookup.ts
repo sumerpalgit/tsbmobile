@@ -24,3 +24,12 @@ export function getIndustries(): Promise<string[]> {
 export function getGeographies(): Promise<string[]> {
   return getGroupedFlat(LOOKUP_ENDPOINTS.GEOGRAPHIES);
 }
+
+/** Raw grouped shape (region → place names), matching web's own `useGeographies()` hook exactly
+ * — used by `GeographyMultiSelect` (Ad Management's edit screen), which needs the real grouped +
+ * searchable UX real web's `SearchableMultiSelect` has, not the flattened list `getGeographies()`
+ * returns for `ChipMultiSelect`'s flat-chip-wall UI. */
+export async function getGeographiesGrouped(): Promise<Record<string, string[]>> {
+  const data = await apiClient.get(LOOKUP_ENDPOINTS.GEOGRAPHIES).then(res => res.data);
+  return data?.grouped ?? {};
+}

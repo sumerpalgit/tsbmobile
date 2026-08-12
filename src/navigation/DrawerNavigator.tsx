@@ -4,6 +4,7 @@ import { getFocusedRouteNameFromRoute, useNavigation } from '@react-navigation/n
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../theme';
 import { TopBar } from '../components/TopBar';
+import { useMe } from '../hooks/useMe';
 import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
 import { EtaChaptersScreen, MyEventsScreen, MyResourcesScreen } from '../screens';
 import MainNavigator from './MainNavigator';
@@ -49,6 +50,9 @@ function DrawerNavigator() {
   // through the parent stack rather than the drawer itself.
   const stackNavigation =
     useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  // Same source `ProfileScreen`/`DrawerContent` already use for the real logged-in user's photo —
+  // this TopBar's own avatar was rendering the generic "U" fallback instead of it (never wired).
+  const { data: me } = useMe();
 
   return (
     <Drawer.Navigator
@@ -70,10 +74,11 @@ function DrawerNavigator() {
           },
           sceneStyle: { backgroundColor: colors.pageBg },
           overlayColor: 'rgba(0,0,0,0.4)',
-          // AI Assist and Messages each render their own header (`AiHeader`/`MessagesHeader`,
-          // matching their own mockups) instead of the generic `TopBar` above. Unlike My Events
-          // (a drawer screen, so it can set `headerShown: false` per `Drawer.Screen`), both are
-          // *bottom tabs* nested inside the single `Tabs` screen that owns this shared header.
+          // AI Assist, Messages and Profile each render their own header (`AiHeader`/
+          // `MessagesHeader`/`ProfileScreen`'s own `TopBar` instance) instead of the generic
+          // `TopBar` above. Unlike My Events (a drawer screen, so it can set `headerShown: false`
+          // per `Drawer.Screen`), all three are *bottom tabs* nested inside the single `Tabs`
+          // screen that owns this shared header.
           //
           // `headerShown: focusedTabName !== 'AiAssist'` alone does NOT hide it here — on-device
           // testing showed the shared `TopBar` still rendering (stacked above `AiHeader`) even
@@ -83,13 +88,16 @@ function DrawerNavigator() {
           // reserved layout slot from a nested tab's focus change, even though it does re-invoke
           // `header:`'s render function — returning `null` from `header:` itself is what actually
           // works, so that's the guard here instead of `headerShown`. Same treatment extended to
-          // `'Messages'` without re-testing the `headerShown` route again — no reason to expect
-          // a different navigator behavior for a second tab making the identical request.
-          header: () => (focusedTabName === 'AiAssist' || focusedTabName === 'Messages' ? null : (
+          // `'Messages'` and `'Profile'` without re-testing the `headerShown` route again — no
+          // reason to expect a different navigator behavior for a third tab making the identical
+          // request.
+          header: () => (focusedTabName === 'AiAssist' || focusedTabName === 'Messages' || focusedTabName === 'Profile' ? null : (
             <TopBar
               onMenuPress={() => navigation.openDrawer()}
               onBellPress={() => stackNavigation.navigate('Notifications')}
               onAvatarPress={() => stackNavigation.navigate('Profile')}
+              userName={me?.name}
+              profileImageUri={me?.profileImg}
               // Directory's own mockup header (menu/logo/theme/bell only, no profile icon) also
               // excludes the avatar — same reasoning as Home.
               showAvatar={focusedTabName !== 'Home' && focusedTabName !== 'Directory'}

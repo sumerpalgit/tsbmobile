@@ -105,12 +105,18 @@ export const CHAT_ENDPOINTS = {
   CONVERSATIONS: '/chat/conversations',
 } as const;
 
-/** ETA Chapters' ad banner (real-content read) + campaign creation (Phase 5) — a distinct,
- * adjacent domain from `ETA_ENDPOINTS`, matches web's separate `ads/eta/:id` (read, member-facing)
- * vs `ads/create-ad` (write, advertiser-facing) split. Chapter id interpolated at the call site. */
+/** ETA Chapters' ad banner (real-content read) + campaign creation — a distinct, adjacent domain
+ * from `ETA_ENDPOINTS`, matches web's separate `ads/eta/:id` (read, member-facing) vs
+ * `ads/create-ad` (write, advertiser-facing) split. `MY` (`GET /ads/my-ads`) + campaign
+ * id-interpolated `/ads/:id` (`GET`/`PUT`/`DELETE`, see `src/api/adManagement.ts`) back the Ad
+ * Management dashboard/detail/edit — a third, advertiser-facing "manage your own campaigns"
+ * domain, distinct from both `ETA` (read) and `CREATE` (write-once). Ids interpolated at the call
+ * site, same convention as `CHAT_ENDPOINTS`. */
 export const ADS_ENDPOINTS = {
   ETA: '/ads/eta',
   CREATE: '/ads/create-ad',
+  MY: '/ads/my-ads',
+  BASE: '/ads',
 } as const;
 
 /** My Resources — matches `webSrc/src/actions/my-resources.ts` exactly. Resource ids are

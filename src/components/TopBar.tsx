@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChevronLeft } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { Icon } from './icons/Icon';
 import { Avatar } from './Avatar';
@@ -26,6 +27,13 @@ type TopBarProps = {
   /** Hides the trailing avatar — used on the Home tab, where it would just open the Profile tab
    * that's already reachable from the bottom bar. */
   showAvatar?: boolean;
+  /** Swaps the leading button from the drawer hamburger to a back arrow (`onMenuPress` still
+   * fires, just meaning "go back" instead of "open drawer" — the caller decides which). Needed by
+   * `ProfileScreen`, which renders its own `TopBar` in two different navigator contexts: as the
+   * Profile tab (a drawer sibling exists, hamburger opens it) and as a direct stack push from the
+   * shared `TopBar`'s own avatar button (no drawer in that context, so a back arrow is correct
+   * instead — see `ProfileScreen`'s own doc comment). */
+  backMode?: boolean;
 };
 
 export function TopBar({
@@ -36,6 +44,7 @@ export function TopBar({
   userName,
   profileImageUri,
   showAvatar = true,
+  backMode = false,
 }: TopBarProps) {
   const { colors, fonts, sizes, spacing, borderWidth, isDark, toggleTheme } =
     useTheme();
@@ -55,13 +64,27 @@ export function TopBar({
     >
       <View style={[styles.bar, { height: sizes.topBar }]}>
         <View style={styles.leading}>
-          <IconButton
-            name="menu"
-            accessibilityLabel="Open menu"
-            onPress={onMenuPress}
-            color={colors.ink2}
-            chip={false}
-          />
+          {backMode ? (
+            <Pressable
+              onPress={onMenuPress}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              style={({ pressed }) => [
+                styles.iconButton,
+                { width: sizes.iconButton, height: sizes.iconButton, backgroundColor: pressed ? colors.cream : 'transparent' },
+              ]}
+            >
+              <ChevronLeft size={22} color={colors.ink2} strokeWidth={1.8} />
+            </Pressable>
+          ) : (
+            <IconButton
+              name="menu"
+              accessibilityLabel="Open menu"
+              onPress={onMenuPress}
+              color={colors.ink2}
+              chip={false}
+            />
+          )}
           <View style={{ marginLeft: spacing.xs }}>
             <Logo size="small" showTagline />
           </View>

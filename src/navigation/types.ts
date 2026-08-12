@@ -102,4 +102,13 @@ export type AppStackParamList = {
    * syncing the two back together (so the list reflects a toggle made here) is a separate,
    * later task, not part of this navigation fix. */
   MemberProfile: { profile: Profile; initialSaved: boolean };
+  /** Ad Management — reached from Profile's menu list (`ProfileMenuList.tsx`), same "pushed,
+   * covers the bottom bar, owns its own header" treatment as `CreateEvent`/`EventDetail` above,
+   * not the mockup's own internal overlay/view-switching (`adOpen`/`adView` state) — matches this
+   * app's established precedent of real navigation pushes over `Modal`-with-internal-state for
+   * anything beyond a single lightweight sheet (see `CreateEvent`'s own doc comment for why). */
+  AdManagement: undefined;
+  AdCampaignDetail: { adId: string };
+  AdInsights: { metric: 'impressions' | 'clicks' | 'spend' | 'cpm' };
+  AdCampaignEdit: { adId: string };
 };
