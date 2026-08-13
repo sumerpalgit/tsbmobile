@@ -40,7 +40,7 @@ export function AdStatusChipsRow({
             style={({ pressed }) => [
               styles.chip,
               {
-                borderRadius: radius.pill,
+                borderRadius: radius.lg,
                 borderWidth: borderWidth.thin,
                 borderColor: isActive ? colors.gold : colors.border,
                 backgroundColor: isActive ? colors.gold : colors.surface,

@@ -90,7 +90,7 @@ function AdInsightsScreen() {
                   onPress={() => setMetric(m)}
                   style={[
                     styles.tab,
-                    { borderRadius: radius.pill, backgroundColor: active ? colors.gold : colors.surface, borderColor: active ? colors.gold : colors.border, borderWidth: borderWidth.thin },
+                    { borderRadius: radius.lg, backgroundColor: active ? colors.gold : colors.surface, borderColor: active ? colors.gold : colors.border, borderWidth: borderWidth.thin },
                   ]}
                 >
                   <Text style={[fonts.semibold, { fontSize: fontSize.small, color: active ? '#fff' : colors.ink2 }]}>{METRIC_LABELS[m]}</Text>

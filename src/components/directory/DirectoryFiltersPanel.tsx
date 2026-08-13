@@ -221,7 +221,7 @@ export function DirectoryFiltersPanel({
               <SelectionBadge count={draft.subCategory ? 1 : 0} />
             </View>
             {subOptions.length > 0 ? (
-              <View style={styles.chipsRow}>
+              <View style={[styles.chipsRow, styles.noTopGap]}>
                 {subOptions.map(label => {
                   const active = draft.subCategory === label;
                   return (
@@ -242,7 +242,7 @@ export function DirectoryFiltersPanel({
                 })}
               </View>
             ) : (
-              <View style={[styles.hintBox, { backgroundColor: colors.surfaceSunken, borderRadius: radius.lg }]}>
+              <View style={[styles.hintBox, styles.noTopGap, { backgroundColor: colors.surfaceSunken, borderRadius: radius.lg }]}>
                 <Text style={[fonts.regular, styles.hintText, { color: colors.ink3 }]}>Pick a user type above to narrow by sub role.</Text>
               </View>
             )}
@@ -254,7 +254,7 @@ export function DirectoryFiltersPanel({
               <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink }]}>LOCATION</Text>
               <SelectionBadge count={draft.city ? 1 : 0} />
             </View>
-            <View style={[styles.citySearchRow, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: borderWidth.thin }]}>
+            <View style={[styles.citySearchRow, styles.noTopGap, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: borderWidth.thin }]}>
               <Search size={15} color={colors.ink3} strokeWidth={1.6} />
               <TextInput
                 value={cityQuery}
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 13,
+    marginBottom: 12,
   },
   sectionLabel: {
     flex: 1,
@@ -426,6 +426,14 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 12,
+  },
+  // Overrides `chipsRow`/`hintBox`/`citySearchRow`'s own `marginTop: 12` for the Sub Role/Location
+  // sections specifically — those already sit under a `sectionHeaderRow` with its own
+  // `marginBottom: 13`, so the two stacked to a ~25px gap vs. User Type's single ~13px one (its
+  // `typeGrid` has no `marginTop`). `chipsRow` itself stays as-is since Sort By's plain `Text`
+  // title (no `sectionHeaderRow`) still needs that margin as its only top spacing.
+  noTopGap: {
+    marginTop: 0,
   },
   filterChip: {
     height: 34,

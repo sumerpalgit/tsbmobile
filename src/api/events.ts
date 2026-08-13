@@ -59,12 +59,12 @@ export function submitEventRsvp(eventId: string) {
   return apiClient.post(EVENT_ENDPOINTS.RSVP, { event_id: eventId }).then(res => res.data);
 }
 
-/** `DELETE /api/feed/event/rsvp` body `{event_id}` — matches web's `cancelEventRsvp`. Axios sends
- * a DELETE body via the `data` config key, not a positional argument. */
+/** `DELETE /api/my-activity/event-rsvp/:eventId` — matches web's fixed `cancelEventRsvp`
+ * (`MY_ACTIVITY_ENDPOINTS.EVENT_RSVP`'s doc comment has the full root-cause writeup: the old
+ * `DELETE ${EVENT_ENDPOINTS.RSVP}` address only ever had a POST handler, so cancelling always
+ * 404'd there). Event ID goes in the URL path now, no request body. */
 export function cancelEventRsvp(eventId: string) {
-  return apiClient
-    .delete(EVENT_ENDPOINTS.RSVP, { data: { event_id: eventId } })
-    .then(res => res.data);
+  return apiClient.delete(`${MY_ACTIVITY_ENDPOINTS.EVENT_RSVP}/${eventId}`).then(res => res.data);
 }
 
 /** Matches web's `handleAddEvent` POST body exactly, plus `event_audience_roles` (see

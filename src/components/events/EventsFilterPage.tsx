@@ -1,89 +1,139 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { Icon } from '../icons/Icon';
 import { Pill } from '../Pill';
 import { Button } from '../Button';
 import { searchCities } from '../../api/location';
-import type { EventTab } from './EventsControls';
+import { DateTimeField } from './CreateEventWizard/DateTimeField';
 
 const CITY_SEARCH_DEBOUNCE_MS = 300;
 const CITY_SEARCH_MIN_LENGTH = 2;
 
-export type EventDateRange = 'any' | 'week' | 'month' | 'quarter' | 'custom';
-export type EventSort = 'soon' | 'late' | 'az';
+/** Only the day values web's own quick-pills + custom date input can ever produce
+ * (`my-events/page.tsx`'s `filters.day`) — `today`/`tomorrow`/`next_week`/`weekend`/`soon` exist
+ * in web's `applyDayFilter` switch but have no UI control that sets them on either platform, so
+ * they're not modeled here. */
+export type EventDay = 'any' | 'this_week' | 'this_month' | 'next_3m' | 'custom';
 
+/**
+ * Filter state — deliberately an exact functional match for web's real `filters` state
+ * (`my-events/page.tsx:326`), not the richer/independent set this used to be (multi-select
+ * type/location/city, a real custom date range, a Sort-by section). Web's `filters.format`,
+ * `filters.rsvp_required`, and `filters.visibility` are excluded entirely — they exist in web's
+ * state and its `displayedForGrid` filtering, but **no UI control on web ever sets them**, so
+ * they're permanently-dead filters there; porting unreachable state would add nothing.
+ */
 export type EventsFilterState = {
-  types: string[];
-  locs: string[];
-  cities: string[];
-  dateRange: EventDateRange;
-  dateFrom: string;
-  dateTo: string;
-  sort: EventSort;
+  day: EventDay;
+  customDate: string;
+  /** '' | 'In-person' | 'Online' | 'Hybrid'. Web's "Event type" AND "Location type" sections
+   * both write to the same `filters.event_type` field (`my-events/page.tsx` lines 990 & 1003) —
+   * genuinely a bug on web (picking a Location-type pill silently overwrites whatever Event-type
+   * pill was selected, and vice versa), but per this project's "real web quirks are replicated,
+   * not silently fixed" convention, it's ported as-is via this one shared field rather than two
+   * independent ones. */
+  eventType: string;
+  /** Single selected/typed city — matches web's `filters.country` (a plain string, not a
+   * multi-select array). Typing directly filters (substring match against `location`), same as
+   * web; the suggestion list below is just a shortcut, not a separate "apply" step. */
+  city: string;
 };
 
 export const EMPTY_EVENTS_FILTERS: EventsFilterState = {
-  types: [],
-  locs: [],
-  cities: [],
-  dateRange: 'any',
-  dateFrom: '',
-  dateTo: '',
-  sort: 'soon',
+  day: 'any',
+  customDate: '',
+  eventType: '',
+  city: '',
 };
 
 export function countActiveEventFilters(f: EventsFilterState): number {
-  return f.types.length + f.locs.length + f.cities.length + (f.dateRange !== 'any' ? 1 : 0);
+  return (f.day !== 'any' ? 1 : 0) + (f.eventType ? 1 : 0) + (f.city ? 1 : 0);
 }
 
-const EVENT_TYPES = ['Chapter Event', 'Webinar', 'Workshop', 'Networking', 'Conference', 'Technical'];
-const LOCATION_TYPES = ['In-Person', 'Virtual', 'Hybrid'];
-const DATE_OPTIONS: { value: EventDateRange; label: string }[] = [
-  { value: 'any', label: 'Any time' },
-  { value: 'week', label: 'This week' },
-  { value: 'month', label: 'This month' },
-  { value: 'quarter', label: 'Next 3 months' },
-  { value: 'custom', label: 'Custom range' },
+const EVENT_TYPE_OPTIONS = [
+  { label: 'Chapter Events', value: 'In-person' },
+  { label: 'Webinars', value: 'Online' },
+  { label: 'Hybrid', value: 'Hybrid' },
+];
+const LOCATION_TYPE_OPTIONS = [
+  { label: 'In-Person', value: 'In-person' },
+  { label: 'Virtual', value: 'Online' },
+  { label: 'Hybrid', value: 'Hybrid' },
+];
+const QUICK_DATE_OPTIONS: { value: EventDay; label: string }[] = [
+  { value: 'this_week', label: 'This week' },
+  { value: 'this_month', label: 'This month' },
+  { value: 'next_3m', label: 'Next 3 months' },
 ];
 
 /**
- * Full-screen filter page — event type / location type / date range (+ custom from-to) / city
- * search / sort, modeled directly on `FilterPanel.tsx` (same Modal + manual slide-in mechanism,
- * same section grouping, same Clear-all/Apply footer) since that's the closest existing analog.
- * Sort options depend on the active tab, matching the mockup exactly (`myevents_decoded.html`
- * ~line 1270: "Most recent first"/"Oldest first" for Past vs "soonest"/"latest" for Upcoming).
+ * Full-screen filter page — chrome (Modal + manual slide-in, section grouping, Clear-all/Apply
+ * footer) still modeled on `FilterPanel.tsx`, but every field inside now matches web's real
+ * filter drawer exactly (`my-events/page.tsx` lines 971-1048): Event type / Location type (single
+ * select, sharing one field per web's own bug) / Date range (3 quick pills + one custom date, no
+ * true range) / Chapter-City (single select, live-search suggestions only, capped to 6). No
+ * Sort-by section — web's filter drawer doesn't have one; the list's own default chronological
+ * order is unchanged, just no longer user-selectable.
  */
 export function EventsFilterPage({
   visible,
-  activeTab,
   initialFilters,
-  cityOptions,
   onClose,
   onApply,
 }: {
   visible: boolean;
-  activeTab: EventTab;
   initialFilters: EventsFilterState;
-  cityOptions: string[];
   onClose: () => void;
   onApply: (filters: EventsFilterState) => void;
 }) {
   const { colors, fonts, fontSize, spacing, radius, borderWidth, letterSpacing } = useTheme();
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(initialFilters);
-  const [cityQuery, setCityQuery] = useState('');
   const [liveCities, setLiveCities] = useState<string[]>([]);
   const [cityLoading, setCityLoading] = useState(false);
   const cityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Matches web's live `/api/location/cities` autocomplete on the filter drawer
-  // (`my-events/page.tsx:332-341`) — merged into `filteredCities` below alongside the
-  // already-loaded-events list, not a replacement for it.
+  // Same manual keyboard-scroll fix as `CreateChapterScreen.tsx` (see its doc comment for the
+  // full root-cause writeup) rather than `KeyboardAvoidingView` — its Android resize behavior
+  // doesn't reliably apply inside a `Modal`, which is exactly how the city search field ended up
+  // hidden behind the keyboard here. Only one field in this screen can ever focus the keyboard
+  // (the city search — `DateTimeField`'s date picker is its own native modal, not the soft
+  // keyboard), so this measures `cityInputRef` directly rather than tracking a generic
+  // "currently focused input" ref.
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollOffsetRef = useRef(0);
+  const cityInputRef = useRef<TextInput>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', e => {
+      const kbHeight = e.endCoordinates?.height ?? 0;
+      setKeyboardHeight(kbHeight);
+      requestAnimationFrame(() => {
+        cityInputRef.current?.measureInWindow((_x, y, _width, height) => {
+          const keyboardTop = Dimensions.get('window').height - kbHeight;
+          const overlap = y + height - keyboardTop;
+          if (overlap > 0) {
+            scrollRef.current?.scrollTo({ y: scrollOffsetRef.current + overlap + 12, animated: true });
+          }
+        });
+      });
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  // Matches web's live `/api/location/cities` autocomplete exactly (`my-events/page.tsx:332-341`)
+  // — suggestions come ONLY from this live call, no merge with a locally-known city list, and stay
+  // empty below the 2-character minimum (no default/empty-state list either).
   useEffect(() => {
     if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current);
-    const trimmed = cityQuery.trim();
+    const trimmed = draft.city.trim();
     if (trimmed.length < CITY_SEARCH_MIN_LENGTH) {
       setLiveCities([]);
       setCityLoading(false);
@@ -93,7 +143,10 @@ export function EventsFilterPage({
     cityDebounceRef.current = setTimeout(async () => {
       try {
         const results = await searchCities(trimmed);
-        setLiveCities(results.map(c => c.city));
+        // The API can return duplicate city names (e.g. same city name in different
+        // states/countries) — dedupe or `Pill key={city}` collides (React duplicate-key warning)
+        // and the list shows the same suggestion twice.
+        setLiveCities(Array.from(new Set(results.map(c => c.city))));
       } catch {
         setLiveCities([]);
       } finally {
@@ -103,7 +156,7 @@ export function EventsFilterPage({
     return () => {
       if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current);
     };
-  }, [cityQuery]);
+  }, [draft.city]);
 
   const screenWidth = Dimensions.get('window').width;
   const [shouldRender, setShouldRender] = useState(visible);
@@ -113,7 +166,6 @@ export function EventsFilterPage({
     if (visible) {
       setShouldRender(true);
       setDraft(initialFilters);
-      setCityQuery('');
       translateX.setValue(screenWidth);
       Animated.timing(translateX, { toValue: 0, duration: 280, useNativeDriver: true }).start();
     } else {
@@ -124,33 +176,9 @@ export function EventsFilterPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  const toggleArrayValue = (key: 'types' | 'locs' | 'cities', value: string) => {
-    setDraft(prev => {
-      const current = prev[key];
-      const next = current.includes(value) ? current.filter(v => v !== value) : [...current, value];
-      return { ...prev, [key]: next };
-    });
-  };
-
   const activeCount = countActiveEventFilters(draft);
-  const localCities = cityOptions.filter(c => c.toLowerCase().includes(cityQuery.trim().toLowerCase()));
-  const filteredCities = [
-    ...localCities,
-    ...liveCities.filter(c => !localCities.some(l => l.toLowerCase() === c.toLowerCase())),
-  ];
-
-  const sortOptions: { value: EventSort; label: string }[] =
-    activeTab === 'past'
-      ? [
-          { value: 'soon', label: 'Most recent first' },
-          { value: 'late', label: 'Oldest first' },
-          { value: 'az', label: 'Title A–Z' },
-        ]
-      : [
-          { value: 'soon', label: 'Date · soonest' },
-          { value: 'late', label: 'Date · latest' },
-          { value: 'az', label: 'Title A–Z' },
-        ];
+  // Matches web's own `citySuggestions.slice(0, 6)` cap (`my-events/page.tsx:1034`).
+  const cityStub = liveCities.slice(0, 6);
 
   return (
     // `statusBarTranslucent` — see `EventDetailView.tsx`'s identical fix for why: without it, this
@@ -183,118 +211,90 @@ export function EventsFilterPage({
           </View>
         </View>
 
-        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-          <FilterSection title="Event type" count={draft.types.length}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[styles.body, { paddingBottom: 20 + keyboardHeight }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onScroll={e => {
+            scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
+        >
+          <FilterSection title="Event type" count={draft.eventType ? 1 : 0}>
             <ChipWrap>
-              {EVENT_TYPES.map(type => (
-                <Pill key={type} label={type} selected={draft.types.includes(type)} onPress={() => toggleArrayValue('types', type)} />
-              ))}
-            </ChipWrap>
-          </FilterSection>
-
-          <FilterSection title="Location type" count={draft.locs.length}>
-            <ChipWrap>
-              {LOCATION_TYPES.map(loc => (
-                <Pill key={loc} label={loc} selected={draft.locs.includes(loc)} onPress={() => toggleArrayValue('locs', loc)} />
-              ))}
-            </ChipWrap>
-          </FilterSection>
-
-          <FilterSection title="Date range" count={draft.dateRange !== 'any' ? 1 : 0}>
-            <ChipWrap>
-              {DATE_OPTIONS.map(opt => (
+              {EVENT_TYPE_OPTIONS.map(opt => (
                 <Pill
                   key={opt.value}
                   label={opt.label}
-                  selected={draft.dateRange === opt.value}
-                  onPress={() => setDraft(prev => ({ ...prev, dateRange: opt.value }))}
+                  selected={draft.eventType === opt.value}
+                  onPress={() => setDraft(prev => ({ ...prev, eventType: prev.eventType === opt.value ? '' : opt.value }))}
                 />
               ))}
             </ChipWrap>
-            {draft.dateRange === 'custom' && (
-              <View style={styles.dateRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[fonts.bold, styles.dateLabel, { color: colors.ink3 }]}>From</Text>
-                  <TextInput
-                    value={draft.dateFrom}
-                    onChangeText={v => setDraft(prev => ({ ...prev, dateFrom: v }))}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor={colors.ink3}
-                    style={[
-                      fonts.semibold,
-                      styles.dateInput,
-                      { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg, color: colors.ink },
-                    ]}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[fonts.bold, styles.dateLabel, { color: colors.ink3 }]}>To</Text>
-                  <TextInput
-                    value={draft.dateTo}
-                    onChangeText={v => setDraft(prev => ({ ...prev, dateTo: v }))}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor={colors.ink3}
-                    style={[
-                      fonts.semibold,
-                      styles.dateInput,
-                      { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg, color: colors.ink },
-                    ]}
-                  />
-                </View>
-              </View>
-            )}
           </FilterSection>
 
-          <FilterSection title="Chapter / city" count={draft.cities.length}>
+          <FilterSection title="Location type" count={draft.eventType ? 1 : 0}>
+            <ChipWrap>
+              {LOCATION_TYPE_OPTIONS.map(opt => (
+                <Pill
+                  key={opt.value}
+                  label={opt.label}
+                  selected={draft.eventType === opt.value}
+                  onPress={() => setDraft(prev => ({ ...prev, eventType: prev.eventType === opt.value ? '' : opt.value }))}
+                />
+              ))}
+            </ChipWrap>
+          </FilterSection>
+
+          <FilterSection title="Date range" count={draft.day !== 'any' ? 1 : 0}>
+            <DateTimeField
+              value={draft.customDate}
+              mode="date"
+              placeholder="Select date"
+              onChange={v => setDraft(prev => ({ ...prev, day: 'custom', customDate: v }))}
+            />
+            <View style={{ height: spacing.md }} />
+            <ChipWrap>
+              {QUICK_DATE_OPTIONS.map(opt => (
+                <Pill
+                  key={opt.value}
+                  label={opt.label}
+                  selected={draft.day === opt.value}
+                  onPress={() => setDraft(prev => ({ ...prev, day: prev.day === opt.value ? 'any' : opt.value, customDate: '' }))}
+                />
+              ))}
+            </ChipWrap>
+          </FilterSection>
+
+          <FilterSection title="Chapter / city" count={draft.city ? 1 : 0}>
             <View style={[styles.citySearch, { backgroundColor: colors.surface2, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg }]}>
               <Icon name="search" size={15} color={colors.ink3} />
               <TextInput
-                value={cityQuery}
-                onChangeText={setCityQuery}
+                ref={cityInputRef}
+                value={draft.city}
+                onChangeText={v => setDraft(prev => ({ ...prev, city: v }))}
                 placeholder="Search city…"
                 placeholderTextColor={colors.ink3}
                 style={[styles.cityInput, { fontSize: fontSize.body, color: colors.ink }]}
               />
               {cityLoading && <ActivityIndicator size="small" color={colors.ink3} />}
             </View>
-            <View style={{ height: spacing.md }} />
-            {filteredCities.length > 0 ? (
-              <ChipWrap>
-                {filteredCities.map(city => (
-                  <Pill key={city} label={city} selected={draft.cities.includes(city)} onPress={() => toggleArrayValue('cities', city)} />
-                ))}
-              </ChipWrap>
-            ) : (
-              <Text style={[fonts.regular, { fontSize: fontSize.small, color: colors.ink3 }]}>No cities match “{cityQuery}”.</Text>
+            {cityStub.length > 0 && (
+              <>
+                <View style={{ height: spacing.md }} />
+                <ChipWrap>
+                  {cityStub.map(city => (
+                    <Pill
+                      key={city}
+                      label={city}
+                      selected={draft.city === city}
+                      onPress={() => setDraft(prev => ({ ...prev, city: prev.city === city ? '' : city }))}
+                    />
+                  ))}
+                </ChipWrap>
+              </>
             )}
-          </FilterSection>
-
-          <FilterSection title="Sort by">
-            {sortOptions.map((opt, index) => {
-              const active = draft.sort === opt.value;
-              return (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => setDraft(prev => ({ ...prev, sort: opt.value }))}
-                  style={({ pressed }) => [
-                    styles.sortRow,
-                    index < sortOptions.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: borderWidth.hairline },
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text style={[fonts.semibold, styles.sortLabel, { color: colors.ink }]}>{opt.label}</Text>
-                  <View
-                    style={[
-                      styles.radio,
-                      { borderRadius: radius.pill },
-                      active
-                        ? { borderColor: colors.gold, borderWidth: 6, backgroundColor: colors.surface }
-                        : { borderColor: colors.border, borderWidth: borderWidth.thick, backgroundColor: colors.surface },
-                    ]}
-                  />
-                </Pressable>
-              );
-            })}
           </FilterSection>
         </ScrollView>
 
@@ -348,14 +348,8 @@ const styles = StyleSheet.create({
   badge: { paddingHorizontal: 11, paddingVertical: 4 },
   badgeText: { fontSize: 10 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  dateRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  dateLabel: { fontSize: 10.5, letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase' },
-  dateInput: { height: 44, paddingHorizontal: 12, fontSize: 12.5 },
   citySearch: { flexDirection: 'row', alignItems: 'center', gap: 9, height: 46, paddingHorizontal: 13 },
   cityInput: { flex: 1, padding: 0 },
-  sortRow: { flexDirection: 'row', alignItems: 'center', height: 50 },
-  sortLabel: { flex: 1, fontSize: 14 },
-  radio: { width: 20, height: 20 },
   footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 12 },
   pressed: { opacity: 0.65 },
 });

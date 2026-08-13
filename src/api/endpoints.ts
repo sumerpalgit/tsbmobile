@@ -56,6 +56,13 @@ export const SAVED_CONTACTS_ENDPOINTS = {
 
 export const MY_ACTIVITY_ENDPOINTS = {
   SAVED_POSTS: '/my-activity/saved-posts',
+  /** `DELETE ${EVENT_RSVP}/:eventId` — the real, working cancel-RSVP route. `EVENT_ENDPOINTS.RSVP`
+   * (`/feed/event/rsvp`) only ever had a POST handler on the backend; there was no DELETE
+   * registered at that address, so cancelling an RSVP always 404'd there. Confirmed by backend
+   * (Urvish Dhanani, 2026-08-13) and already fixed on web (`my-events/page.tsx`'s
+   * `cancelEventRsvp`) to call this address instead — event ID goes in the URL path, no request
+   * body needed. */
+  EVENT_RSVP: '/my-activity/event-rsvp',
 } as const;
 
 export const UPLOAD_ENDPOINTS = {

@@ -289,10 +289,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
   },
+  // No fixed height — sizes to `heroContent`'s actual content (badges/title/date row can vary,
+  // e.g. a 3-line title), with the background Image/gradient/accent strip (all `absoluteFillObject`
+  // below) filling whatever height that resolves to. A fixed height + `justifyContent: 'flex-end'`
+  // previously anchored content to the bottom, leaving empty space above the badges whenever the
+  // content was shorter than the fixed height — that's the "too much gap above the pills" bug.
   hero: {
-    height: 200,
     overflow: 'hidden',
-    justifyContent: 'flex-end',
   },
   accentStrip: {
     position: 'absolute',

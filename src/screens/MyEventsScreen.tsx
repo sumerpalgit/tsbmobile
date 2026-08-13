@@ -26,7 +26,7 @@ import {
   EventsFilterState,
   countActiveEventFilters,
 } from '../components/events/EventsFilterPage';
-import { getEventMonthLabel, getEventTypeLabel, isEventPast, isVirtualEvent } from '../components/events/eventVisuals';
+import { getEventMonthLabel, getEventTypeLabel, isEventPast } from '../components/events/eventVisuals';
 
 /** My Events sits inside the drawer, but "Create a New Event" is a screen pushed on the parent
  * stack (`AppStackParamList`'s `CreateEvent`, see `navigation/types.ts`) — this composite type is
@@ -38,11 +38,34 @@ type MyEventsNavigationProp = CompositeNavigationProp<
   NativeStackNavigationProp<AppStackParamList>
 >;
 
-const DATE_RANGE_CAP_DAYS: Record<string, number> = { week: 7, month: 31, quarter: 92 };
-
 function daysBetween(dateStr: string | null, now: number): number {
   if (!dateStr) return 0;
   return Math.round((new Date(dateStr).getTime() - now) / 86400000);
+}
+
+/** Literal port of web's `applyDayFilter` (`my-events/page.tsx:506-519`) — including its own
+ * dead `next_3m` case: that quick-pill sets `day: 'next_3m'`, but web's switch never handles it,
+ * so it falls to `default: return true` (no filtering effect at all). Web's `today`/`tomorrow`/
+ * `next_week`/`weekend`/`soon` cases are omitted — no UI control on either platform ever produces
+ * those values, so porting them would add unreachable code. */
+function applyDayFilter(event: MyEventItem, nowDate: Date, filters: EventsFilterState): boolean {
+  const eventDate = event.start_date ? new Date(event.start_date) : null;
+  switch (filters.day) {
+    case 'this_week': {
+      const end = new Date(nowDate);
+      end.setDate(nowDate.getDate() + (7 - nowDate.getDay()));
+      return eventDate ? eventDate <= end && eventDate >= nowDate : false;
+    }
+    case 'this_month': {
+      const start = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1);
+      const end = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 0);
+      return eventDate ? eventDate >= start && eventDate <= end : false;
+    }
+    case 'custom':
+      return filters.customDate ? eventDate?.toISOString().split('T')[0] === filters.customDate : true;
+    default:
+      return true;
+  }
 }
 
 /**
@@ -125,30 +148,20 @@ function MyEventsScreen() {
     [events],
   );
 
-  const cityOptions = useMemo(
-    () => Array.from(new Set(events.map(e => e.location).filter((v): v is string => !!v))).sort(),
-    [events],
-  );
-
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    const nowDate = new Date(now);
+    nowDate.setHours(0, 0, 0, 0);
     return inSegment.filter(event => {
       if (selectedType && getEventTypeLabel(event) !== selectedType) return false;
-      if (filters.types.length && !filters.types.includes(getEventTypeLabel(event))) return false;
-      if (filters.locs.length) {
-        const locType = isVirtualEvent(event) ? 'Virtual' : (event.format ?? '').toLowerCase().includes('hybrid') ? 'Hybrid' : 'In-Person';
-        if (!filters.locs.includes(locType)) return false;
-      }
-      if (filters.cities.length && !filters.cities.includes(event.location ?? '')) return false;
-
-      if (filters.dateRange === 'custom') {
-        const eventTime = event.start_date ? new Date(event.start_date).getTime() : 0;
-        if (filters.dateFrom && eventTime < new Date(filters.dateFrom).getTime()) return false;
-        if (filters.dateTo && eventTime > new Date(filters.dateTo).getTime()) return false;
-      } else if (filters.dateRange !== 'any') {
-        const cap = DATE_RANGE_CAP_DAYS[filters.dateRange] ?? Infinity;
-        if (Math.abs(daysBetween(event.start_date, now)) > cap) return false;
-      }
+      if (!applyDayFilter(event, nowDate, filters)) return false;
+      // Matches web's `filters.country` substring match against `location` exactly
+      // (`my-events/page.tsx:531`).
+      if (filters.city && !(event.location ?? '').toLowerCase().includes(filters.city.toLowerCase())) return false;
+      // Matches web's `filters.event_type` check against the raw `event_type` field — the same
+      // field both the Event-type AND Location-type pills write to (see `EventsFilterState`'s
+      // `eventType` doc comment).
+      if (filters.eventType && (event.event_type ?? '').toLowerCase() !== filters.eventType.toLowerCase()) return false;
 
       if (q) {
         const haystack = [event.title, event.hosted_by, event.location, getEventTypeLabel(event)]
@@ -161,20 +174,20 @@ function MyEventsScreen() {
     });
   }, [inSegment, selectedType, filters, searchQuery, now]);
 
+  // Web's `displayedForGrid` has no sort at all — it just filters and renders in fetch order. This
+  // keeps the list's existing default chronological order (soonest-first upcoming, most-recent-
+  // first past) since the month-grouped list still needs *a* deterministic order, but the sort is
+  // no longer user-selectable (the mockup's Sort-by section had no web equivalent, per web parity).
   const sorted = useMemo(() => {
     const list = [...filtered];
-    if (filters.sort === 'az') {
-      list.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''));
-      return list;
-    }
-    const asc = activeTab === 'past' ? (filters.sort === 'soon' ? -1 : 1) : filters.sort === 'soon' ? 1 : -1;
+    const asc = activeTab === 'past' ? -1 : 1;
     list.sort((a, b) => {
       const aTime = a.start_date ? new Date(a.start_date).getTime() : 0;
       const bTime = b.start_date ? new Date(b.start_date).getTime() : 0;
       return (aTime - bTime) * asc;
     });
     return list;
-  }, [filtered, filters.sort, activeTab]);
+  }, [filtered, activeTab]);
 
   const groups = useMemo(() => {
     const map = new Map<string, MyEventItem[]>();
@@ -318,9 +331,7 @@ function MyEventsScreen() {
 
       <EventsFilterPage
         visible={filterPageOpen}
-        activeTab={activeTab}
         initialFilters={filters}
-        cityOptions={cityOptions}
         onClose={() => setFilterPageOpen(false)}
         onApply={next => {
           setFilters(next);
