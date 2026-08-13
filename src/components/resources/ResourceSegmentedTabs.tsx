@@ -88,15 +88,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
+  // No fixed `height` — equal `paddingVertical` below grows the box a fixed, identical amount
+  // above and below the text, sidestepping any font-metrics-driven asymmetry between the
+  // active/inactive states' two different font files (`fonts.bold` vs `fonts.semibold`).
   segment: {
     flex: 1,
-    height: 32,
+    paddingVertical: 9,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 9,
   },
+  // The real fix for the leftover top/bottom imbalance: Android's `Text` defaults
+  // `includeFontPadding` to `true`, reserving extra invisible space above/below the glyphs for
+  // accents/descenders — that reserved space isn't symmetric around the baseline, which is what
+  // was still making the padding above look uneven from the padding below even once `segment`'s
+  // own `paddingVertical` was made equal. `false` here matches the same fix already established
+  // in this app for the identical issue (`Logo.tsx`'s `word`/`tagline` styles).
   segmentText: {
     fontSize: 12,
+    includeFontPadding: false,
   },
   squareButton: {
     width: 44,

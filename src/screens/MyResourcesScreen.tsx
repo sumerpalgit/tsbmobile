@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
+import { FlatList, Linking, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Bookmark, Search } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../theme';
@@ -13,10 +14,9 @@ import { ResourcesHero } from '../components/resources/ResourcesHero';
 import { ResourceSegmentedTabs } from '../components/resources/ResourceSegmentedTabs';
 import { ResourceSearchBar } from '../components/resources/ResourceSearchBar';
 import { ResourceCard } from '../components/resources/ResourceCard';
-import { ResourceListSkeleton } from '../components/resources/ResourceCardSkeleton';
+import { ResourceCardSkeleton, ResourceListSkeleton } from '../components/resources/ResourceCardSkeleton';
 import { ResourceFiltersPanel } from '../components/resources/ResourceFiltersPanel';
-import { ContributeResourceSheet } from '../components/resources/ContributeResourceSheet';
-import type { DrawerParamList } from '../navigation/types';
+import type { AppStackParamList, DrawerParamList } from '../navigation/types';
 import type { ResourceItem } from '../types/resources';
 
 function normalizeUrl(url: string): string {
@@ -32,6 +32,10 @@ function normalizeUrl(url: string): string {
 export default function MyResourcesScreen() {
   const { colors, fonts, fontSize, radius } = useTheme();
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
+  // Separate from `navigation` above (drawer-level) — `ContributeResource` lives one level up on
+  // the parent stack (`AppStackParamList`), same reasoning `DrawerNavigator.tsx` itself documents
+  // for why Notifications/Profile are reached that way rather than through the drawer navigator.
+  const stackNavigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
 
   const {
     resources,
@@ -52,8 +56,17 @@ export default function MyResourcesScreen() {
   const [activeTab, setActiveTab] = useState<'all' | 'saved'>('all');
   const [searchOpen, setSearchOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [contributeOpen, setContributeOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Refetches on every focus (matches `AdManagementScreen.tsx`'s exact convention) — without
+  // this, submitting a new resource on `ContributeResourceScreen` and navigating back left this
+  // list (and the hero's "Contributed" stat) stale, since both only ever fetched once, on mount.
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+      refetchMyStats();
+    }, [refetch, refetchMyStats]),
+  );
 
   const filtersActive = !!(filters.contentType || filters.authorType || filters.dateRange);
   const visibleResources = activeTab === 'saved' ? savedResources : resources;
@@ -101,7 +114,7 @@ export default function MyResourcesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
-      <ResourcesHeader onMenuPress={() => navigation.openDrawer()} onContributePress={() => setContributeOpen(true)} />
+      <ResourcesHeader onMenuPress={() => navigation.openDrawer()} onContributePress={() => stackNavigation.navigate('ContributeResource')} />
 
       <FlatList
         data={listIsLoading ? [] : visibleResources}
@@ -110,6 +123,13 @@ export default function MyResourcesScreen() {
         refreshControl={
           activeTab === 'all' ? <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} /> : undefined
         }
+        // Infinite scroll — "Saved" is a fully-loaded local list (no real pagination), so this
+        // only fires the real `loadMore()` for "all"; `loadMore` itself is also a no-op once
+        // `pagination.hasNextPage` is false, so no extra guard needed here for that case.
+        onEndReached={() => {
+          if (activeTab === 'all') loadMore();
+        }}
+        onEndReachedThreshold={0.4}
         ListHeaderComponent={
           <View>
             <ResourcesHero stats={myStats} />
@@ -168,18 +188,10 @@ export default function MyResourcesScreen() {
           )
         }
         ListFooterComponent={
-          activeTab === 'all' && pagination?.hasNextPage ? (
-            <Pressable
-              onPress={loadMore}
-              disabled={isLoadingMore}
-              style={[styles.loadMoreButton, { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, opacity: isLoadingMore ? 0.6 : 1 }]}
-            >
-              {isLoadingMore ? (
-                <ActivityIndicator size="small" color={colors.gold} />
-              ) : (
-                <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink }]}>Load more resources</Text>
-              )}
-            </Pressable>
+          activeTab === 'all' && isLoadingMore ? (
+            <View style={styles.loadMoreFooter}>
+              <ResourceCardSkeleton />
+            </View>
           ) : null
         }
       />
@@ -195,7 +207,6 @@ export default function MyResourcesScreen() {
         }}
       />
 
-      <ContributeResourceSheet visible={contributeOpen} onClose={() => setContributeOpen(false)} onSuccess={refetch} />
     </View>
   );
 }
@@ -229,12 +240,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     maxWidth: 240,
   },
-  loadMoreButton: {
-    height: 48,
-    marginHorizontal: 16,
-    marginTop: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  loadMoreFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 11,
   },
 });

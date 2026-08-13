@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   },
   joinButtonGrid: {
     flex: 1,
-    height: 44,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -285,8 +285,8 @@ const styles = StyleSheet.create({
   },
   previewButtonGrid: {
     flex: 0,
-    width: 44,
-    height: 44,
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },

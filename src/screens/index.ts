@@ -13,6 +13,9 @@ export { default as AdManagementScreen } from './AdManagementScreen';
 export { default as AdCampaignDetailScreen } from './AdCampaignDetailScreen';
 export { default as AdInsightsScreen } from './AdInsightsScreen';
 export { default as AdCampaignEditScreen } from './AdCampaignEditScreen';
+export { default as CreateAdCampaignScreen } from './CreateAdCampaignScreen';
+export { default as ContributeResourceScreen } from './ContributeResourceScreen';
+export { default as PromptLibraryScreen } from './PromptLibraryScreen';
 export {
   PlaceholderScreen,
   createPlaceholderScreen,

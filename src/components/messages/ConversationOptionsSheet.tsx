@@ -21,6 +21,9 @@ export function ConversationOptionsSheet({
   conversation,
   onOpen,
   onMarkRead,
+  // Kept in the prop signature (and still passed by every caller) so re-enabling "View profile"
+  // below is a one-line uncomment, not a signature change.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onViewProfile,
 }: {
   visible: boolean;
@@ -44,12 +47,17 @@ export function ConversationOptionsSheet({
       onPress: onMarkRead,
     });
   }
-  items.push({
-    key: 'profile',
-    label: 'View profile',
-    icon: <Icon name="account" size={16} color={colors.goldDark} />,
-    onPress: onViewProfile,
-  });
+  // Temporarily disabled — `resolveParticipantUsername` (`MessagesScreen.tsx`) only works when
+  // the thread already has a message FROM the other participant carrying a `sender.username`
+  // field; a new/empty conversation (or one where they haven't replied yet) has nothing to scan
+  // and this fails with "Could not open this profile". Re-enable once that resolution is made
+  // reliable (or a real per-conversation participant-username endpoint exists to use instead).
+  // items.push({
+  //   key: 'profile',
+  //   label: 'View profile',
+  //   icon: <Icon name="account" size={16} color={colors.goldDark} />,
+  //   onPress: onViewProfile,
+  // });
 
   return (
     <ActionSheet visible={visible} onClose={onClose} title={conversation?.name} subtitle="Conversation options" items={items} />

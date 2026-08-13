@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { Megaphone, X } from 'lucide-react-native';
@@ -25,8 +25,18 @@ const TOTAL_STEPS = STEP_NAMES.length;
  * itself sends — not a real charge; replicated faithfully, not newly invented). Validation
  * matches web's own permissiveness exactly: non-empty checks only, no email/URL regex, no
  * file-size enforcement beyond MIME type, no past-date guard — this is not a gap, it's fidelity
- * to the real contract. */
-export function CreateCampaignWizard({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+ * to the real contract.
+ *
+ * Plain screen content, not a `Modal` overlay — this used to own its own `Modal`, but hit the
+ * same `useSafeAreaInsets()`-inside-`Modal` unreliability class of bug `CreateEventScreen`/
+ * `EventDetailScreen`/`MemberProfileScreen` were each moved off `Modal` for (the Modal renders in
+ * a separate native window that isn't reliably part of the safe-area measurement tree, so
+ * `insets.top` could come back 0 on Android, leaving the header flush against the status bar —
+ * previously patched with a `StatusBar.currentHeight` workaround). Now a dedicated pushed screen
+ * (`CreateAdCampaignScreen.tsx`, registered in `AppNavigator.tsx`), reached from both Ad
+ * Management's "New Campaign" and ETA Chapters' "+ Create Ad" — this component itself has zero
+ * per-caller coupling either way, so both callers just navigate to the same route. */
+export function CreateCampaignWizard({ onClose }: { onClose: () => void }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -36,16 +46,6 @@ export function CreateCampaignWizard({ visible, onClose }: { visible: boolean; o
   const [advancing, setAdvancing] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (visible) {
-      setStep(1);
-      setDraft(EMPTY_DRAFT);
-      setAdvancing(false);
-      setErrors({});
-      setSubmitError(null);
-    }
-  }, [visible]);
 
   const patch = (p: Partial<CampaignDraft>) => setDraft(prev => ({ ...prev, ...p }));
   const clearError = (key: string) => setErrors(prev => (prev[key] ? { ...prev, [key]: '' } : prev));
@@ -140,10 +140,10 @@ export function CreateCampaignWizard({ visible, onClose }: { visible: boolean; o
       Toast.show({ type: 'success', text1: 'Campaign submitted!', text2: 'It will go live after review.' });
       onClose();
     } catch (err: any) {
-      // A toast alone isn't enough feedback here — this full-screen `Modal` renders above the
-      // app root, including the root-level `<Toast/>` from `App.tsx`, so an error toast fires
-      // invisibly behind it and the modal never closes on failure. An inline banner is the only
-      // way to actually surface a submit error to the user.
+      // Kept as an inline banner (not just a toast) even now that this is a real screen — a
+      // submit failure on the last step is important enough to stay visible rather than fade
+      // like a toast does, and it sits right above the footer where the user's attention already
+      // is.
       setSubmitError(err?.message || 'Could not submit campaign. Please try again.');
     } finally {
       setSubmitting(false);
@@ -151,89 +151,90 @@ export function CreateCampaignWizard({ visible, onClose }: { visible: boolean; o
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView
-        style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
-        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-          <View style={styles.headerTop}>
-            <View style={[styles.headerIconWell, { backgroundColor: colors.feedFill, borderRadius: radius.lg }]}>
-              <Megaphone size={16} color={colors.feedOnFill} strokeWidth={1.6} />
-            </View>
-            <View style={styles.headerText}>
-              <Text style={[fonts.bold, styles.eyebrow, { color: colors.goldDark }]}>ADVERTISE ON TSB</Text>
-              <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>Create Your Campaign</Text>
-            </View>
-            <Pressable onPress={onClose} accessibilityLabel="Close" style={[styles.closeButton, { backgroundColor: colors.surfaceSunken }]}>
-              <X size={12} color={colors.ink2} strokeWidth={1.8} />
-            </Pressable>
+    <KeyboardAvoidingView
+      style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}
+      // Android stays `undefined`, matching `CreateEventWizard.tsx`'s own established convention
+      // — `behavior="height"` fights this app's `windowSoftInputMode="adjustResize"` (two resize
+      // mechanisms compensating for the same keyboard event), which showed up as exactly the
+      // flicker/residual-gap bug already root-caused and fixed elsewhere (`CreateChapterScreen.tsx`).
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+        <View style={styles.headerTop}>
+          <View style={[styles.headerIconWell, { backgroundColor: colors.feedFill, borderRadius: radius.lg }]}>
+            <Megaphone size={16} color={colors.feedOnFill} strokeWidth={1.6} />
           </View>
-
-          <View style={styles.progressRow}>
-            <Text style={[fonts.bold, styles.progressLabel, { color: colors.ink3 }]}>STEP {step} OF {TOTAL_STEPS}</Text>
-            <Text style={[fonts.bold, styles.progressLabel, { color: colors.goldDark }]}>{STEP_NAMES[step - 1]}</Text>
+          <View style={styles.headerText}>
+            <Text style={[fonts.bold, styles.eyebrow, { color: colors.goldDark }]}>ADVERTISE ON TSB</Text>
+            <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>Create Your Campaign</Text>
           </View>
-          <View style={styles.progressBar}>
-            {STEP_NAMES.map((name, i) => (
-              <View key={name} style={[styles.progressSegment, { backgroundColor: i < step ? colors.gold : colors.border }]} />
-            ))}
-          </View>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-          {step === 1 && <StepBrand draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
-          {step === 2 && <StepPlacement draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
-          {step === 3 && <StepCreative draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
-          {step === 4 && <StepTargeting draft={draft} onChange={patch} />}
-          {step === 5 && <StepSchedule draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
-          {step === 6 && <StepReview draft={draft} />}
-        </ScrollView>
-
-        {!!submitError && (
-          <View style={[styles.submitErrorBanner, { backgroundColor: colors.dangerSurface, borderTopColor: colors.danger, borderTopWidth: borderWidth.thin }]}>
-            <Text style={[fonts.semibold, styles.submitErrorText, { color: colors.danger }]}>{submitError}</Text>
-          </View>
-        )}
-
-        <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
-          {step > 1 && (
-            <Pressable
-              onPress={() => {
-                setSubmitError(null);
-                setStep(s => s - 1);
-              }}
-              disabled={advancing || submitting}
-              style={({ pressed }) => [
-                styles.backButton,
-                { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.xl, borderWidth: borderWidth.thin },
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>← Back</Text>
-            </Pressable>
-          )}
-          <Pressable
-            onPress={goNext}
-            disabled={advancing || submitting}
-            style={({ pressed }) => [
-              styles.nextButton,
-              { backgroundColor: colors.gold, borderRadius: radius.xl, opacity: advancing || submitting ? 0.7 : 1 },
-              pressed && !(advancing || submitting) && styles.pressed,
-            ]}
-          >
-            {advancing || submitting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={[fonts.bold, { fontSize: fontSize.body, color: '#fff' }]}>
-                {step === TOTAL_STEPS ? 'Submit Campaign →' : 'Continue →'}
-              </Text>
-            )}
+          <Pressable onPress={onClose} accessibilityLabel="Close" style={[styles.closeButton, { backgroundColor: colors.surfaceSunken }]}>
+            <X size={12} color={colors.ink2} strokeWidth={1.8} />
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+
+        <View style={styles.progressRow}>
+          <Text style={[fonts.bold, styles.progressLabel, { color: colors.ink3 }]}>STEP {step} OF {TOTAL_STEPS}</Text>
+          <Text style={[fonts.bold, styles.progressLabel, { color: colors.goldDark }]}>{STEP_NAMES[step - 1]}</Text>
+        </View>
+        <View style={styles.progressBar}>
+          {STEP_NAMES.map((name, i) => (
+            <View key={name} style={[styles.progressSegment, { backgroundColor: i < step ? colors.gold : colors.border }]} />
+          ))}
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {step === 1 && <StepBrand draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
+        {step === 2 && <StepPlacement draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
+        {step === 3 && <StepCreative draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
+        {step === 4 && <StepTargeting draft={draft} onChange={patch} />}
+        {step === 5 && <StepSchedule draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
+        {step === 6 && <StepReview draft={draft} />}
+      </ScrollView>
+
+      {!!submitError && (
+        <View style={[styles.submitErrorBanner, { backgroundColor: colors.dangerSurface, borderTopColor: colors.danger, borderTopWidth: borderWidth.thin }]}>
+          <Text style={[fonts.semibold, styles.submitErrorText, { color: colors.danger }]}>{submitError}</Text>
+        </View>
+      )}
+
+      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
+        {step > 1 && (
+          <Pressable
+            onPress={() => {
+              setSubmitError(null);
+              setStep(s => s - 1);
+            }}
+            disabled={advancing || submitting}
+            style={({ pressed }) => [
+              styles.backButton,
+              { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.xl, borderWidth: borderWidth.thin },
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>← Back</Text>
+          </Pressable>
+        )}
+        <Pressable
+          onPress={goNext}
+          disabled={advancing || submitting}
+          style={({ pressed }) => [
+            styles.nextButton,
+            { backgroundColor: colors.gold, borderRadius: radius.xl, opacity: advancing || submitting ? 0.7 : 1 },
+            pressed && !(advancing || submitting) && styles.pressed,
+          ]}
+        >
+          {advancing || submitting ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={[fonts.bold, { fontSize: fontSize.body, color: '#fff' }]}>
+              {step === TOTAL_STEPS ? 'Submit Campaign →' : 'Continue →'}
+            </Text>
+          )}
+        </Pressable>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

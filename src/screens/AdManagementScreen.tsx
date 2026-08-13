@@ -5,7 +5,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Megaphone, Plus, Search } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { useAdCampaigns } from '../hooks/useAdCampaigns';
-import { CreateCampaignWizard } from '../components/etaChapters/CreateCampaignWizard/CreateCampaignWizard';
 import { AdScreenHeader } from '../components/adManagement/AdScreenHeader';
 import { AdKpiStrip } from '../components/adManagement/AdKpiStrip';
 import { AdStatusChipsRow } from '../components/adManagement/AdStatusChipsRow';
@@ -19,9 +18,9 @@ import type { AppStackParamList } from '../navigation/types';
  * Ad Management dashboard — reached from Profile's menu list. UI matches `Profile.html`'s
  * `adAtDash` (~line 329); functionality (client-side filter/search/status over one unfiltered
  * `GET /ads/my-ads` fetch, KPIs computed the same way) matches real web's `page.tsx` exactly — see
- * the plan at `delightful-seeking-snowglobe.md`. "New Campaign" reuses `CreateCampaignWizard`
- * unmodified (it has no chapter-specific coupling), the exact same component ETA Chapters' own
- * "+ Create Ad" button already opens.
+ * the plan at `delightful-seeking-snowglobe.md`. "New Campaign" navigates to `CreateAdCampaign`
+ * (`CreateCampaignWizard` reused unmodified — it has no chapter-specific coupling), the exact
+ * same route ETA Chapters' own "+ Create Ad" button also navigates to.
  *
  * Search/filter row deliberately uses the shared `SearchBar` (Directory's own icon-only filter
  * button) rather than the mockup's own labeled "Filter" button — an explicit call to follow this
@@ -55,7 +54,6 @@ function AdManagementScreen() {
   } = useAdCampaigns();
 
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
@@ -77,7 +75,7 @@ function AdManagementScreen() {
         onBack={() => navigation.goBack()}
         rightAction={
           <Pressable
-            onPress={() => setCreateOpen(true)}
+            onPress={() => navigation.navigate('CreateAdCampaign')}
             style={({ pressed }) => [styles.newButton, { backgroundColor: colors.gold, borderRadius: radius.md }, pressed && styles.pressed]}
           >
             <Plus size={14} color="#fff" strokeWidth={2.2} />
@@ -138,7 +136,7 @@ function AdManagementScreen() {
               </Text>
               {ads.length === 0 && (
                 <Pressable
-                  onPress={() => setCreateOpen(true)}
+                  onPress={() => navigation.navigate('CreateAdCampaign')}
                   style={[styles.emptyCta, { backgroundColor: colors.gold, borderRadius: radius.lg }]}
                 >
                   <Megaphone size={15} color="#fff" strokeWidth={1.8} />
@@ -161,13 +159,6 @@ function AdManagementScreen() {
         }}
       />
 
-      <CreateCampaignWizard
-        visible={createOpen}
-        onClose={() => {
-          setCreateOpen(false);
-          refetch();
-        }}
-      />
     </View>
   );
 }

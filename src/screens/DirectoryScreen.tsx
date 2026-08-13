@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { DrawerActions, useNavigation, useRoute } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -10,20 +10,22 @@ import { useMessageMutations } from '../hooks/useMessageMutations';
 import { useDirectory } from '../hooks/useDirectory';
 import { useDirectoryMutations } from '../hooks/useDirectoryMutations';
 import { SearchBar } from '../components';
-import { DirectoryHero } from '../components/directory/DirectoryHero';
+import { DirectoryHeader } from '../components/directory/DirectoryHeader';
 import { RoleTypeChipsRow } from '../components/directory/RoleTypeChipsRow';
 import { ActiveFilterPills } from '../components/directory/ActiveFilterPills';
 import { MemberCard } from '../components/directory/MemberCard';
 import { DirectoryFiltersPanel } from '../components/directory/DirectoryFiltersPanel';
-import { DirectoryListSkeleton } from '../components/directory/MemberCardSkeleton';
+import { DirectoryListSkeleton, MemberCardSkeleton } from '../components/directory/MemberCardSkeleton';
 import type { AppStackParamList, MainTabParamList } from '../navigation/types';
 import type { Profile } from '../types/directory';
 
 /** Directory — functionality from `webSrc/src/app/dashboard/directory/page.tsx`, UI from
  * `Directory.html`. See the plan for the full real↔mockup mismatch list (Connect/Follow omitted
  * from cards, fabricated fields dropped, sort simplified, Message routed through the app's real
- * Messages feature instead of a fake inline widget). No own header — `HomeScreen.tsx` (the other
- * real bottom tab) renders none either; the shared `TopBar` above covers it. */
+ * Messages feature instead of a fake inline widget). Owns its own header (`DirectoryHeader`,
+ * per a later reference screenshot superseding the mockup's own gradient hero) instead of the
+ * shared `TopBar` — wired via `focusedTabName === 'Directory'` in `DrawerNavigator.tsx`, same
+ * treatment as AI Assist/Messages/Profile. */
 export default function DirectoryScreen() {
   const { colors, fonts, fontSize, radius } = useTheme();
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList, 'Directory'>>();
@@ -47,7 +49,6 @@ export default function DirectoryScreen() {
 
   const {
     profiles,
-    pagination,
     stats,
     savedUsernames,
     setSavedUsernames,
@@ -86,10 +87,28 @@ export default function DirectoryScreen() {
   const activeFilterCount = [filters.query.trim(), filters.roleType, filters.subCategory, filters.city].filter(
     Boolean,
   ).length;
-  // "Saved members" is a real, independent list (`GET /saved-contacts`, via `savedProfiles`), not
-  // the currently-loaded search page filtered down to saved usernames — a saved member outside
-  // the loaded/filtered page still needs to show up here.
-  const visibleProfiles = showingSaved ? savedProfiles : profiles;
+  // "Saved members" is still a real, independent list (`GET /saved-contacts`, via `savedProfiles`)
+  // rather than the currently-loaded search page filtered down to saved usernames — a saved member
+  // outside the loaded/filtered page still needs to show up here. But the role/sub-category/city/
+  // query filters the user picked before switching to this view were being silently dropped (the
+  // saved view showed *every* saved member regardless of the active filters) — applied client-side
+  // here instead, since `/saved-contacts` has no filter params of its own to push this down to.
+  const visibleProfiles = useMemo(() => {
+    if (!showingSaved) return profiles;
+    const q = filters.query.trim().toLowerCase();
+    return savedProfiles.filter(p => {
+      if (filters.roleType && p.role_type !== filters.roleType) return false;
+      if (filters.subCategory && p.sub_category !== filters.subCategory) return false;
+      if (
+        filters.city &&
+        !(p.city === filters.city.city && p.state_code === filters.city.stateCode && p.country_code === filters.city.countryCode)
+      ) {
+        return false;
+      }
+      if (q && !(p.name?.toLowerCase().includes(q) || p.bio?.toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }, [showingSaved, profiles, savedProfiles, filters]);
   const listIsLoading = showingSaved ? isLoadingSaved : isLoading;
 
   const handleToggleSaved = () => {
@@ -127,6 +146,12 @@ export default function DirectoryScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
+      <DirectoryHeader
+        onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+        savedCount={savedUsernames.size}
+        showingSaved={showingSaved}
+        onToggleSaved={handleToggleSaved}
+      />
       <FlatList
         // A fresh search/filter fetch keeps `isLoading` true while the *previous* results are
         // still sitting in `profiles` — without this, the old cards stay on screen until the new
@@ -137,19 +162,26 @@ export default function DirectoryScreen() {
         keyExtractor={item => item.username}
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} />}
+        // Infinite scroll — "Saved" is a fully-loaded local list (no real pagination), so this only
+        // fires `loadMore()` for the normal search results; `loadMore` is itself a no-op once
+        // `pagination.hasNextPage` is false, matching `MyResourcesScreen.tsx`'s same convention.
+        onEndReached={() => {
+          if (!showingSaved) loadMore();
+        }}
+        onEndReachedThreshold={0.4}
         ListHeaderComponent={
           <View>
-            <DirectoryHero
-              totalCount={stats.all}
-              savedCount={savedUsernames.size}
-              showingSaved={showingSaved}
-              onToggleSaved={handleToggleSaved}
-              chapterName={chapterName}
-              onClearChapter={() => {
-                setGroupId(undefined);
-                setChapterName(undefined);
-              }}
-            />
+            {!!chapterName && (
+              <Pressable
+                onPress={() => {
+                  setGroupId(undefined);
+                  setChapterName(undefined);
+                }}
+                style={[styles.chapterChip, { backgroundColor: colors.chip, borderRadius: radius.lg }]}
+              >
+                <Text style={[fonts.semibold, styles.chapterChipText, { color: colors.ink2 }]}>Filtered to {chapterName} · tap to clear</Text>
+              </Pressable>
+            )}
             <View style={styles.searchRow}>
               <SearchBar
                 value={filters.query}
@@ -202,18 +234,10 @@ export default function DirectoryScreen() {
           )
         }
         ListFooterComponent={
-          !showingSaved && pagination?.hasNextPage ? (
-            <Pressable
-              onPress={loadMore}
-              disabled={isLoadingMore}
-              style={[styles.loadMoreButton, { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, opacity: isLoadingMore ? 0.6 : 1 }]}
-            >
-              {isLoadingMore ? (
-                <ActivityIndicator size="small" color={colors.gold} />
-              ) : (
-                <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink }]}>Load more members</Text>
-              )}
-            </Pressable>
+          !showingSaved && isLoadingMore ? (
+            <View style={styles.loadMoreFooter}>
+              <MemberCardSkeleton />
+            </View>
           ) : null
         }
       />
@@ -237,6 +261,16 @@ export default function DirectoryScreen() {
 const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 24,
+  },
+  chapterChip: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
+  },
+  chapterChipText: {
+    fontSize: 11.5,
   },
   searchRow: {
     paddingHorizontal: 16,
@@ -268,12 +302,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     maxWidth: 230,
   },
-  loadMoreButton: {
-    height: 48,
-    marginHorizontal: 16,
-    marginTop: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  loadMoreFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
 });

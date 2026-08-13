@@ -84,40 +84,38 @@ export function MessagesHeader(
       colors={[colors.hero1, colors.hero2]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={{ paddingTop: insets.top + 9, paddingHorizontal: 8, paddingBottom: 15 }}
+      style={{ paddingTop: insets.top + 8, paddingHorizontal: 6, paddingBottom: 8 }}
     >
-      <View style={styles.threadTopRow}>
+      <View style={styles.threadRow}>
         <IconButton accessibilityLabel="Back to inbox" onPress={props.onBack} light>
-          <ChevronLeft size={22} color="#fff" strokeWidth={1.9} />
+          <ChevronLeft size={20} color="#fff" strokeWidth={1.9} />
         </IconButton>
-        <View style={{ flex: 1 }} />
-        <IconButton accessibilityLabel="View profile" onPress={props.onViewProfile} light>
-          <Icon name="account" size={18} color="rgba(255,255,255,0.85)" />
-        </IconButton>
-        <IconButton accessibilityLabel="Conversation options" onPress={props.onOptions} light>
-          <MoreVertical size={18} color="rgba(255,255,255,0.85)" strokeWidth={1.8} />
-        </IconButton>
-      </View>
 
-      <View style={styles.threadIdentityRow}>
         <View style={styles.threadAvatarWrap}>
-          <Avatar name={props.name} imageUri={props.profileImg} size={52} fallbackColor={props.avatarColor} />
+          <Avatar name={props.name} imageUri={props.profileImg} size={34} fallbackColor={props.avatarColor} />
           {props.isOnline && (
             <View style={[styles.threadPresenceDot, { backgroundColor: colors.success, borderColor: colors.hero1 }]} />
           )}
         </View>
+
         <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={styles.eyebrowRow}>
-            <View style={styles.eyebrowDash} />
-            <Text style={[fonts.bold, styles.eyebrow]}>Direct message</Text>
-          </View>
-          <Text numberOfLines={1} style={[fonts.display, styles.threadName]}>
+          <Text numberOfLines={1} style={[fonts.bold, styles.threadName]}>
             {props.name}
           </Text>
-          <Text numberOfLines={1} style={[fonts.regular, styles.threadSub, { fontSize: fontSize.small + 1 }]}>
+          <Text numberOfLines={1} style={[fonts.regular, styles.threadSub, { fontSize: fontSize.small }]}>
             {props.role} · {props.presence}
           </Text>
         </View>
+
+        {/* Temporarily disabled — same reason as `ConversationOptionsSheet`'s "View profile" row:
+            `resolveParticipantUsername` (`MessagesScreen.tsx`) fails with "Could not open this
+            profile" whenever the thread has no message yet from the other participant. */}
+        {/* <IconButton accessibilityLabel="View profile" onPress={props.onViewProfile} light>
+          <Icon name="account" size={17} color="rgba(255,255,255,0.85)" />
+        </IconButton> */}
+        <IconButton accessibilityLabel="Conversation options" onPress={props.onOptions} light>
+          <MoreVertical size={17} color="rgba(255,255,255,0.85)" strokeWidth={1.8} />
+        </IconButton>
       </View>
     </LinearGradient>
   );
@@ -200,17 +198,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  threadTopRow: {
+  threadRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-  },
-  threadIdentityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 10,
-    paddingTop: 2,
+    gap: 9,
+    paddingHorizontal: 4,
   },
   threadAvatarWrap: {
     position: 'relative',
@@ -219,37 +211,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 13,
-    height: 13,
-    borderRadius: 7,
-    borderWidth: 2,
-  },
-  eyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  eyebrowDash: {
-    width: 14,
-    height: 2,
-    borderRadius: 2,
-    backgroundColor: '#C9A84C',
-  },
-  eyebrow: {
-    fontSize: 10,
-    letterSpacing: 1.3,
-    textTransform: 'uppercase',
-    color: '#C9A84C',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
   },
   threadName: {
-    fontSize: 22,
-    lineHeight: 25,
+    fontSize: 15,
+    lineHeight: 18,
     color: '#fff',
-    letterSpacing: -0.2,
-    marginTop: 6,
+    letterSpacing: -0.1,
   },
   threadSub: {
     color: 'rgba(255,255,255,0.66)',
-    marginTop: 3,
+    marginTop: 1,
   },
 });

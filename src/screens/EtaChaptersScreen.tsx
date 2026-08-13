@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../theme';
 import { useMe } from '../hooks/useMe';
@@ -23,7 +24,7 @@ import { useEtaChapterMutations } from '../hooks/useEtaChapterMutations';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { fetchEtaGroupMemberCount, fetchEtaGroupMessages, searchEtaChapters, sendEtaGroupMessage } from '../api/eta';
 import { appendUniqueMessages, groupMessages } from '../types/messages';
-import type { DrawerParamList } from '../navigation/types';
+import type { AppStackParamList, DrawerParamList } from '../navigation/types';
 import type { EtaGroup } from '../types/etaChapters';
 import type { Message, PaginationInfo } from '../types/messages';
 import { Bell, Calendar, LogOut, Users } from 'lucide-react-native';
@@ -52,7 +53,6 @@ import { ChapterNotificationPrefsModal } from '../components/etaChapters/Chapter
 import { InviteOthersScreen } from '../components/etaChapters/InviteOthersScreen';
 import { ChapterMessageSearchScreen } from '../components/etaChapters/ChapterMessageSearchScreen';
 import { ChapterAdBanner } from '../components/etaChapters/ChapterAdBanner';
-import { CreateCampaignWizard } from '../components/etaChapters/CreateCampaignWizard/CreateCampaignWizard';
 import { ChapterUpcomingEventsSheet } from '../components/etaChapters/ChapterUpcomingEventsSheet';
 
 const SEARCH_MIN_LENGTH = 3;
@@ -76,6 +76,10 @@ type ChatThreadItem =
 function EtaChaptersScreen() {
   const { colors, fonts, fontSize, radius, spacing } = useTheme();
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
+  // Separate from `navigation` above (drawer-level) — `CreateAdCampaign` lives one level up on
+  // the parent stack (`AppStackParamList`), same reasoning `DrawerNavigator.tsx` itself documents
+  // for why Notifications/Profile are reached that way rather than through the drawer navigator.
+  const stackNavigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { data: me } = useMe();
 
   const { tab, setTab, myChapters, chapters, pagination, tabCounts, localCountryName, isLoading, loadMore, refetch } = useMyEtaChapters();
@@ -106,7 +110,6 @@ function EtaChaptersScreen() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
   const [cardSettingsChapter, setCardSettingsChapter] = useState<EtaGroup | null>(null);
-  const [createAdOpen, setCreateAdOpen] = useState(false);
   const [upcomingEventsChapter, setUpcomingEventsChapter] = useState<EtaGroup | null>(null);
 
   const handleCreateChapterSubmit = async (payload: { city: string; country: string; chapterName: string; reason: string; connection: string }) => {
@@ -482,7 +485,7 @@ function EtaChaptersScreen() {
                       your network.
                     </Text>
                   </View>
-                  <ChapterAdBanner chapterId={activeChatChapter.id} onCreateAd={() => setCreateAdOpen(true)} />
+                  <ChapterAdBanner chapterId={activeChatChapter.id} onCreateAd={() => stackNavigation.navigate('CreateAdCampaign')} />
                 </View>
               }
               renderItem={({ item }) =>
@@ -497,7 +500,6 @@ function EtaChaptersScreen() {
         <>
           <EtaChaptersHeader
             onMenuPress={() => navigation.openDrawer()}
-            onManagePress={() => setManageOpen(true)}
             onAddPress={() => setCreateChapterOpen(true)}
           />
 
@@ -734,8 +736,6 @@ function EtaChaptersScreen() {
         chapterId={activeChatChapter?.id ?? null}
         onClose={() => setChatSearchOpen(false)}
       />
-
-      <CreateCampaignWizard visible={createAdOpen} onClose={() => setCreateAdOpen(false)} />
 
       <ChapterUpcomingEventsSheet
         visible={!!upcomingEventsChapter}

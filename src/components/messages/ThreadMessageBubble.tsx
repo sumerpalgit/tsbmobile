@@ -139,6 +139,7 @@ export function ThreadMessageGroup({
   onSwipeReply,
   onMessageActions,
   onPressReplyQuote,
+  onPressImage,
 }: {
   group: MsgGroup;
   senderName: string;
@@ -149,6 +150,10 @@ export function ThreadMessageGroup({
   onSwipeReply?: (message: Message, authorName: string) => void;
   onMessageActions?: (message: Message) => void;
   onPressReplyQuote?: (messageId: string) => void;
+  /** Opens the in-app full-screen image viewer (`ImageViewerModal`, owned by `MessagesScreen`) —
+   * file/document attachments still go through `Linking.openURL` (no in-app document viewer
+   * exists in this app), only image messages route through this. */
+  onPressImage?: (fileUrl: string) => void;
 }) {
   if (group.isMine) {
     return (
@@ -162,6 +167,7 @@ export function ThreadMessageGroup({
             onSwipeReply={onSwipeReply ? () => onSwipeReply(m, 'You') : undefined}
             onMessageActions={onMessageActions ? () => onMessageActions(m) : undefined}
             onPressReplyQuote={onPressReplyQuote}
+            onPressImage={onPressImage}
           />
         ))}
       </View>
@@ -182,6 +188,7 @@ export function ThreadMessageGroup({
             onSwipeReply={onSwipeReply ? () => onSwipeReply(m, senderName) : undefined}
             onMessageActions={onMessageActions ? () => onMessageActions(m) : undefined}
             onPressReplyQuote={onPressReplyQuote}
+            onPressImage={onPressImage}
           />
         ))}
       </View>
@@ -199,12 +206,14 @@ function IncomingBubble({
   onSwipeReply,
   onMessageActions,
   onPressReplyQuote,
+  onPressImage,
 }: {
   message: Message;
   highlighted?: boolean;
   onSwipeReply?: () => void;
   onMessageActions?: () => void;
   onPressReplyQuote?: (messageId: string) => void;
+  onPressImage?: (fileUrl: string) => void;
 }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const parsed = parseMessageContent(message.message);
@@ -232,7 +241,7 @@ function IncomingBubble({
             onPress={onPressReplyQuote ? () => onPressReplyQuote(message.reply_to!.id) : undefined}
           />
         ) : null}
-        <MessageBody message={message} textColor={colors.ink} />
+        <MessageBody message={message} textColor={colors.ink} onPressImage={onPressImage} />
         <Text style={[fonts.semibold, styles.timeIn, { color: colors.ink2, fontSize: fontSize.small - 0.5 }]}>
           {formatTime(message.created_at)}
           {message.edited_at ? ' · Edited' : ''}
@@ -258,6 +267,7 @@ function OutgoingBubble({
   onSwipeReply,
   onMessageActions,
   onPressReplyQuote,
+  onPressImage,
 }: {
   message: Message;
   highlighted?: boolean;
@@ -267,6 +277,7 @@ function OutgoingBubble({
   onSwipeReply?: () => void;
   onMessageActions?: () => void;
   onPressReplyQuote?: (messageId: string) => void;
+  onPressImage?: (fileUrl: string) => void;
 }) {
   const { colors, fonts, radius } = useTheme();
   const parsed = parseMessageContent(message.message);
@@ -290,7 +301,7 @@ function OutgoingBubble({
             onPress={onPressReplyQuote ? () => onPressReplyQuote(message.reply_to!.id) : undefined}
           />
         ) : null}
-        <MessageBody message={message} textColor={colors.feedOnFill} />
+        <MessageBody message={message} textColor={colors.feedOnFill} onPressImage={onPressImage} />
         <View style={styles.outMeta}>
           <Text style={[fonts.semibold, styles.timeOut]}>
             {formatTime(message.created_at)}
@@ -364,7 +375,7 @@ function ReplyQuote({
   );
 }
 
-function MessageBody({ message, textColor }: { message: Message; textColor: string }) {
+function MessageBody({ message, textColor, onPressImage }: { message: Message; textColor: string; onPressImage?: (fileUrl: string) => void }) {
   const { fonts, fontSize } = useTheme();
   const parsed = parseMessageContent(message.message);
 
@@ -372,7 +383,7 @@ function MessageBody({ message, textColor }: { message: Message; textColor: stri
     return <Text style={[fonts.regular, styles.bodyText, { color: textColor, fontSize: fontSize.body }]}>{parsed.text}</Text>;
   }
   if (parsed.type === 'image') {
-    return <ImageBody fileUrl={parsed.fileUrl} caption={parsed.text} textColor={textColor} />;
+    return <ImageBody fileUrl={parsed.fileUrl} caption={parsed.text} textColor={textColor} onPressImage={onPressImage} />;
   }
   if (parsed.type === 'file') {
     return <FileBody fileName={parsed.fileName} fileSize={parsed.fileSize} fileUrl={parsed.fileUrl} caption={parsed.text} textColor={textColor} />;
@@ -390,12 +401,22 @@ function MessageBody({ message, textColor }: { message: Message; textColor: stri
 /** `caption` is the optional `text` field alongside an image/file message's own JSON fields —
  * sent together as one message now (not a separate text message first), rendered under the
  * image/attachment, same as web. */
-function ImageBody({ fileUrl, caption, textColor }: { fileUrl: string; caption?: string; textColor: string }) {
+function ImageBody({
+  fileUrl,
+  caption,
+  textColor,
+  onPressImage,
+}: {
+  fileUrl: string;
+  caption?: string;
+  textColor: string;
+  onPressImage?: (fileUrl: string) => void;
+}) {
   const { fonts, fontSize, radius } = useTheme();
   if (!fileUrl) return null;
   return (
     <View>
-      <Pressable onPress={() => Linking.openURL(fileUrl)}>
+      <Pressable onPress={() => (onPressImage ? onPressImage(fileUrl) : Linking.openURL(fileUrl))}>
         <Image source={{ uri: fileUrl }} style={[styles.image, { borderRadius: radius.lg }]} resizeMode="cover" />
       </Pressable>
       {!!caption && (

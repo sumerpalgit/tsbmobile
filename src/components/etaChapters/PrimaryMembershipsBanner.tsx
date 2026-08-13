@@ -1,5 +1,7 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+// `Pressable` is only used by the commented-out Manage button below — re-add to this import when
+// re-enabling it.
+import { StyleSheet, Text, View } from 'react-native';
 import { Star } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 
@@ -8,8 +10,17 @@ export const MAX_ACTIVE_ETA_CHAPTERS = 3;
 /** "Primary memberships" banner — matches `ETAChapters_decoded.html` (~line 203). Real business
  * rule from web (`MAX_ACTIVE_ETA_CHAPTERS`, `my-eta-chapters/page.tsx`): a user can actively
  * join at most 3 chapters at once; leaving one starts a 30-day rejoin cooldown on that chapter. */
-export function PrimaryMembershipsBanner({ usedCount, onManage }: { usedCount: number; onManage: () => void }) {
-  const { colors, fonts, fontSize, radius } = useTheme();
+export function PrimaryMembershipsBanner({
+  usedCount,
+  // Kept in the prop signature (and still passed by the caller) so re-enabling the Manage button
+  // below is a one-line uncomment, not a signature change.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onManage,
+}: {
+  usedCount: number;
+  onManage: () => void;
+}) {
+  const { colors, fonts, radius } = useTheme();
 
   return (
     <View style={[styles.banner, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: colors.gold, borderRadius: radius.xl }]}>
@@ -27,12 +38,15 @@ export function PrimaryMembershipsBanner({ usedCount, onManage }: { usedCount: n
           ))}
         </View>
       </View>
-      <Pressable
+      {/* Temporarily commented out per explicit request (was already disabled/low-opacity before
+          this) — `onManage` stays wired above so re-enabling is just uncommenting this block. */}
+      {/* <Pressable
         onPress={onManage}
-        style={({ pressed }) => [styles.manageButton, { backgroundColor: colors.feedFill, borderRadius: radius.lg }, pressed && { opacity: 0.7 }]}
+        disabled
+        style={[styles.manageButton, { backgroundColor: colors.feedFill, borderRadius: radius.lg, opacity: 0.4 }]}
       >
         <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.feedOnFill }]}>Manage</Text>
-      </Pressable>
+      </Pressable> */}
     </View>
   );
 }

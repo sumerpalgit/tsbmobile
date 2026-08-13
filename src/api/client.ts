@@ -45,7 +45,15 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as RetryableRequestConfig | undefined;
 
-    if (error.response?.status !== 401 || !originalRequest || originalRequest._retry) {
+    // A 401 from `/auth/login` itself is a real "invalid email or password" response, not an
+    // expired-access-token signal — there's no token to refresh yet (the user was never
+    // authenticated). Without this check, the code below would try `AsyncStorage.getItem
+    // ('refreshToken')` (null, since login hasn't happened), throw a plain `Error('No refresh
+    // token available')`, and reject with THAT instead of the real login error — which is why
+    // the login screen's `axios.isAxiosError(err)` check was failing and falling through to a
+    // generic "Something went wrong" toast instead of the backend's actual `{"error": "Invalid
+    // email or password"}` message.
+    if (error.response?.status !== 401 || !originalRequest || originalRequest._retry || originalRequest.url === AUTH_ENDPOINTS.LOGIN) {
       return Promise.reject(error);
     }
 

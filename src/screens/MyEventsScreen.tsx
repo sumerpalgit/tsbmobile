@@ -13,7 +13,7 @@ import type { AppStackParamList, DrawerParamList } from '../navigation/types';
 import { MyEventsHeader } from '../components/events/MyEventsHeader';
 import { EventsHero } from '../components/events/EventsHero';
 import { EventsCalendarPopover } from '../components/events/EventsCalendarPopover';
-import { NextUpCard } from '../components/events/NextUpCard';
+// import { NextUpCard } from '../components/events/NextUpCard'; // commented out with its render call below
 import { EventsControls, EventTab } from '../components/events/EventsControls';
 import { EventTypeChipsRow } from '../components/events/EventTypeChipsRow';
 import { EventListCard } from '../components/events/EventListCard';
@@ -114,9 +114,15 @@ function MyEventsScreen() {
     [segmentSource, activeTab, now],
   );
 
-  const typesInSegment = useMemo(
-    () => Array.from(new Set(inSegment.map(getEventTypeLabel))),
-    [inSegment],
+  // Deliberately global (every type across all of `events`), not scoped to the active tab —
+  // the mockup itself scopes this to the active tab (`MyEvents.html`'s `TYPES.filter(t =>
+  // inSeg.some(e => e.type === t))`, `inSeg` being its own tab-filtered list), but that means the
+  // available chips — and the current selection, since a type missing from the new tab has to
+  // reset — change every time you switch Upcoming/Past/Saved. Explicit product decision to
+  // diverge from the mockup here for a stable chip row instead.
+  const allEventTypes = useMemo(
+    () => Array.from(new Set(events.map(getEventTypeLabel))),
+    [events],
   );
 
   const cityOptions = useMemo(
@@ -187,7 +193,10 @@ function MyEventsScreen() {
       .sort((a, b) => new Date(a.start_date!).getTime() - new Date(b.start_date!).getTime())[0];
   }, [rsvpEvents, now]);
 
-  const showNextUp = activeTab === 'upcoming' && !searchOpen && !searchQuery && !!nextUpEvent;
+  // `NextUpCard` (below) is commented out per explicit request — kept here rather than deleted
+  // in case it comes back; `showNextUp` is commented out alongside it so it doesn't trip the
+  // unused-var lint rule while dark.
+  // const showNextUp = activeTab === 'upcoming' && !searchOpen && !searchQuery && !!nextUpEvent;
   const filtersActive = countActiveEventFilters(filters) > 0;
 
   const attendedCount = events.filter(e => isEventPast(e)).length;
@@ -231,21 +240,21 @@ function MyEventsScreen() {
           attendedCount={attendedCount}
         />
 
-        {showNextUp && nextUpEvent && (
+        {/* {showNextUp && nextUpEvent && (
           <NextUpCard
             event={nextUpEvent}
             daysUntil={Math.max(0, daysBetween(nextUpEvent.start_date, now))}
             onPress={() => navigation.navigate('EventDetail', { event: nextUpEvent })}
           />
-        )}
+        )} */}
 
         <View style={[styles.controlsWrap, { paddingTop: spacing.md }]}>
           <EventsControls
             activeTab={activeTab}
-            onTabChange={tab => {
-              setActiveTab(tab);
-              setSelectedType(null);
-            }}
+            // No longer clears `selectedType` on tab change — now that the chip row is global
+            // (see `allEventTypes` above), a selected type stays valid across every tab, so
+            // silently dropping it on switch would just be confusing rather than necessary.
+            onTabChange={setActiveTab}
             counts={counts}
             searchOpen={searchOpen}
             searchQuery={searchQuery}
@@ -256,8 +265,8 @@ function MyEventsScreen() {
             filtersActive={filtersActive}
           />
 
-          {typesInSegment.length > 0 && (
-            <EventTypeChipsRow types={typesInSegment} selected={selectedType} onSelect={setSelectedType} />
+          {allEventTypes.length > 0 && (
+            <EventTypeChipsRow types={allEventTypes} selected={selectedType} onSelect={setSelectedType} />
           )}
         </View>
 

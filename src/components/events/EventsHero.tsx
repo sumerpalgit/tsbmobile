@@ -88,5 +88,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     color: 'rgba(255,255,255,0.58)',
+    // Without this, only single-line labels (Registered/Saved/Attended) read as centered — they're
+    // centered purely because `statCell`'s `alignItems: 'center'` centers the whole text block,
+    // not because the text itself is. "Days to next event" is long enough to wrap onto two lines,
+    // and wrapped lines default to left-aligned relative to each other, so it visibly didn't match
+    // the other three.
+    textAlign: 'center',
   },
 });

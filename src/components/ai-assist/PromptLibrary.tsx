@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, Sparkles, X } from 'lucide-react-native';
 import { useTheme } from '../../theme';
@@ -43,16 +43,17 @@ export const PROMPT_LIBRARY: PromptLibraryEntry[] = [
   { cat: 'lender', label: 'Lender / SBA', text: 'What are the most common reasons SBA deals fall through at the lender stage?', desc: 'SBA deal killers' },
 ];
 
-/** Full-screen slide-in overlay — search + category tabs + prompt cards, matching the mockup's
- * `libraryOpen` block. `initialCategory` lets the empty-state topic chips deep-link straight into
- * a filtered view. */
+/** Search + category tabs + prompt cards, matching the mockup's `libraryOpen` block — a dedicated
+ * pushed screen (`PromptLibraryScreen.tsx`, registered in `AppNavigator.tsx`) rather than the
+ * `Modal` this used to be, for the same `useSafeAreaInsets()`-inside-`Modal` reliability reasons
+ * as `CreateCampaignWizard`/`ContributeResourceSheet`. `initialCategory` lets the empty-state
+ * topic chips deep-link straight into a filtered view; no reset-on-reopen effect needed anymore
+ * since a screen push mounts this fresh every time, unlike the old always-mounted `Modal`. */
 export function PromptLibrary({
-  visible,
   initialCategory,
   onClose,
   onSelectPrompt,
 }: {
-  visible: boolean;
   initialCategory: string;
   onClose: () => void;
   onSelectPrompt: (text: string) => void;
@@ -61,13 +62,6 @@ export function PromptLibrary({
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState(initialCategory);
-
-  useEffect(() => {
-    if (visible) {
-      setCategory(initialCategory);
-      setQuery('');
-    }
-  }, [visible, initialCategory]);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = { all: PROMPT_LIBRARY.length };
@@ -87,108 +81,106 @@ export function PromptLibrary({
   }, [query, category]);
 
   return (
-    <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.pageBg }]}>
-        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.borderSoft, borderBottomWidth: borderWidth.thin }]}>
-          <View style={styles.headerRow}>
-            <View style={[styles.iconBadge, { backgroundColor: colors.gold, borderRadius: radius.lg }]}>
-              <Sparkles size={16} color="#fff" strokeWidth={1.6} />
-            </View>
-            <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>Prompt library</Text>
-            <Pressable
-              onPress={onClose}
-              accessibilityLabel="Close"
-              style={[styles.closeButton, { backgroundColor: colors.surfaceSunken, borderRadius: radius.lg }]}
-            >
-              <X size={14} color={colors.ink2} strokeWidth={1.7} />
-            </Pressable>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.pageBg }]}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.borderSoft, borderBottomWidth: borderWidth.thin }]}>
+        <View style={styles.headerRow}>
+          <View style={[styles.iconBadge, { backgroundColor: colors.gold, borderRadius: radius.lg }]}>
+            <Sparkles size={16} color="#fff" strokeWidth={1.6} />
           </View>
-
-          <View
-            style={[
-              styles.searchRow,
-              { backgroundColor: colors.surfaceSunken, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xl },
-            ]}
+          <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>Prompt library</Text>
+          <Pressable
+            onPress={onClose}
+            accessibilityLabel="Close"
+            style={[styles.closeButton, { backgroundColor: colors.surfaceSunken, borderRadius: radius.lg }]}
           >
-            <Search size={15} color={colors.ink3} strokeWidth={1.6} />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search prompts…"
-              placeholderTextColor={colors.ink3}
-              style={[fonts.regular, styles.searchInput, { fontSize: fontSize.ui, color: colors.ink }]}
-            />
-          </View>
+            <X size={14} color={colors.ink2} strokeWidth={1.7} />
+          </Pressable>
+        </View>
 
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={PROMPT_CATEGORIES}
-            keyExtractor={c => c.id}
-            contentContainerStyle={styles.tabRow}
-            renderItem={({ item }) => {
-              const active = category === item.id;
-              return (
-                <Pressable
-                  onPress={() => setCategory(item.id)}
-                  style={[
-                    styles.tab,
-                    {
-                      borderRadius: radius.lg,
-                      backgroundColor: active ? colors.feedFill : colors.surfaceSunken,
-                      borderColor: active ? colors.feedFill : colors.border,
-                      borderWidth: borderWidth.thin,
-                    },
-                  ]}
-                >
-                  <Text style={[fonts.semibold, styles.tabLabel, { color: active ? colors.feedOnFill : colors.ink2 }]}>
-                    {item.label}
-                  </Text>
-                  <View
-                    style={[
-                      styles.tabCount,
-                      { borderRadius: radius.sm, backgroundColor: active ? 'rgba(255,255,255,0.18)' : colors.chip },
-                    ]}
-                  >
-                    <Text style={[fonts.bold, styles.tabCountText, { color: active ? '#fff' : colors.goldDark }]}>
-                      {counts[item.id]}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            }}
+        <View
+          style={[
+            styles.searchRow,
+            { backgroundColor: colors.surfaceSunken, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xl },
+          ]}
+        >
+          <Search size={15} color={colors.ink3} strokeWidth={1.6} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search prompts…"
+            placeholderTextColor={colors.ink3}
+            style={[fonts.regular, styles.searchInput, { fontSize: fontSize.ui, color: colors.ink }]}
           />
         </View>
 
         <FlatList
-          data={filtered}
-          keyExtractor={(_, i) => String(i)}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={[fonts.bold, { fontSize: fontSize.subtitle, color: colors.ink }]}>No prompts found</Text>
-              <Text style={[fonts.regular, styles.emptySub, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>
-                Try another keyword or pick a different category.
-              </Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => onSelectPrompt(item.text)}
-              style={[
-                styles.card,
-                elevation('sm'),
-                { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xl, backgroundColor: colors.surface },
-              ]}
-            >
-              <Text style={[fonts.bold, styles.cardCategory, { color: colors.goldDark }]}>{item.label}</Text>
-              <Text style={[fonts.semibold, styles.cardText, { color: colors.ink }]}>{item.text}</Text>
-              <Text style={[fonts.regular, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>{item.desc}</Text>
-            </Pressable>
-          )}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={PROMPT_CATEGORIES}
+          keyExtractor={c => c.id}
+          contentContainerStyle={styles.tabRow}
+          renderItem={({ item }) => {
+            const active = category === item.id;
+            return (
+              <Pressable
+                onPress={() => setCategory(item.id)}
+                style={[
+                  styles.tab,
+                  {
+                    borderRadius: radius.lg,
+                    backgroundColor: active ? colors.feedFill : colors.surfaceSunken,
+                    borderColor: active ? colors.feedFill : colors.border,
+                    borderWidth: borderWidth.thin,
+                  },
+                ]}
+              >
+                <Text style={[fonts.semibold, styles.tabLabel, { color: active ? colors.feedOnFill : colors.ink2 }]}>
+                  {item.label}
+                </Text>
+                <View
+                  style={[
+                    styles.tabCount,
+                    { borderRadius: radius.sm, backgroundColor: active ? 'rgba(255,255,255,0.18)' : colors.chip },
+                  ]}
+                >
+                  <Text style={[fonts.bold, styles.tabCountText, { color: active ? '#fff' : colors.goldDark }]}>
+                    {counts[item.id]}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          }}
         />
       </View>
-    </Modal>
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(_, i) => String(i)}
+        contentContainerStyle={[styles.list, { paddingBottom: 16 + insets.bottom }]}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={[fonts.bold, { fontSize: fontSize.subtitle, color: colors.ink }]}>No prompts found</Text>
+            <Text style={[fonts.regular, styles.emptySub, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>
+              Try another keyword or pick a different category.
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() => onSelectPrompt(item.text)}
+            style={[
+              styles.card,
+              elevation('sm'),
+              { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xl, backgroundColor: colors.surface },
+            ]}
+          >
+            <Text style={[fonts.bold, styles.cardCategory, { color: colors.goldDark }]}>{item.label}</Text>
+            <Text style={[fonts.semibold, styles.cardText, { color: colors.ink }]}>{item.text}</Text>
+            <Text style={[fonts.regular, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>{item.desc}</Text>
+          </Pressable>
+        )}
+      />
+    </View>
   );
 }
 

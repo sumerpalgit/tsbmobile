@@ -1,20 +1,19 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Star } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { Icon } from '../icons/Icon';
 
 /** ETA Chapters' own header — replaces the app-wide `TopBar` for this drawer screen, same
- * reasoning as `MyEventsHeader.tsx` (the mockup's header — menu, title, theme, manage, add —
- * has no logo/bell/avatar). Matches `ETAChapters_decoded.html`'s header row (~line 162). */
+ * reasoning as `MyEventsHeader.tsx` (the mockup's header has no logo/bell/avatar). Matches
+ * `ETAChapters_decoded.html`'s header row (~line 162), minus the "Manage memberships" star
+ * button — removed per explicit request; that action is still reachable via
+ * `PrimaryMembershipsBanner`'s own "Manage" button on the dashboard, so nothing is stranded. */
 export function EtaChaptersHeader({
   onMenuPress,
-  onManagePress,
   onAddPress,
 }: {
   onMenuPress: () => void;
-  onManagePress: () => void;
   onAddPress: () => void;
 }) {
   const { colors, fonts, fontSize, radius, borderWidth, isDark, toggleTheme } = useTheme();
@@ -33,18 +32,6 @@ export function EtaChaptersHeader({
           ETA Chapters
         </Text>
         <IconButton name={isDark ? 'sun' : 'moon'} label="Toggle theme" color={colors.ink2} onPress={toggleTheme} chip />
-        <Pressable
-          onPress={onManagePress}
-          accessibilityRole="button"
-          accessibilityLabel="Manage memberships"
-          style={({ pressed }) => [
-            styles.iconButton,
-            { borderRadius: radius.md, backgroundColor: colors.surface2, borderColor: colors.border, borderWidth: borderWidth.thin },
-            pressed && styles.pressed,
-          ]}
-        >
-          <Star size={17} color={colors.ink2} strokeWidth={1.6} />
-        </Pressable>
         <Pressable
           onPress={onAddPress}
           accessibilityRole="button"

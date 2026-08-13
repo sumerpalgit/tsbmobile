@@ -2,10 +2,13 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useTheme } from '../../theme';
 
-/** Horizontal scroll "All types" + per-type chip row above the list, filtered to types actually
- * present in the current tab — matches the mockup's `typeChips` (`myevents_decoded.html`
- * ~line 1230), a solid-fill selected state (`--fill`) rather than `Pill`'s gold-outline one, so
- * built bespoke instead of reusing `Pill` directly. */
+/** Horizontal scroll "All types" + per-type chip row above the list — a solid-fill selected state
+ * (`--fill`) rather than `Pill`'s gold-outline one, so built bespoke instead of reusing `Pill`
+ * directly. `types` is deliberately global (every type across all events), not scoped to the
+ * active tab — the mockup itself scopes it per-tab (`MyEvents.html`'s `typeChips`, `inSeg`-
+ * filtered), but that meant the available chips (and the current selection) changed on every
+ * Upcoming/Past/Saved switch; explicit product decision to diverge from the mockup for a stable
+ * row instead (see `MyEventsScreen.tsx`'s `allEventTypes`). */
 export function EventTypeChipsRow({
   types,
   selected,

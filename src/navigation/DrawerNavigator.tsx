@@ -74,11 +74,11 @@ function DrawerNavigator() {
           },
           sceneStyle: { backgroundColor: colors.pageBg },
           overlayColor: 'rgba(0,0,0,0.4)',
-          // AI Assist, Messages and Profile each render their own header (`AiHeader`/
-          // `MessagesHeader`/`ProfileScreen`'s own `TopBar` instance) instead of the generic
-          // `TopBar` above. Unlike My Events (a drawer screen, so it can set `headerShown: false`
-          // per `Drawer.Screen`), all three are *bottom tabs* nested inside the single `Tabs`
-          // screen that owns this shared header.
+          // AI Assist, Messages, Profile and Directory each render their own header (`AiHeader`/
+          // `MessagesHeader`/`ProfileScreen`'s own `TopBar` instance/`DirectoryHeader`) instead of
+          // the generic `TopBar` above. Unlike My Events (a drawer screen, so it can set
+          // `headerShown: false` per `Drawer.Screen`), all four are *bottom tabs* nested inside the
+          // single `Tabs` screen that owns this shared header.
           //
           // `headerShown: focusedTabName !== 'AiAssist'` alone does NOT hide it here — on-device
           // testing showed the shared `TopBar` still rendering (stacked above `AiHeader`) even
@@ -88,19 +88,20 @@ function DrawerNavigator() {
           // reserved layout slot from a nested tab's focus change, even though it does re-invoke
           // `header:`'s render function — returning `null` from `header:` itself is what actually
           // works, so that's the guard here instead of `headerShown`. Same treatment extended to
-          // `'Messages'` and `'Profile'` without re-testing the `headerShown` route again — no
-          // reason to expect a different navigator behavior for a third tab making the identical
-          // request.
-          header: () => (focusedTabName === 'AiAssist' || focusedTabName === 'Messages' || focusedTabName === 'Profile' ? null : (
+          // `'Messages'`, `'Profile'` and `'Directory'` without re-testing the `headerShown` route
+          // again — no reason to expect a different navigator behavior for another tab making the
+          // identical request.
+          header: () => (focusedTabName === 'AiAssist' || focusedTabName === 'Messages' || focusedTabName === 'Profile' || focusedTabName === 'Directory' ? null : (
             <TopBar
               onMenuPress={() => navigation.openDrawer()}
               onBellPress={() => stackNavigation.navigate('Notifications')}
               onAvatarPress={() => stackNavigation.navigate('Profile')}
               userName={me?.name}
               profileImageUri={me?.profileImg}
-              // Directory's own mockup header (menu/logo/theme/bell only, no profile icon) also
-              // excludes the avatar — same reasoning as Home.
-              showAvatar={focusedTabName !== 'Home' && focusedTabName !== 'Directory'}
+              // Home's own mockup header (menu/logo/theme/bell only, no profile icon) excludes the
+              // avatar — Directory no longer reaches this branch at all now that it owns its own
+              // header above.
+              showAvatar={focusedTabName !== 'Home'}
             />
           )),
         };

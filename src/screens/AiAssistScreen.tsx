@@ -10,7 +10,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { DrawerActions, useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Clipboard from '@react-native-clipboard/clipboard';
 import Toast from 'react-native-toast-message';
 import axios from 'axios';
@@ -29,10 +32,8 @@ import { AiHeader } from '../components/ai-assist/AiHeader';
 import { EmptyState } from '../components/ai-assist/EmptyState';
 import { MessageBubble } from '../components/ai-assist/MessageBubble';
 import { TypingIndicator } from '../components/ai-assist/TypingIndicator';
-import { FollowUpPrompts } from '../components/ai-assist/FollowUpPrompts';
 import { Composer } from '../components/ai-assist/Composer';
 import { HistoryDrawer } from '../components/ai-assist/HistoryDrawer';
-import { PromptLibrary } from '../components/ai-assist/PromptLibrary';
 import { ShareSheet } from '../components/ai-assist/ShareSheet';
 import { MoreSheet } from '../components/ai-assist/MoreSheet';
 import { ChatOptionsSheet } from '../components/ai-assist/ChatOptionsSheet';
@@ -41,25 +42,7 @@ import { RenameDialog } from '../components/ai-assist/RenameDialog';
 import { SummaryModal } from '../components/ai-assist/SummaryModal';
 import { ConfirmDialog } from '../components/events/ConfirmDialog';
 import type { Conversation, Message, MessageReaction, PaginationInfo } from '../types/ai-assist';
-
-const ALL_SUGGESTED_PROMPTS = [
-  'Analyze this SaaS business for acquisition readiness',
-  'What questions should I ask during management diligence?',
-  'Explain EBITDA vs adjusted EBITDA with examples',
-  'Create a quick investment memo outline',
-  'What are common red flags in financial statements?',
-  'How do earn-outs typically work in M&A deals?',
-  'Evaluate churn risk for a B2B SaaS company',
-  'What metrics matter most for a marketplace business?',
-  'Help me draft an LOI structure',
-  'Explain quality of earnings (QoE)',
-  'How should I value a services-based company?',
-  'What legal risks should I watch for pre-acquisition?',
-];
-
-function pickRandomPrompts(count: number) {
-  return [...ALL_SUGGESTED_PROMPTS].sort(() => 0.5 - Math.random()).slice(0, count);
-}
+import type { AppStackParamList, MainTabParamList } from '../navigation/types';
 
 /** AI Assist — functionality from `webSrc/src/app/dashboard/ai-assist/page.tsx` (conversations,
  * streaming generation, reactions, share/summarise/rename/delete/save, PDF upload), UI from the
@@ -70,7 +53,12 @@ function pickRandomPrompts(count: number) {
  * web's `jspdf`/blob-download flow, and the History Drawer replaces web's permanent sidebar. */
 export default function AiAssistScreen() {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList, 'AiAssist'>>();
+  // Separate from `navigation` above (tab-level) — `PromptLibrary` lives one level up on the
+  // parent stack (`AppStackParamList`), same reasoning `MyResourcesScreen.tsx` already documents
+  // for `stackNavigation`.
+  const stackNavigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const route = useRoute<RouteProp<MainTabParamList, 'AiAssist'>>();
   const { data: me } = useMe();
   const { conversations, isLoading: conversationsLoading, refetch: refetchConversations } = useAiConversations();
   const mutations = useAiConversationMutations();
@@ -84,13 +72,10 @@ export default function AiAssistScreen() {
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [messageReactions, setMessageReactions] = useState<Record<string, MessageReaction>>({});
-  const [suggestedPrompts] = useState(() => pickRandomPrompts(3));
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [uploadingFileName, setUploadingFileName] = useState('');
 
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  const [libraryCategory, setLibraryCategory] = useState('all');
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [shareUrlLoading, setShareUrlLoading] = useState(false);
@@ -254,7 +239,6 @@ export default function AiAssistScreen() {
     const trimmed = text.trim();
     if (!trimmed || loading) return;
     setView('thread');
-    setLibraryOpen(false);
     setHistoryOpen(false);
     if (!messages.length) setChatTitle(trimmed);
     setMessages(prev => [...prev, { id: `${Date.now()}-user`, text: trimmed, isUser: true, timestamp: new Date() }]);
@@ -263,6 +247,18 @@ export default function AiAssistScreen() {
   }, [loading, messages.length, generateContent]);
 
   const handleSend = () => handleAsk(inputText);
+
+  // `PromptLibraryScreen` (a pushed screen, not a `Modal` anymore) can't return a value via
+  // `goBack()`, so it navigates back into this tab with `selectedPrompt` set instead — the same
+  // "deliver data into an already-mounted tab screen" pattern `MessagesScreen`'s
+  // `openConversation` param already uses. Cleared via `setParams` once consumed, since this tab
+  // screen stays mounted and a stale param would otherwise re-fire on the next focus.
+  useEffect(() => {
+    if (!route.params?.selectedPrompt) return;
+    handleAsk(route.params.selectedPrompt);
+    navigation.setParams({ selectedPrompt: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params?.selectedPrompt]);
 
   const handleReaction = (messageId: string, reaction: MessageReaction) => {
     const next = messageReactions[messageId] === reaction ? null : reaction;
@@ -402,8 +398,6 @@ export default function AiAssistScreen() {
   const greetingName = me?.name?.split(' ')[0] ?? null;
   const askedTurns = messages.filter(m => m.isUser).length;
   const threadMeta = `${askedTurns} ${askedTurns === 1 ? 'question' : 'questions'} · AI Assist`;
-  const lastMessage = messages[messages.length - 1];
-  const showFollowups = view === 'thread' && !loading && messages.length > 1 && !!lastMessage && !lastMessage.isUser;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
@@ -441,10 +435,7 @@ export default function AiAssistScreen() {
           <EmptyState
             greetingName={greetingName}
             onAsk={handleAsk}
-            onOpenLibraryForCategory={category => {
-              setLibraryCategory(category);
-              setLibraryOpen(true);
-            }}
+            onOpenLibraryForCategory={category => stackNavigation.navigate('PromptLibrary', { initialCategory: category })}
           />
         ) : (
           <FlatList
@@ -478,9 +469,6 @@ export default function AiAssistScreen() {
                       onMore={() => setReplyMenuMessageId(item.id)}
                     />
                   )}
-                  {isLast && showFollowups ? (
-                    <FollowUpPrompts prompts={suggestedPrompts} onSelect={handleAsk} />
-                  ) : null}
                 </View>
               );
             }}
@@ -523,10 +511,7 @@ export default function AiAssistScreen() {
           value={inputText}
           onChangeText={setInputText}
           onSend={handleSend}
-          onOpenLibrary={() => {
-            setLibraryCategory('all');
-            setLibraryOpen(true);
-          }}
+          onOpenLibrary={() => stackNavigation.navigate('PromptLibrary', { initialCategory: 'all' })}
           onAttach={handleAttach}
           isUploadingDocument={isUploadingDocument}
           disabled={loading}
@@ -565,18 +550,7 @@ export default function AiAssistScreen() {
         onOpenMenu={setChatMenuConversation}
         onOpenLibrary={() => {
           setHistoryOpen(false);
-          setLibraryCategory('all');
-          setLibraryOpen(true);
-        }}
-      />
-
-      <PromptLibrary
-        visible={libraryOpen}
-        initialCategory={libraryCategory}
-        onClose={() => setLibraryOpen(false)}
-        onSelectPrompt={text => {
-          setLibraryOpen(false);
-          handleAsk(text);
+          stackNavigation.navigate('PromptLibrary', { initialCategory: 'all' });
         }}
       />
 

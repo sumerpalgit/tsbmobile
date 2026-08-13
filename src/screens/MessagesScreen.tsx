@@ -35,6 +35,7 @@ import { MessagesHeader } from '../components/messages/MessagesHeader';
 import { InboxToolbar } from '../components/messages/InboxToolbar';
 import { ConversationList } from '../components/messages/ConversationList';
 import { ThreadMessageGroup, DayDivider, TypingIndicatorBubble } from '../components/messages/ThreadMessageBubble';
+import { ImageViewerModal } from '../components/messages/ImageViewerModal';
 import { ThreadComposer } from '../components/messages/ThreadComposer';
 import { NewMessageOverlay } from '../components/messages/NewMessageOverlay';
 import { ConversationOptionsSheet } from '../components/messages/ConversationOptionsSheet';
@@ -106,6 +107,9 @@ export default function MessagesScreen() {
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [editingTarget, setEditingTarget] = useState<Message | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Message | null>(null);
+  // In-app full-screen image viewer target — one shared modal instance for the whole thread
+  // rather than one per bubble, see `ImageViewerModal`'s doc comment.
+  const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
   // Snapshot from the active thread's own `fetchMessages` response — used for Edit eligibility
   // (`isMessageEditable`). Not real-time (no socket event for it); the 409 path in
   // `handleSaveEdit` is the backstop for it going stale mid-session.
@@ -819,6 +823,7 @@ export default function MessagesScreen() {
                     onSwipeReply={handleSwipeReply}
                     onMessageActions={handleMessageActions}
                     onPressReplyQuote={scrollToMessage}
+                    onPressImage={setViewerImageUrl}
                   />
                 )
               }
@@ -879,6 +884,8 @@ export default function MessagesScreen() {
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      <ImageViewerModal visible={!!viewerImageUrl} imageUrl={viewerImageUrl} onClose={() => setViewerImageUrl(null)} />
     </View>
   );
 }

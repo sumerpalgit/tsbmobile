@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Dimensions, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Check as CheckIcon, ClipboardCheck } from 'lucide-react-native';
+import { ArrowLeft, ClipboardCheck } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { searchEtaChapters } from '../../api/eta';
 import { FieldSelect } from '../events/CreateEventWizard/FieldSelect';
@@ -62,6 +62,48 @@ export function CreateChapterScreen({
   const [ref, setRef] = useState('');
   const dupCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Same Modal-on-Android keyboard fix as `ContributeResourceSheet.tsx` (see its doc comment for
+  // the full root-cause writeup): `KeyboardAvoidingView`'s Android resize behavior doesn't
+  // reliably apply inside a `Modal`, and stacking it on top of this app's own
+  // `windowSoftInputMode="adjustResize"` meant two separate resize mechanisms fought each other
+  // on every keyboard open/close — the visible symptom being a flicker right as the keyboard
+  // closed, and sometimes a stray leftover gap below the footer once it had. Manual
+  // `keyboardHeight` tracking + a precise scroll-to-clear-the-keyboard on show replaces it;
+  // `behavior={undefined}` on Android below means nothing tries to resize this screen at all.
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollOffsetRef = useRef(0);
+  const focusedInputRef = useRef<TextInput | null>(null);
+  const cityInputRef = useRef<TextInput>(null);
+  const nameInputRef = useRef<TextInput>(null);
+  const whyInputRef = useRef<TextInput>(null);
+  const connectionInputRef = useRef<TextInput>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', e => {
+      const kbHeight = e.endCoordinates?.height ?? 0;
+      setKeyboardHeight(kbHeight);
+      const input = focusedInputRef.current;
+      if (!input) return;
+      // Wait a frame so the new bottom padding below has actually rendered — otherwise this
+      // scroll can get clamped to the old (shorter) scrollable range.
+      requestAnimationFrame(() => {
+        input.measureInWindow((_x, y, _width, height) => {
+          const keyboardTop = Dimensions.get('window').height - kbHeight;
+          const overlap = y + height - keyboardTop;
+          if (overlap > 0) {
+            scrollRef.current?.scrollTo({ y: scrollOffsetRef.current + overlap + 12, animated: true });
+          }
+        });
+      });
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   useEffect(() => {
     if (!visible) return;
     setCity('');
@@ -119,7 +161,7 @@ export function CreateChapterScreen({
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose} statusBarTranslucent>
       <KeyboardAvoidingView
         style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
         {done ? (
@@ -161,7 +203,7 @@ export function CreateChapterScreen({
               <Pressable onPress={handleClose} style={[styles.doneButton, { backgroundColor: colors.feedFill, borderRadius: radius.xl }]}>
                 <Text style={[fonts.bold, { fontSize: fontSize.body, color: colors.feedOnFill }]}>Done</Text>
               </Pressable>
-              <Pressable onPress={() => setDone(false)} style={styles.anotherButton}>
+              <Pressable onPress={() => setDone(false)} hitSlop={10} style={styles.anotherButton}>
                 <Text style={[fonts.semibold, { fontSize: fontSize.small, color: colors.ink3 }]}>Submit another city</Text>
               </Pressable>
             </View>
@@ -180,7 +222,16 @@ export function CreateChapterScreen({
               </View>
             </View>
 
-            <ScrollView contentContainerStyle={styles.formScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              ref={scrollRef}
+              contentContainerStyle={[styles.formScroll, { paddingBottom: 16 + keyboardHeight }]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              onScroll={e => {
+                scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+              }}
+              scrollEventThrottle={16}
+            >
               <View style={[styles.noticeBox, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: colors.gold, borderRadius: radius.xl }]}>
                 <Text style={[fonts.bold, styles.noticeLabel, { color: colors.gold }]}>ADMIN REVIEW</Text>
                 <Text style={[fonts.regular, styles.noticeBody, { color: colors.ink2 }]}>
@@ -192,8 +243,15 @@ export function CreateChapterScreen({
               <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
                 <Field label="City" required>
                   <TextInput
+                    ref={cityInputRef}
                     value={city}
                     onChangeText={setCity}
+                    onFocus={() => {
+                      focusedInputRef.current = cityInputRef.current;
+                    }}
+                    onBlur={() => {
+                      focusedInputRef.current = null;
+                    }}
                     placeholder="e.g. Hyderabad"
                     placeholderTextColor={colors.ink3}
                     style={[fonts.regular, styles.input, { borderColor: colors.border, backgroundColor: colors.surface2, color: colors.ink, borderRadius: radius.lg }]}
@@ -211,8 +269,15 @@ export function CreateChapterScreen({
 
                 <Field label="Chapter name" required>
                   <TextInput
+                    ref={nameInputRef}
                     value={name}
                     onChangeText={setName}
+                    onFocus={() => {
+                      focusedInputRef.current = nameInputRef.current;
+                    }}
+                    onBlur={() => {
+                      focusedInputRef.current = null;
+                    }}
                     placeholder={trimmedCity ? `TSB ${trimmedCity}` : 'e.g. TSB Hyderabad'}
                     placeholderTextColor={colors.ink3}
                     style={[fonts.regular, styles.input, { borderColor: colors.border, backgroundColor: colors.surface2, color: colors.ink, borderRadius: radius.lg }]}
@@ -221,8 +286,15 @@ export function CreateChapterScreen({
 
                 <Field label="Why this city?" required>
                   <TextInput
+                    ref={whyInputRef}
                     value={why}
                     onChangeText={text => setWhy(text.slice(0, WHY_MAX_LENGTH))}
+                    onFocus={() => {
+                      focusedInputRef.current = whyInputRef.current;
+                    }}
+                    onBlur={() => {
+                      focusedInputRef.current = null;
+                    }}
                     placeholder="Describe the ETA / search fund community here and why a TSB chapter would be valuable…"
                     placeholderTextColor={colors.ink3}
                     multiline
@@ -240,20 +312,20 @@ export function CreateChapterScreen({
 
                 <Field label="Your connection to the city" hint="optional">
                   <TextInput
+                    ref={connectionInputRef}
                     value={connection}
                     onChangeText={setConnection}
+                    onFocus={() => {
+                      focusedInputRef.current = connectionInputRef.current;
+                    }}
+                    onBlur={() => {
+                      focusedInputRef.current = null;
+                    }}
                     placeholder="e.g. Based here, local investor network"
                     placeholderTextColor={colors.ink3}
                     style={[fonts.regular, styles.input, { borderColor: colors.border, backgroundColor: colors.surface2, color: colors.ink, borderRadius: radius.lg }]}
                   />
                 </Field>
-              </View>
-
-              <View style={[styles.footerNotice, { backgroundColor: colors.chip, borderRadius: radius.xl }]}>
-                <CheckIcon size={15} color={colors.goldDark} strokeWidth={1.6} />
-                <Text style={[fonts.regular, styles.footerNoticeText, { color: colors.goldDark }]}>
-                  A chapter opens for meetups once 10 members join. We help you invite the first ones.
-                </Text>
               </View>
             </ScrollView>
 
@@ -331,7 +403,7 @@ const styles = StyleSheet.create({
   },
   // No bottom padding — the footer's own top padding/border already separates it from this
   // content, so a matching bottom value here just doubled up as visible empty page-background
-  // gap between the last card (`footerNotice`) and the Cancel/Submit row (confirmed on-device).
+  // gap between the last card (`formCard`) and the Cancel/Submit row (confirmed on-device).
   formScroll: {
     paddingHorizontal: 16,
     paddingTop: 16,
@@ -382,18 +454,6 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 10.5,
     lineHeight: 14,
-  },
-  footerNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    padding: 11,
-  },
-  footerNoticeText: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 11,
-    lineHeight: 16,
   },
   footer: {
     flexDirection: 'row',
@@ -490,8 +550,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // No fixed `height` (was 42, ~2.5x its actual text line height) — that invisible box (no
+  // background/border to show its real edge) stacked with `insets.bottom` below it made the gap
+  // under "Submit another city" look excessive on phones with a larger bottom safe-area inset
+  // (gesture-nav Android, notched/Dynamic-Island iPhones). `paddingVertical` hugs the text
+  // instead; `hitSlop` on the `Pressable` above keeps the real tap target comfortable without
+  // that padding taking up visible layout space.
   anotherButton: {
-    height: 42,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },

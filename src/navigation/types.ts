@@ -40,7 +40,12 @@ export type MainTabParamList = {
   /** Optional chapter scope — set when arriving from ETA Chapters' "View member directory"
    * (matches web's `?group_id=&chapterName=`, scoping every search call to that chapter). */
   Directory: { groupId?: string; chapterName?: string } | undefined;
-  AiAssist: undefined;
+  /** `selectedPrompt` is set by `PromptLibraryScreen` when a prompt card is tapped — since
+   * `goBack()` has no return-value primitive, it instead navigates back into this tab with the
+   * chosen text as a param, the exact same "deliver data into an already-mounted tab screen"
+   * pattern `Messages`' `openConversation` below uses. Consumed via `useEffect` + cleared via
+   * `navigation.setParams` once handled, for the same stale-param reason. */
+  AiAssist: { selectedPrompt?: string } | undefined;
   /** `openConversation` is set (by Directory's "Message" action, or anywhere else that starts a
    * conversation and wants to land directly in its thread) to the exact stub shape
    * `MessagesScreen.tsx`'s own `handleSelectNewUser` already constructs — avoids depending on the
@@ -111,4 +116,21 @@ export type AppStackParamList = {
   AdCampaignDetail: { adId: string };
   AdInsights: { metric: 'impressions' | 'clicks' | 'spend' | 'cpm' };
   AdCampaignEdit: { adId: string };
+  /** Campaign creation wizard — reached from both Ad Management's "New Campaign" and ETA
+   * Chapters' "+ Create Ad" (same shared `CreateCampaignWizard` component, zero per-caller
+   * coupling internally). Was a `Modal`; moved here for the same reason as `AdManagement` above
+   * — hit a real `useSafeAreaInsets()`-inside-`Modal` bug on Android (status-bar-flush header,
+   * previously patched with a `StatusBar.currentHeight` workaround), and this is the actual fix. */
+  CreateAdCampaign: undefined;
+  /** My Resources' "Contribute a resource" form — reached from `ResourcesHeader`'s "+" button.
+   * Was a bottom-sheet `Modal`; moved to a real pushed screen for consistency with this app's
+   * established precedent (`CreateEvent`/`CreateAdCampaign`/etc.) rather than a bug fix this
+   * time — the sheet's own `Modal`-on-Android keyboard handling was already correct. */
+  ContributeResource: undefined;
+  /** AI Assist's Prompt Library — reached from the Composer's library icon, the empty-state
+   * topic chips (`initialCategory` deep-links straight into that category), and the History
+   * drawer. Was a full-screen `Modal`; moved here for the same `useSafeAreaInsets()`-inside-
+   * `Modal` reliability reasons as `CreateAdCampaign`/`ContributeResource` above. See `AiAssist`
+   * above for how a selected prompt gets back to the chat. */
+  PromptLibrary: { initialCategory?: string } | undefined;
 };

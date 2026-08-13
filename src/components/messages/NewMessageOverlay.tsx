@@ -102,7 +102,7 @@ export function NewMessageOverlay({
           </View>
         </View>
 
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
           {results.map(person => (
             <Pressable
               key={person.id}

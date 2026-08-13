@@ -100,13 +100,15 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 14,
+    paddingBottom: 10,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
-    height: 44,
+    // Matches the segmented tabs' OUTER card height (`segmentTrack`), not the inner tab height —
+    // segment height (36) + segmentTrack's own top+bottom padding (3+3) = 42.
+    height: 42,
     paddingHorizontal: 13,
   },
   searchInput: {
@@ -123,9 +125,9 @@ const styles = StyleSheet.create({
   segmentTrack: {
     flexDirection: 'row',
     gap: 4,
-    padding: 4,
-    marginTop: 12,
-    marginBottom: 4,
+    padding: 3,
+    marginTop: 8,
+    marginBottom: 2,
   },
   segment: {
     flex: 1,
@@ -133,11 +135,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    height: 40,
+    height: 36,
   },
   countBadge: {
     paddingHorizontal: 6,
-    paddingVertical: 1,
+    paddingVertical: 0.5,
     borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',

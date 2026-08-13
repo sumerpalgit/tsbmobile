@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { types } from '@react-native-documents/picker';
-import { Plus, X } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../theme';
 import { FileUploadButton } from '../FileUploadButton';
@@ -12,24 +13,26 @@ import { CONTENT_TYPES } from '../../types/resources';
 
 const EMPTY = { title: '', contentType: '', authorSource: '', description: '', link: '' };
 
-/** Bottom-sheet Contribute form — matches `Resources.html`'s sheet (~line 361) for layout, real
+/** "Contribute a resource" form — matches `Resources.html`'s sheet (~line 361) for layout, real
  * web functionality otherwise. All 5 real content types are offered (`page.tsx:257-260` maps
  * `CONTENT_TYPES` directly, not the mockup's own 3-option demo select). Required-field validation
  * matches web's real (if visually inconsistent) `handleSubmit` gate exactly — only `title` and
  * `content_type` actually block submission (`page.tsx:205`); `description`/`author_source` still
  * show a required asterisk in the UI (matching web's own inconsistency) but aren't enforced. Web's
  * real form also collects `author_source` but never sends it (`page.tsx:219-225`, a real bug) —
- * sent here anyway, see `createResource`'s doc comment. */
-export function ContributeResourceSheet({
-  visible,
-  onClose,
-  onSuccess,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
+ * sent here anyway, see `createResource`'s doc comment.
+ *
+ * Plain screen content, not a `Modal` sheet — this used to be a bottom-sheet `Modal`, moved to a
+ * dedicated pushed screen (`ContributeResourceScreen.tsx`, registered in `AppNavigator.tsx`) for
+ * the same reason `CreateEventScreen`/`CreateAdCampaignScreen`/etc. were: consistency with this
+ * app's established precedent of real navigation pushes for anything beyond a single lightweight
+ * sheet, and it gets a real native push transition and back gesture instead. `MyResourcesScreen`
+ * refetches on its own focus (matching Ad Management's convention) rather than this screen
+ * needing a separate `onSuccess` callback — returning here via `onClose` after a successful
+ * submit is enough to pick up the new resource. */
+export function ContributeResourceSheet({ onClose }: { onClose: () => void }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
+  const insets = useSafeAreaInsets();
   const [fields, setFields] = useState(EMPTY);
   const [file, setFile] = useState<PickedFile | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -48,11 +51,13 @@ export function ContributeResourceSheet({
   // 1. `react-native-keyboard-aware-scroll-view` (this form used to use it) is built on RN's
   //    legacy scroll-responder API, unreliable under Fabric — its own auto-scroll landed on the
   //    wrong field, and manual calls through its ref silently did nothing.
-  // 2. Inside this `Modal`, `KeyboardAvoidingView` doesn't actually shrink the sheet for the
-  //    keyboard on Android at all (a known class of RN/Android issue: `Modal` renders in a
-  //    separate native window). So the `ScrollView` below needs real extra bottom padding to
-  //    even have something to scroll into — `paddingBottom: keyboardHeight` on its content does
-  //    that (same technique `KeyboardAwareScrollView`'s `enableOnAndroid` used internally).
+  // 2. `KeyboardAvoidingView` doesn't reliably resize this screen for the keyboard on Android
+  //    either (Android's own `windowSoftInputMode="adjustResize"` and RN's own resize logic don't
+  //    always agree, confirmed elsewhere in this app as a real flicker/gap bug — see
+  //    `CreateChapterScreen.tsx`'s doc comment). So the `ScrollView` below needs real extra
+  //    bottom padding to even have something to scroll into — `paddingBottom: keyboardHeight` on
+  //    its content does that (same technique `KeyboardAwareScrollView`'s `enableOnAndroid` used
+  //    internally).
   // 3. `scrollToEnd()` isn't the right target though — it scrolls past *all* of that new padding
   //    (plus whatever headroom the form already had at rest), overshooting the keyboard's top
   //    edge by a large gap. The correct amount is precise: measure the focused input's actual
@@ -83,17 +88,6 @@ export function ContributeResourceSheet({
     };
   }, []);
 
-  const reset = () => {
-    setFields(EMPTY);
-    setFile(null);
-  };
-
-  const handleClose = () => {
-    if (submitting) return;
-    reset();
-    onClose();
-  };
-
   const handleSubmit = async () => {
     if (submitting) return;
     // Matches web's real `handleSubmit` gate exactly (`page.tsx:205`) — only title + type
@@ -120,10 +114,8 @@ export function ContributeResourceSheet({
         resourceLink: fields.link.trim() || undefined,
         fileUrl,
       });
-      reset();
-      onClose();
-      onSuccess();
       Toast.show({ type: 'success', text1: 'Resource submitted for review' });
+      onClose();
     } catch {
       Toast.show({ type: 'error', text1: 'Could not submit resource', text2: 'Please try again.' });
     } finally {
@@ -132,155 +124,150 @@ export function ContributeResourceSheet({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-      <View style={[styles.backdrop, { backgroundColor: 'rgba(12,21,32,0.5)' }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-        {/* No Android `behavior` here — confirmed on-device that `KeyboardAvoidingView` doesn't
-         * reliably resize inside this `Modal` on Android anyway (see the effects above), so the
-         * `keyboardHeight`-based content padding on the `ScrollView` below is the one real
-         * mechanism doing that job on Android; stacking a second one here risks the
-         * double-compensation blink seen earlier from two mechanisms fighting the same resize. */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.sheetWrap}
+    <KeyboardAvoidingView
+      style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}
+      // Android stays `undefined`, matching `CreateEventWizard.tsx`/`CreateCampaignWizard.tsx`'s
+      // established convention — `behavior="height"` fights this app's own
+      // `windowSoftInputMode="adjustResize"`; the `keyboardHeight`-based content padding above is
+      // the one real mechanism doing that job here.
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+        <Pressable
+          onPress={onClose}
+          disabled={submitting}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
         >
-          <View style={[styles.sheet, { backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl }]}>
-            <View style={[styles.header, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-              <View style={[styles.headerIcon, { backgroundColor: colors.chip, borderRadius: radius.lg }]}>
-                <Plus size={17} color={colors.goldDark} strokeWidth={2} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>Contribute a resource</Text>
-                <Text style={[fonts.regular, styles.headerSubtitle, { color: colors.ink3 }]}>Share knowledge with the TSB community</Text>
-              </View>
-              <Pressable onPress={handleClose} accessibilityLabel="Close" style={[styles.closeButton, { backgroundColor: colors.surfaceSunken, borderRadius: radius.lg }]}>
-                <X size={16} color={colors.ink2} strokeWidth={1.8} />
-              </Pressable>
-            </View>
-
-            <ScrollView
-              ref={scrollRef}
-              style={styles.body}
-              contentContainerStyle={[styles.bodyContent, { paddingBottom: styles.bodyContent.paddingBottom + keyboardHeight }]}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              onScroll={e => {
-                scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
-              }}
-              scrollEventThrottle={16}
-            >
-              <Field label="Resource title" required colors={colors} fonts={fonts}>
-                <TextInput
-                  value={fields.title}
-                  onChangeText={t => setFields(f => ({ ...f, title: t }))}
-                  placeholder="e.g. SME Acquisition Due Diligence Checklist"
-                  placeholderTextColor={colors.ink3}
-                  style={[fonts.regular, styles.input, { fontSize: fontSize.body, color: colors.ink, backgroundColor: colors.surface2, borderColor: colors.border, borderRadius: radius.lg }]}
-                />
-              </Field>
-
-              <View style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <Field label="Type" required colors={colors} fonts={fonts}>
-                    <View style={styles.chipsRow}>
-                      {CONTENT_TYPES.map(t => {
-                        const active = fields.contentType === t;
-                        return (
-                          <Pressable
-                            key={t}
-                            onPress={() => setFields(f => ({ ...f, contentType: t }))}
-                            style={[
-                              styles.typeChip,
-                              { borderRadius: radius.md },
-                              active
-                                ? { backgroundColor: colors.chip, borderColor: colors.gold, borderWidth: 1 }
-                                : { backgroundColor: colors.surface2, borderColor: colors.border, borderWidth: borderWidth.thin },
-                            ]}
-                          >
-                            <Text style={[fonts.semibold, { fontSize: 11.5, color: active ? colors.goldDark : colors.ink2 }]}>{t}</Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </Field>
-                </View>
-              </View>
-
-              <Field label="Author / source" required colors={colors} fonts={fonts}>
-                <TextInput
-                  value={fields.authorSource}
-                  onChangeText={t => setFields(f => ({ ...f, authorSource: t }))}
-                  placeholder="Your name or source URL"
-                  placeholderTextColor={colors.ink3}
-                  style={[fonts.regular, styles.input, { fontSize: fontSize.body, color: colors.ink, backgroundColor: colors.surface2, borderColor: colors.border, borderRadius: radius.lg }]}
-                />
-              </Field>
-
-              <Field label="Short description" required colors={colors} fonts={fonts}>
-                <TextInput
-                  ref={descriptionInputRef}
-                  value={fields.description}
-                  onChangeText={t => setFields(f => ({ ...f, description: t }))}
-                  onFocus={() => {
-                    focusedInputRef.current = descriptionInputRef.current;
-                  }}
-                  onBlur={() => {
-                    focusedInputRef.current = null;
-                  }}
-                  placeholder="What is this? Who is it for?"
-                  placeholderTextColor={colors.ink3}
-                  multiline
-                  textAlignVertical="top"
-                  style={[fonts.regular, styles.textarea, { fontSize: fontSize.body, color: colors.ink, backgroundColor: colors.surface2, borderColor: colors.border, borderRadius: radius.lg }]}
-                />
-              </Field>
-
-              <Field label="Upload file or paste link" colors={colors} fonts={fonts}>
-                <FileUploadButton
-                  value={file}
-                  onChange={setFile}
-                  acceptedTypes={[types.pdf, types.docx, types.xlsx, types.video]}
-                  placeholder="Tap to upload a file — PDF, DOCX, XLSX, MP4 · Max 50MB"
-                />
-                <TextInput
-                  ref={linkInputRef}
-                  value={fields.link}
-                  onChangeText={t => setFields(f => ({ ...f, link: t }))}
-                  onFocus={() => {
-                    focusedInputRef.current = linkInputRef.current;
-                  }}
-                  onBlur={() => {
-                    focusedInputRef.current = null;
-                  }}
-                  placeholder="Or paste a link (https://…)"
-                  placeholderTextColor={colors.ink3}
-                  autoCapitalize="none"
-                  keyboardType="url"
-                  style={[fonts.regular, styles.linkInput, { fontSize: fontSize.body, color: colors.ink, backgroundColor: colors.surface2, borderColor: colors.border, borderRadius: radius.lg }]}
-                />
-              </Field>
-            </ScrollView>
-
-            <View style={[styles.footer, { borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
-              <Pressable
-                onPress={handleClose}
-                disabled={submitting}
-                style={({ pressed }) => [styles.cancelButton, { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: borderWidth.thin }, pressed && styles.pressed]}
-              >
-                <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleSubmit}
-                disabled={submitting}
-                style={({ pressed }) => [styles.submitButton, { backgroundColor: colors.gold, borderRadius: radius.lg, opacity: submitting ? 0.7 : 1 }, pressed && styles.pressed]}
-              >
-                {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[fonts.bold, { fontSize: fontSize.title, color: '#fff' }]}>Submit resource</Text>}
-              </Pressable>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
+          <ArrowLeft size={18} color={colors.ink} strokeWidth={1.8} />
+        </Pressable>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>Contribute a resource</Text>
+          <Text style={[fonts.regular, styles.headerSubtitle, { color: colors.ink3 }]}>Share knowledge with the TSB community</Text>
+        </View>
       </View>
-    </Modal>
+
+      <ScrollView
+        ref={scrollRef}
+        style={styles.body}
+        contentContainerStyle={[styles.bodyContent, { paddingBottom: styles.bodyContent.paddingBottom + keyboardHeight }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        onScroll={e => {
+          scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+      >
+        <Field label="Resource title" required colors={colors} fonts={fonts}>
+          <TextInput
+            value={fields.title}
+            onChangeText={t => setFields(f => ({ ...f, title: t }))}
+            placeholder="e.g. SME Acquisition Due Diligence Checklist"
+            placeholderTextColor={colors.ink3}
+            style={[fonts.regular, styles.input, { fontSize: fontSize.body, color: colors.ink, backgroundColor: colors.surface2, borderColor: colors.border, borderRadius: radius.lg }]}
+          />
+        </Field>
+
+        <View style={styles.row}>
+          <View style={{ flex: 1 }}>
+            <Field label="Type" required colors={colors} fonts={fonts}>
+              <View style={styles.chipsRow}>
+                {CONTENT_TYPES.map(t => {
+                  const active = fields.contentType === t;
+                  return (
+                    <Pressable
+                      key={t}
+                      onPress={() => setFields(f => ({ ...f, contentType: t }))}
+                      style={[
+                        styles.typeChip,
+                        { borderRadius: radius.md },
+                        active
+                          ? { backgroundColor: colors.chip, borderColor: colors.gold, borderWidth: 1 }
+                          : { backgroundColor: colors.surface2, borderColor: colors.border, borderWidth: borderWidth.thin },
+                      ]}
+                    >
+                      <Text style={[fonts.semibold, { fontSize: 11.5, color: active ? colors.goldDark : colors.ink2 }]}>{t}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Field>
+          </View>
+        </View>
+
+        <Field label="Author / source" required colors={colors} fonts={fonts}>
+          <TextInput
+            value={fields.authorSource}
+            onChangeText={t => setFields(f => ({ ...f, authorSource: t }))}
+            placeholder="Your name or source URL"
+            placeholderTextColor={colors.ink3}
+            style={[fonts.regular, styles.input, { fontSize: fontSize.body, color: colors.ink, backgroundColor: colors.surface2, borderColor: colors.border, borderRadius: radius.lg }]}
+          />
+        </Field>
+
+        <Field label="Short description" required colors={colors} fonts={fonts}>
+          <TextInput
+            ref={descriptionInputRef}
+            value={fields.description}
+            onChangeText={t => setFields(f => ({ ...f, description: t }))}
+            onFocus={() => {
+              focusedInputRef.current = descriptionInputRef.current;
+            }}
+            onBlur={() => {
+              focusedInputRef.current = null;
+            }}
+            placeholder="What is this? Who is it for?"
+            placeholderTextColor={colors.ink3}
+            multiline
+            textAlignVertical="top"
+            style={[fonts.regular, styles.textarea, { fontSize: fontSize.body, color: colors.ink, backgroundColor: colors.surface2, borderColor: colors.border, borderRadius: radius.lg }]}
+          />
+        </Field>
+
+        <Field label="Upload file or paste link" colors={colors} fonts={fonts}>
+          <FileUploadButton
+            value={file}
+            onChange={setFile}
+            acceptedTypes={[types.pdf, types.docx, types.xlsx, types.video]}
+            placeholder="Tap to upload a file — PDF, DOCX, XLSX, MP4 · Max 50MB"
+          />
+          <TextInput
+            ref={linkInputRef}
+            value={fields.link}
+            onChangeText={t => setFields(f => ({ ...f, link: t }))}
+            onFocus={() => {
+              focusedInputRef.current = linkInputRef.current;
+            }}
+            onBlur={() => {
+              focusedInputRef.current = null;
+            }}
+            placeholder="Or paste a link (https://…)"
+            placeholderTextColor={colors.ink3}
+            autoCapitalize="none"
+            keyboardType="url"
+            style={[fonts.regular, styles.linkInput, { fontSize: fontSize.body, color: colors.ink, backgroundColor: colors.surface2, borderColor: colors.border, borderRadius: radius.lg }]}
+          />
+        </Field>
+      </ScrollView>
+
+      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin, paddingBottom: 16 + insets.bottom }]}>
+        <Pressable
+          onPress={onClose}
+          disabled={submitting}
+          style={({ pressed }) => [styles.cancelButton, { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: borderWidth.thin }, pressed && styles.pressed]}
+        >
+          <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Cancel</Text>
+        </Pressable>
+        <Pressable
+          onPress={handleSubmit}
+          disabled={submitting}
+          style={({ pressed }) => [styles.submitButton, { backgroundColor: colors.gold, borderRadius: radius.lg, opacity: submitting ? 0.7 : 1 }, pressed && styles.pressed]}
+        >
+          {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[fonts.bold, { fontSize: fontSize.title, color: '#fff' }]}>Submit resource</Text>}
+        </Pressable>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -309,42 +296,33 @@ function Field({
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  screen: {
     flex: 1,
-    justifyContent: 'flex-end',
-  },
-  sheetWrap: {
-    maxHeight: '88%',
-  },
-  sheet: {
-    maxHeight: '100%',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 11,
-    padding: 16,
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 14,
   },
-  headerIcon: {
+  backButton: {
     width: 38,
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 19,
+    marginTop: 6,
   },
   headerSubtitle: {
-    fontSize: 10.5,
-    marginTop: 2,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: 11,
+    marginTop: 3,
   },
   body: {
+    flex: 1,
     paddingHorizontal: 16,
   },
   bodyContent: {
@@ -391,7 +369,8 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     gap: 10,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   cancelButton: {
     height: 48,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
-import { ProfileScreen, CreateEventScreen, EventDetailScreen, MemberProfileScreen, AdManagementScreen, AdCampaignDetailScreen, AdInsightsScreen, AdCampaignEditScreen } from '../screens';
+import { ProfileScreen, CreateEventScreen, EventDetailScreen, MemberProfileScreen, AdManagementScreen, AdCampaignDetailScreen, AdInsightsScreen, AdCampaignEditScreen, CreateAdCampaignScreen, ContributeResourceScreen, PromptLibraryScreen } from '../screens';
 import DrawerNavigator from './DrawerNavigator';
 import { AppStackParamList } from './types';
 
@@ -34,6 +34,9 @@ function AppNavigator() {
       <Stack.Screen name="AdCampaignDetail" component={AdCampaignDetailScreen} />
       <Stack.Screen name="AdInsights" component={AdInsightsScreen} />
       <Stack.Screen name="AdCampaignEdit" component={AdCampaignEditScreen} />
+      <Stack.Screen name="CreateAdCampaign" component={CreateAdCampaignScreen} />
+      <Stack.Screen name="ContributeResource" component={ContributeResourceScreen} />
+      <Stack.Screen name="PromptLibrary" component={PromptLibraryScreen} />
     </Stack.Navigator>
   );
 }

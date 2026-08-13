@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getMyResources, listResources } from '../api/resources';
 import type { ResourceItem, ResourcesPagination } from '../types/resources';
 
-const PAGE_LIMIT = 9;
+const PAGE_LIMIT = 10;
 
 export type ResourceFilters = {
   query: string;
