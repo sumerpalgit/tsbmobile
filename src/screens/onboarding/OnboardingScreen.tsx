@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronLeft, ChevronRight, Flag, Lock, Shield, UserX } from 'lucide-react-native';
@@ -16,6 +16,7 @@ import { getMe, uploadDocument } from '../../api/profile';
 import {
   LINKEDIN_PATTERN,
   MAX_ETA_CHAPTERS,
+  Measurable,
   ROLE_TYPE_MAP,
   Step,
   STEP_LABELS,
@@ -437,6 +438,56 @@ function OnboardingScreen() {
 
   const [roleSheetOpen, setRoleSheetOpen] = useState(false);
 
+  // `KeyboardAwareScrollView`'s own automatic scroll-to-focused-input (its whole reason for
+  // being used here — see the comment above it below) doesn't reliably reach Step 1's bottom-most
+  // fields: LinkedIn/City stayed hidden behind the keyboard on-device even with `enableOnAndroid`
+  // + `extraScrollHeight` set. Same manual-scroll fix as `CreateChapterScreen.tsx`'s doc comment
+  // (measure the focused field, scroll it clear of the keyboard) rather than trusting the
+  // library's own internal position math — but calling *its* exposed `scrollToPosition` (not a
+  // raw `ScrollView.scrollTo`) so this doesn't fight the library's own scroll-offset tracking.
+  // Only Step 1's LinkedIn/City are wired to `onFieldFocus` below — that's the one demonstrated
+  // broken on-device; Steps 2-4 keep relying on the library's own automatic behavior unchanged.
+  //
+  // `onFieldFocus` does double duty beyond the initial tap-in: `CitySearchField` also calls it
+  // again once its live search results arrive, re-pointing `focusedFieldRef` at the suggestion
+  // list itself instead of the input — so the same clear-the-keyboard scroll runs a second time
+  // and lands far enough down that the first result or two are actually visible, not just the
+  // empty input, confirming to the user that something came back. `keyboardHeightRef` (not just
+  // a value captured inside the `keyboardDidShow` closure) is what makes that second call work —
+  // results arrive *after* the keyboard is already open, so there's no new `keyboardDidShow`
+  // event to read a fresh height from.
+  const scrollRef = useRef<KeyboardAwareScrollView>(null);
+  const scrollOffsetRef = useRef(0);
+  const focusedFieldRef = useRef<Measurable | null>(null);
+  const keyboardHeightRef = useRef(0);
+
+  const scrollFocusedFieldClear = () => {
+    const kbHeight = keyboardHeightRef.current;
+    const field = focusedFieldRef.current;
+    if (!field || !kbHeight) return;
+    field.measureInWindow((_x, y, _width, height) => {
+      const keyboardTop = Dimensions.get('window').height - kbHeight;
+      const overlap = y + height - keyboardTop;
+      if (overlap > 0) {
+        scrollRef.current?.scrollToPosition(0, scrollOffsetRef.current + overlap + 12, true);
+      }
+    });
+  };
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', e => {
+      keyboardHeightRef.current = e.endCoordinates?.height ?? 0;
+      requestAnimationFrame(scrollFocusedFieldClear);
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardHeightRef.current = 0;
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const toggleEta = (chapter: EtaChapter) => {
     setSelectedChapters(prev => {
       if (prev[chapter.id]) {
@@ -753,12 +804,17 @@ function OnboardingScreen() {
           like LinkedIn ends up hidden behind the keyboard. `enableOnAndroid` is required since
           this library only auto-scrolls on Android when explicitly told to. */}
       <KeyboardAwareScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
         enableOnAndroid
         extraScrollHeight={20}
         keyboardOpeningTime={0}
+        onScroll={e => {
+          scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
       >
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.obLine2 }]}>
           {inFlow && (
@@ -783,6 +839,13 @@ function OnboardingScreen() {
               onCitySelect={city => {
                 setCitySelection(city);
                 setError('');
+              }}
+              onFieldFocus={ref => {
+                focusedFieldRef.current = ref.current;
+                // Immediate attempt too, not just the `keyboardDidShow` listener — covers the
+                // "results just arrived, keyboard's already open" case, where no new
+                // `keyboardDidShow` event fires to trigger a rescroll.
+                requestAnimationFrame(scrollFocusedFieldClear);
               }}
             />
           )}

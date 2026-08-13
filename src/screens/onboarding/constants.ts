@@ -1,5 +1,13 @@
 export type Step = 1 | 2 | 3 | 4 | 5;
 
+/** Minimal shape `OnboardingScreen.tsx`'s manual scroll-clear-the-keyboard fix needs from a
+ * focused-field ref — both `TextInput` and plain `View` satisfy this structurally, so the same
+ * `onFieldFocus` callback can point at either a text field (on focus) or a suggestion list (once
+ * results arrive) without the prop type caring which. */
+export type Measurable = {
+  measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void;
+};
+
 export const ROLES = [
   { name: 'Searcher', desc: 'Searching for acquisition targets in the lower-middle market.' },
   { name: 'Investor', desc: 'Backing operators and co-investing in ETA deals.' },

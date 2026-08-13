@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../../../theme';
-import { SUB_CATEGORIES } from '../constants';
+import { Measurable, SUB_CATEGORIES } from '../constants';
 import { CategoryTrigger } from './CategoryTrigger';
 import { CitySearchField, CitySelection } from './CitySearchField';
 import { FieldDropdown } from './FieldDropdown';
@@ -27,6 +27,7 @@ export function Step1Fields({
   onSubChange,
   onLinkedinChange,
   onCitySelect,
+  onFieldFocus,
 }: {
   role: string;
   sub: string;
@@ -36,8 +37,14 @@ export function Step1Fields({
   onSubChange: (value: string) => void;
   onLinkedinChange: (value: string) => void;
   onCitySelect: (city: CitySelection) => void;
+  /** Bubbles a focused/updated field's ref up to `OnboardingScreen.tsx`'s manual
+   * scroll-clear-the-keyboard fix — see its own doc comment for why `KeyboardAwareScrollView`'s
+   * automatic behavior isn't enough for these two fields specifically, and why this fires more
+   * than once for City (also on its search results arriving, not just on focus). */
+  onFieldFocus?: (ref: React.RefObject<Measurable | null>) => void;
 }) {
   const { colors, fonts } = useTheme();
+  const linkedinRef = useRef<TextInput>(null);
 
   return (
     <View style={{ gap: 16 }}>
@@ -73,9 +80,11 @@ export function Step1Fields({
         <View style={[styles.inputWrap, { backgroundColor: colors.obSurface2, borderColor: colors.obLine2 }]}>
           <LinkedInGlyph />
           <TextInput
+            ref={linkedinRef}
             style={[styles.plainInput, { color: colors.obInk }]}
             value={linkedin}
             onChangeText={onLinkedinChange}
+            onFocus={() => onFieldFocus?.(linkedinRef)}
             placeholder="https://www.linkedin.com/in/…"
             placeholderTextColor={colors.obInk3}
             autoCapitalize="none"
@@ -102,7 +111,7 @@ export function Step1Fields({
         <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.obInk }]}>
           City <Text style={{ color: colors.obRequired }}>*</Text>
         </Text>
-        <CitySearchField placeholder="Search for your city" onSelect={onCitySelect} />
+        <CitySearchField placeholder="Search for your city" onSelect={onCitySelect} onFieldFocus={onFieldFocus} />
       </View>
     </View>
   );
