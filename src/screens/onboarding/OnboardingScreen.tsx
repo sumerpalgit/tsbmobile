@@ -553,8 +553,11 @@ function OnboardingScreen() {
       const { fileUrl } = await uploadDocument(file, fileType);
       setUploadedUrls(prev => ({ ...prev, [key]: fileUrl }));
     } catch (err) {
+      // The real backend returns both `message` (the specific reason, e.g. "Internal server
+      // error") and `error` (a generic wrapper label, e.g. "Something went wrong!") — prefer the
+      // more specific `message` so the toast shows the actual failure, not just the wrapper.
       const message = axios.isAxiosError(err)
-        ? err.response?.data?.error ?? err.message
+        ? err.response?.data?.message ?? err.response?.data?.error ?? err.message
         : 'Please try again.';
       Toast.show({ type: 'error', text1: 'Upload failed', text2: message });
       setUploads(prev => ({ ...prev, [key]: null }));
