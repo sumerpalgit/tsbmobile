@@ -62,9 +62,11 @@ function ProfileScreen() {
         <IdentityCard profile={profile} loading={isLoading} />
 
         <ProfileMenuList
-          onItemPress={(key, title) =>
-            key === 'ads' ? navigation.navigate('AdManagement') : showToast(`${title} — coming soon`)
-          }
+          onItemPress={(key, title) => {
+            if (key === 'ads') return navigation.navigate('AdManagement');
+            if (key === 'settings') return navigation.navigate('SettingsHome');
+            showToast(`${title} — coming soon`);
+          }}
         />
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>

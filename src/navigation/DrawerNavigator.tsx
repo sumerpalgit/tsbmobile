@@ -37,11 +37,6 @@ const SCREENS: Record<
   }),
   MyEvents: MyEventsScreen,
   MyResources: MyResourcesScreen,
-  Settings: createPlaceholderScreen({
-    title: 'Settings',
-    icon: 'settings',
-    phase: 'Phase 7',
-  }),
 };
 
 function DrawerNavigator() {

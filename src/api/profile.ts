@@ -92,3 +92,31 @@ export async function fetchProfileByUsername(username: string): Promise<Profile>
   const raw = data?.data?.profile ?? data?.profile ?? {};
   return normalizeProfile({ ...raw, id: data?.data?.targetId ?? data?.targetId ?? raw?.id });
 }
+
+/** `PUT /profile/update-profile` — shared by Settings' Account and Profile tabs, each sending a
+ * disjoint partial body (`{name,phone,phone_country,timezone}` vs `{name,bio,city,headline}`),
+ * matching web's `handleSavePersonalInfo`/`handleSaveProfileForm` exactly (see
+ * `PROFILE_ENDPOINTS.UPDATE`'s doc comment). */
+export function updateProfile(payload: {
+  name?: string;
+  phone?: string;
+  phone_country?: string;
+  timezone?: string;
+  bio?: string;
+  city?: string;
+  headline?: string;
+}) {
+  return apiClient.put(PROFILE_ENDPOINTS.UPDATE, payload).then(res => res.data);
+}
+
+/** `PUT /profile/update-profile-image` — called after a direct-to-Supabase upload resolves a
+ * public URL (`uploadFileDirectToSupabase`, `src/api/supabaseDirectUpload.ts`), matching web's
+ * `updateProfileImage` server action. */
+export function updateProfileImage(imageUrl: string) {
+  return apiClient.put(PROFILE_ENDPOINTS.UPDATE_PROFILE_IMAGE, { imageUrl }).then(res => res.data);
+}
+
+/** `PUT /profile/update-cover-image` — same pattern as `updateProfileImage` above. */
+export function updateCoverImage(imageUrl: string) {
+  return apiClient.put(PROFILE_ENDPOINTS.UPDATE_COVER_IMAGE, { imageUrl }).then(res => res.data);
+}

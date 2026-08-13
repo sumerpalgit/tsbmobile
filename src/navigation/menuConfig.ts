@@ -1,5 +1,5 @@
 import type { IconName } from '../components/icons/Icon';
-import type { DrawerParamList, MainTabParamList } from './types';
+import type { AppStackParamList, DrawerParamList, MainTabParamList } from './types';
 
 /**
  * The app menu, in one place.
@@ -12,6 +12,11 @@ import type { DrawerParamList, MainTabParamList } from './types';
  * screen — handy while walking the app in Phase 0, and a reminder of what is
  * still stubbed.
  */
+
+/** Route keys whose params are exactly `undefined` — `.navigate(name)` with no second argument
+ * only type-checks cleanly across a mixed-param-shape param list (`AppStackParamList` has plenty
+ * of routes needing real params, e.g. `CreateEvent`/`EventDetail`) when narrowed to this subset. */
+type UndefinedParamRoutes<T> = { [K in keyof T]: T[K] extends undefined ? K : never }[keyof T];
 
 export type TabItem = {
   name: keyof MainTabParamList;
@@ -39,7 +44,12 @@ export type DrawerItem =
       label: string;
       icon: IconName;
       phase?: string;
-    };
+    }
+  /** Routes one level up into the parent `AppStackParamList` (via `getParent()`) rather than a
+   * drawer-nested screen — Settings is a plain pushed screen (same treatment as Ad Management),
+   * reached from both this drawer row and the Profile menu's own "Settings" row, so both land on
+   * the exact same real screen. See `DrawerContent.tsx`. */
+  | { kind: 'stackScreen'; name: UndefinedParamRoutes<AppStackParamList>; label: string; icon: IconName };
 
 /**
  * Item list, order, icons and labels match the app bar/drawer reference (`TSB Home FV.html`)
@@ -79,10 +89,9 @@ export const DRAWER_ITEMS: DrawerItem[] = [
     icon: 'resources',
   },
   {
-    kind: 'screen',
-    name: 'Settings',
+    kind: 'stackScreen',
+    name: 'SettingsHome',
     label: 'Settings',
     icon: 'settings',
-    phase: 'Phase 7',
   },
 ];

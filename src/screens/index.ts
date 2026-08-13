@@ -16,6 +16,14 @@ export { default as AdCampaignEditScreen } from './AdCampaignEditScreen';
 export { default as CreateAdCampaignScreen } from './CreateAdCampaignScreen';
 export { default as ContributeResourceScreen } from './ContributeResourceScreen';
 export { default as PromptLibraryScreen } from './PromptLibraryScreen';
+export { default as SettingsHomeScreen } from './SettingsHomeScreen';
+export { default as SettingsAccountScreen } from './SettingsAccountScreen';
+export { default as SettingsProfileScreen } from './SettingsProfileScreen';
+export { default as SettingsMatchingScreen } from './SettingsMatchingScreen';
+export { default as SettingsNotificationsScreen } from './SettingsNotificationsScreen';
+export { default as SettingsPrivacyScreen } from './SettingsPrivacyScreen';
+export { default as SettingsBillingScreen } from './SettingsBillingScreen';
+export { default as SettingsSupportScreen } from './SettingsSupportScreen';
 export {
   PlaceholderScreen,
   createPlaceholderScreen,

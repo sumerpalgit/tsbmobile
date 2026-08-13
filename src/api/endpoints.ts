@@ -23,6 +23,32 @@ export const PROFILE_ENDPOINTS = {
   /** Single-profile lookup — matches web's real `profiles/[username]/page.tsx:634`
    * (`GET /api/profile/username/:username`). Username interpolated at the call site. */
   BY_USERNAME: '/profile/username',
+  /** `PUT` — shared by Settings' Account tab (`{name,phone,phone_country,timezone}`) and Profile
+   * tab (`{name,bio,city,headline}`) saves, same URL, disjoint partial bodies, matching web
+   * exactly (`page.tsx`'s `handleSavePersonalInfo`/`handleSaveProfileForm`). */
+  UPDATE: '/profile/update-profile',
+  UPDATE_PROFILE_IMAGE: '/profile/update-profile-image',
+  UPDATE_COVER_IMAGE: '/profile/update-cover-image',
+} as const;
+
+/** Settings — matches `webSrc/src/app/dashboard/settings/page.tsx`'s real `/api/settings/*`
+ * calls exactly (see the plan at `delightful-seeking-snowglobe.md`). Ids (`:id` on sessions)
+ * interpolated at the call site, matching `CHAT_ENDPOINTS`/`ADS_ENDPOINTS` convention. */
+export const SETTINGS_ENDPOINTS = {
+  CHANGE_PASSWORD: '/settings/change-password',
+  CHANGE_EMAIL: '/settings/change-email',
+  SESSIONS: '/settings/sessions',
+  LOGOUT_ALL_DEVICES: '/settings/logout-all-devices',
+  PAUSE_ACCOUNT: '/settings/pause-account',
+  ACCOUNT: '/settings/account',
+  VISIBILITY: '/settings/visibility',
+  MATCHING: '/settings/matching',
+  MATCHING_COUNTS: '/settings/matching-counts',
+  NOTIFICATION_PREFERENCES: '/settings/notification-preferences',
+  REQUEST_DATA_EXPORT: '/settings/request-data-export',
+  SUBSCRIPTION: '/settings/subscription',
+  PAYMENT_HISTORY: '/settings/payment-history',
+  SUPPORT_TICKET: '/settings/support-ticket',
 } as const;
 
 export const FEED_ENDPOINTS = {

@@ -2,12 +2,14 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import { Icon, IconName } from '../components/icons/Icon';
 import { Avatar } from '../components/Avatar';
 import { useMe } from '../hooks/useMe';
 import { DRAWER_ITEMS } from './menuConfig';
+import type { AppStackParamList } from './types';
 
 /**
  * Side menu contents — header (account avatar/name/role, close button) and item list match the
@@ -103,6 +105,21 @@ export function DrawerContent(props: DrawerContentComponentProps) {
                 isActive={activeTabName === item.name}
                 onPress={() => {
                   navigation.navigate('Tabs', { screen: item.name });
+                  navigation.closeDrawer();
+                }}
+              />
+            );
+          }
+
+          if (item.kind === 'stackScreen') {
+            return (
+              <MenuRow
+                key={item.name}
+                label={item.label}
+                icon={item.icon}
+                isActive={false}
+                onPress={() => {
+                  navigation.getParent<NativeStackNavigationProp<AppStackParamList>>()?.navigate(item.name);
                   navigation.closeDrawer();
                 }}
               />

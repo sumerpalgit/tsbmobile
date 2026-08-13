@@ -77,7 +77,10 @@ export type DrawerParamList = {
   MyActivities: undefined;
   MyEvents: undefined;
   MyResources: undefined;
-  Settings: undefined;
+  // Settings moved to `AppStackParamList` — a plain pushed screen like `AdManagement`, not a
+  // drawer-nested one, so both the Drawer's own row and the Profile menu's row converge on the
+  // exact same real screen instead of two separate destinations. See `menuConfig.ts`'s
+  // `stackScreen` `DrawerItem` variant.
 };
 
 /**
@@ -133,4 +136,18 @@ export type AppStackParamList = {
    * `Modal` reliability reasons as `CreateAdCampaign`/`ContributeResource` above. See `AiAssist`
    * above for how a selected prompt gets back to the chat. */
   PromptLibrary: { initialCategory?: string } | undefined;
+  /** Settings — reached from both the Profile menu's "Settings" row and the Drawer's own
+   * "Settings" row (see `menuConfig.ts`'s `stackScreen` variant + `DrawerContent.tsx`'s
+   * `getParent()` bubble-up), same "pushed, covers the bottom bar, owns its own header"
+   * treatment as `AdManagement`. One index screen + 7 separate pushed section screens, matching
+   * this app's Ad Management precedent over one screen with internal view-switching state — see
+   * the plan at `delightful-seeking-snowglobe.md`. */
+  SettingsHome: undefined;
+  SettingsAccount: undefined;
+  SettingsProfile: undefined;
+  SettingsMatching: undefined;
+  SettingsNotifications: undefined;
+  SettingsPrivacy: undefined;
+  SettingsBilling: undefined;
+  SettingsSupport: undefined;
 };
