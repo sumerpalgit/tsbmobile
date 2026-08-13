@@ -300,7 +300,7 @@ export function EventsFilterPage({
 
         <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin, paddingBottom: 16 + insets.bottom }]}>
           <Button label="Clear all" icon="close" variant="secondary" disabled={activeCount === 0} onPress={() => setDraft(EMPTY_EVENTS_FILTERS)} />
-          <Button label="Apply filters" icon="checkmark" variant="primary" fullWidth onPress={() => onApply(draft)} />
+          <Button label="Apply filters" icon="checkmark" variant="primary" fullWidth color="#182E43" onPress={() => onApply(draft)} />
         </View>
       </Animated.View>
     </Modal>

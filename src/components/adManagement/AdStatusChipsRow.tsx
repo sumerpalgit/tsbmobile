@@ -42,8 +42,8 @@ export function AdStatusChipsRow({
               {
                 borderRadius: radius.lg,
                 borderWidth: borderWidth.thin,
-                borderColor: isActive ? colors.gold : colors.border,
-                backgroundColor: isActive ? colors.gold : colors.surface,
+                borderColor: isActive ? '#182E43' : colors.border,
+                backgroundColor: isActive ? '#182E43' : colors.surface,
               },
               pressed && styles.pressed,
             ]}

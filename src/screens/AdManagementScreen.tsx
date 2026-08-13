@@ -76,7 +76,7 @@ function AdManagementScreen() {
         rightAction={
           <Pressable
             onPress={() => navigation.navigate('CreateAdCampaign')}
-            style={({ pressed }) => [styles.newButton, { backgroundColor: colors.gold, borderRadius: radius.md }, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.newButton, { backgroundColor: '#182E43', borderRadius: radius.md }, pressed && styles.pressed]}
           >
             <Plus size={14} color="#fff" strokeWidth={2.2} />
             <Text style={[fonts.bold, { fontSize: fontSize.small, color: '#fff' }]}>New Campaign</Text>

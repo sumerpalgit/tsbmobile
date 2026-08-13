@@ -221,7 +221,7 @@ export function CreateCampaignWizard({ onClose }: { onClose: () => void }) {
           disabled={advancing || submitting}
           style={({ pressed }) => [
             styles.nextButton,
-            { backgroundColor: colors.gold, borderRadius: radius.xl, opacity: advancing || submitting ? 0.7 : 1 },
+            { backgroundColor: '#182E43', borderRadius: radius.xl, opacity: advancing || submitting ? 0.7 : 1 },
             pressed && !(advancing || submitting) && styles.pressed,
           ]}
         >

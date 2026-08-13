@@ -121,6 +121,14 @@ export function NewMessageOverlay({
               <ChevronRight size={13} color={colors.gold} strokeWidth={1.6} />
             </Pressable>
           ))}
+          {!query.trim() ? (
+            <View style={styles.empty}>
+              <Text style={[fonts.regular, { fontSize: fontSize.small + 1, color: colors.ink3 }]}>
+                Start typing to search for people
+              </Text>
+            </View>
+          ) : null}
+
           {query.trim() && !searching && results.length === 0 ? (
             <View style={styles.empty}>
               <Text style={[fonts.bold, { fontSize: fontSize.subtitle, color: colors.ink }]}>No members found</Text>

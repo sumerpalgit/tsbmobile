@@ -248,7 +248,7 @@ export function AdFiltersPanel({
             </Pressable>
             <Pressable
               onPress={() => onApply(draft)}
-              style={({ pressed }) => [styles.applyButton, { backgroundColor: colors.gold, borderRadius: radius.lg }, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.applyButton, { backgroundColor: '#182E43', borderRadius: radius.lg }, pressed && styles.pressed]}
             >
               <Check size={15} color="#fff" strokeWidth={1.9} />
               <Text style={[fonts.bold, { fontSize: fontSize.body, color: '#fff' }]}>Apply filters</Text>

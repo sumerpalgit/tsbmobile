@@ -17,6 +17,7 @@ export function Button({
   fullWidth = false,
   disabled = false,
   onPress,
+  color,
 }: {
   label: string;
   icon?: IconName;
@@ -25,6 +26,9 @@ export function Button({
   fullWidth?: boolean;
   disabled?: boolean;
   onPress: () => void;
+  /** Overrides the primary variant's default `colors.gold` background — per-instance, so other
+   * callers of this shared component are unaffected. */
+  color?: string;
 }) {
   const { colors, fonts, fontSize, borderWidth, elevation } = useTheme();
   const isPrimary = variant === 'primary';
@@ -40,7 +44,7 @@ export function Button({
         {
           borderWidth: isPrimary ? 0 : borderWidth.thin,
           borderColor: colors.border,
-          backgroundColor: isPrimary ? colors.gold : colors.surface,
+          backgroundColor: isPrimary ? color ?? colors.gold : colors.surface,
           opacity: disabled ? 0.5 : pressed ? 0.65 : 1,
         },
         isPrimary && elevation('sm'),

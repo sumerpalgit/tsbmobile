@@ -2,7 +2,9 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
-import { ChevronLeft, MoreVertical, Plus } from 'lucide-react-native';
+// 'MoreVertical' is only used by the commented-out "Conversation options" button below — re-add
+// to this import when re-enabling it.
+import { ChevronLeft, Plus } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { Icon } from '../icons/Icon';
 import { Avatar } from '../Avatar';
@@ -113,9 +115,10 @@ export function MessagesHeader(
         {/* <IconButton accessibilityLabel="View profile" onPress={props.onViewProfile} light>
           <Icon name="account" size={17} color="rgba(255,255,255,0.85)" />
         </IconButton> */}
-        <IconButton accessibilityLabel="Conversation options" onPress={props.onOptions} light>
+        {/* Temporarily commented out per explicit request. */}
+        {/* <IconButton accessibilityLabel="Conversation options" onPress={props.onOptions} light>
           <MoreVertical size={17} color="rgba(255,255,255,0.85)" strokeWidth={1.8} />
-        </IconButton>
+        </IconButton> */}
       </View>
     </LinearGradient>
   );

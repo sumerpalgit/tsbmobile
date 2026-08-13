@@ -262,7 +262,7 @@ export function ContributeResourceSheet({ onClose }: { onClose: () => void }) {
         <Pressable
           onPress={handleSubmit}
           disabled={submitting}
-          style={({ pressed }) => [styles.submitButton, { backgroundColor: colors.gold, borderRadius: radius.lg, opacity: submitting ? 0.7 : 1 }, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.submitButton, { backgroundColor: '#182E43', borderRadius: radius.lg, opacity: submitting ? 0.7 : 1 }, pressed && styles.pressed]}
         >
           {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[fonts.bold, { fontSize: fontSize.title, color: '#fff' }]}>Submit resource</Text>}
         </Pressable>
