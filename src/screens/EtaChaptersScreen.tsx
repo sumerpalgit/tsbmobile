@@ -2,10 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
+  Keyboard,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -21,8 +20,9 @@ import { useTheme } from '../theme';
 import { useMe } from '../hooks/useMe';
 import { useMyEtaChapters } from '../hooks/useMyEtaChapters';
 import { useEtaChapterMutations } from '../hooks/useEtaChapterMutations';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { useWebSocket } from '../store/SocketContext';
 import { fetchEtaGroupMemberCount, fetchEtaGroupMessages, searchEtaChapters, sendEtaGroupMessage } from '../api/eta';
+import { initConversation, leaveConversation } from '../api/wsConversation';
 import { appendUniqueMessages, groupMessages } from '../types/messages';
 import type { AppStackParamList, DrawerParamList } from '../navigation/types';
 import type { EtaGroup } from '../types/etaChapters';
@@ -150,24 +150,75 @@ function EtaChaptersScreen() {
   const prevContentHeightRef = useRef(0);
   const pendingScrollAdjustRef = useRef<number | null>(null);
   const lastLoadMoreAtRef = useRef(0);
+  // Content can keep growing for a bit after the first `onContentSizeChange` fires — most often
+  // `ChapterAdBanner`'s async ad fetch popping in a ~130px banner it rendered as `null` while
+  // loading, or a message avatar image resolving its real dimensions — so a single scroll-to-
+  // bottom right after opening a chat can land short of the true bottom. Matches
+  // `MessagesScreen.tsx`'s own `autoScrollSettleTimerRef`: instead of clearing `shouldAutoScrollRef`
+  // on the first growth, this timer pushes the "stop tracking" moment back on every further growth
+  // and only lets go after a brief quiet period.
+  const autoScrollSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeChatChapterRef = useRef<EtaGroup | null>(null);
   useEffect(() => {
     activeChatChapterRef.current = activeChatChapter;
+  }, [activeChatChapter]);
+
+  // Registers this socket into the open chapter's broadcast room — matches web's own `useEffect`
+  // keyed on `selectedGroup` in `my-eta-chapters/page.tsx` (`initEtaConversation`/
+  // `leaveEtaConversation`). This was missing entirely on mobile and is the actual root cause of
+  // live messages from web never arriving: group broadcasts are room-scoped on the WS server, not
+  // sent to every connected socket, so without this call mobile's socket was never a member of
+  // any chapter's room regardless of who sent the message. See `api/wsConversation.ts`.
+  useEffect(() => {
+    if (!activeChatChapter) return;
+    const id = activeChatChapter.id;
+    initConversation(id);
+    return () => {
+      leaveConversation(id);
+    };
   }, [activeChatChapter]);
 
   const scrollChatToBottom = useCallback((animated = true) => {
     requestAnimationFrame(() => chatListRef.current?.scrollToEnd({ animated }));
   }, []);
 
+  // Manual keyboard tracking instead of `KeyboardAvoidingView` — same root cause as
+  // `ChangePasswordSheet.tsx`/`ContributeResourceSheet.tsx`/`CreateChapterScreen.tsx`'s own doc
+  // comments: `KeyboardAvoidingView`'s resize behavior doesn't reliably apply in this app's more
+  // deeply-nested screens (there it was a `Modal`; here it's this screen's position inside the
+  // Drawer navigator), leaving the composer sitting under the keyboard and, on dismiss, a
+  // residual empty gap where the miscalculated height never fully resets. `marginBottom:
+  // chatKeyboardHeight` on the chat column reproduces what `KeyboardAvoidingView` was meant to do,
+  // and — since we now own the show/hide event directly — also re-scrolls to the newest message
+  // once the keyboard has finished animating in, which nothing was doing before.
+  const [chatKeyboardHeight, setChatKeyboardHeight] = useState(0);
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', e => {
+      setChatKeyboardHeight(e.endCoordinates?.height ?? 0);
+      if (activeChatChapterRef.current) {
+        setTimeout(() => scrollChatToBottom(true), 50);
+      }
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setChatKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [scrollChatToBottom]);
+
   // Matches web's `handleIncomingMessage` filtering for `NEW_MESSAGE` events scoped to a
   // `group_id` — only appends when it matches the chapter currently open in this screen.
+  // `String(...)` on both sides of the id comparison guards against the raw socket payload's
+  // `group_id` arriving as a different primitive type than `EtaGroup.id` (always normalized to a
+  // string by `api/eta.ts`'s `mapGroup`-style helpers) — a real REST-vs-WS type mismatch would
+  // silently fail every `!==` check and drop every live message for that chapter.
   const handleIncomingChatMessage = useCallback(
     (data: any) => {
       if (data?.type !== 'NEW_MESSAGE') return;
       const m = data.payload;
       if (!m || m.sender_id === me?.id) return;
       const groupId = m.group_id;
-      if (!groupId || groupId !== activeChatChapterRef.current?.id) return;
+      if (!groupId || String(groupId) !== activeChatChapterRef.current?.id) return;
       setChatMessages(prev => {
         if (prev.some(msg => msg.id === m.id)) return prev;
         shouldAutoScrollRef.current = true;
@@ -178,7 +229,12 @@ function EtaChaptersScreen() {
             message: m.message,
             created_at: m.created_at,
             isSenderMe: false,
-            sender: { name: m.sender?.name || 'Unknown', username: m.sender?.username, profile_img: m.sender?.profile_img },
+            // Unlike the REST fetch (`fetchEtaGroupMessages`), which nests sender info under a
+            // `sender` object, the raw WS `NEW_MESSAGE` payload for group/chapter chat sends flat
+            // `sender_name`/`sender_username`/`sender_profile_img` fields instead — confirmed
+            // against web's own `handleIncomingMessage` (`my-eta-chapters/page.tsx:799`), which
+            // reads these same flat fields rather than a nested `m.sender`.
+            sender: { name: m.sender_name || 'Unknown', username: m.sender_username, profile_img: m.sender_profile_img },
           },
         ];
       });
@@ -267,7 +323,11 @@ function EtaChaptersScreen() {
       pendingScrollAdjustRef.current = null;
     } else if (shouldAutoScrollRef.current) {
       scrollChatToBottom(false);
-      shouldAutoScrollRef.current = false;
+      if (autoScrollSettleTimerRef.current) clearTimeout(autoScrollSettleTimerRef.current);
+      autoScrollSettleTimerRef.current = setTimeout(() => {
+        shouldAutoScrollRef.current = false;
+        autoScrollSettleTimerRef.current = null;
+      }, 400);
     }
     prevContentHeightRef.current = height;
   };
@@ -452,7 +512,7 @@ function EtaChaptersScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.pageBg }]}>
       {activeChatChapter ? (
-        <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+        <View style={[styles.screen, { marginBottom: chatKeyboardHeight }]}>
           <ChapterChatHeader
             name={activeChatChapter.name}
             memberCount={chatMemberCount}
@@ -475,7 +535,7 @@ function EtaChaptersScreen() {
               onScroll={handleChatScroll}
               onContentSizeChange={handleChatContentSizeChange}
               scrollEventThrottle={32}
-              keyboardDismissMode="on-drag"
+              keyboardDismissMode="none"
               keyboardShouldPersistTaps="handled"
               ListHeaderComponent={
                 <View style={styles.chatHeaderItems}>
@@ -495,7 +555,7 @@ function EtaChaptersScreen() {
           )}
 
           <ChapterChatComposer value={chatInput} onChangeText={setChatInput} onSend={handleSendChat} canPost={isMember(activeChatChapter)} />
-        </KeyboardAvoidingView>
+        </View>
       ) : (
         <>
           <EtaChaptersHeader

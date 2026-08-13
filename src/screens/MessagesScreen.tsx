@@ -21,7 +21,8 @@ import { useTheme } from '../theme';
 import { useMe } from '../hooks/useMe';
 import { useConversations } from '../hooks/useConversations';
 import { useMessageMutations } from '../hooks/useMessageMutations';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { useWebSocket } from '../store/SocketContext';
+import { initConversation, leaveConversation } from '../api/wsConversation';
 import { deleteMessage, editMessage, fetchMessages, sendMessage, uploadChatFile } from '../api/messages';
 import { fetchProfileByUsername } from '../api/profile';
 import { CONVERSATIONS_QUERY_KEY } from '../api/queryKeys';
@@ -164,6 +165,21 @@ export default function MessagesScreen() {
   useEffect(() => {
     conversationsRef.current = conversations;
   }, [conversations]);
+
+  // Registers this socket into the open conversation's broadcast room — matches web's own
+  // `useEffect` keyed on `selectedConversationId` in `messages/page.tsx` (`conversation-init`/
+  // `conversation-leave` against the separate WS/chat-notification server). DMs still deliver
+  // live without this (the WS server apparently also targets 1:1 messages directly by recipient
+  // user id), but this closes the same gap `EtaChaptersScreen.tsx` had — group chat has no such
+  // fallback and silently received nothing without it. See `api/wsConversation.ts`.
+  useEffect(() => {
+    if (!activeConversationId) return;
+    const id = activeConversationId;
+    initConversation(id);
+    return () => {
+      leaveConversation(id);
+    };
+  }, [activeConversationId]);
 
   const showToast = (text1: string, type: 'success' | 'error' | 'info' = 'success') => Toast.show({ type, text1 });
 

@@ -13,6 +13,7 @@ import Toast from 'react-native-toast-message';
 import { SplashScreen } from './src/screens';
 import { RootNavigator } from './src/navigation';
 import { AuthProvider, useAuth } from './src/store/AuthContext';
+import { SocketProvider } from './src/store/SocketContext';
 import { ThemeProvider, useTheme } from './src/theme';
 import { queryClient } from './src/config/queryClient';
 
@@ -60,10 +61,12 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <AuthProvider>
-            <SafeAreaProvider>
-              <AppContent />
-              <Toast />
-            </SafeAreaProvider>
+            <SocketProvider>
+              <SafeAreaProvider>
+                <AppContent />
+                <Toast />
+              </SafeAreaProvider>
+            </SocketProvider>
           </AuthProvider>
         </ThemeProvider>
       </QueryClientProvider>
