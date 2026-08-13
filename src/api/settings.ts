@@ -142,8 +142,9 @@ export async function fetchNotificationPrefs(): Promise<NotificationPrefs> {
   return mapNotifPrefs(data?.data ?? data);
 }
 
-export function saveNotificationPrefs(prefs: NotificationPrefs) {
-  return apiClient.put(SETTINGS_ENDPOINTS.NOTIFICATION_PREFERENCES, prefs).then(res => res.data);
+export async function saveNotificationPrefs(prefs: NotificationPrefs): Promise<NotificationPrefs> {
+  const data = await apiClient.put(SETTINGS_ENDPOINTS.NOTIFICATION_PREFERENCES, prefs).then(res => res.data);
+  return mapNotifPrefs(data?.data ?? data);
 }
 
 /** Response shape genuinely varies on real web: an immediate `{data:...}` (a downloadable blob,
