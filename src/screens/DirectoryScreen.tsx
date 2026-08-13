@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { DrawerActions, useNavigation, useRoute } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -87,34 +87,28 @@ export default function DirectoryScreen() {
   const activeFilterCount = [filters.query.trim(), filters.roleType, filters.subCategory, filters.city].filter(
     Boolean,
   ).length;
-  // "Saved members" is still a real, independent list (`GET /saved-contacts`, via `savedProfiles`)
-  // rather than the currently-loaded search page filtered down to saved usernames — a saved member
-  // outside the loaded/filtered page still needs to show up here. But the role/sub-category/city/
-  // query filters the user picked before switching to this view were being silently dropped (the
-  // saved view showed *every* saved member regardless of the active filters) — applied client-side
-  // here instead, since `/saved-contacts` has no filter params of its own to push this down to.
-  const visibleProfiles = useMemo(() => {
-    if (!showingSaved) return profiles;
-    const q = filters.query.trim().toLowerCase();
-    return savedProfiles.filter(p => {
-      if (filters.roleType && p.role_type !== filters.roleType) return false;
-      if (filters.subCategory && p.sub_category !== filters.subCategory) return false;
-      if (
-        filters.city &&
-        !(p.city === filters.city.city && p.state_code === filters.city.stateCode && p.country_code === filters.city.countryCode)
-      ) {
-        return false;
-      }
-      if (q && !(p.name?.toLowerCase().includes(q) || p.bio?.toLowerCase().includes(q))) return false;
-      return true;
-    });
-  }, [showingSaved, profiles, savedProfiles, filters]);
+  // "Saved members" is always the complete, unfiltered `GET /saved-contacts` list — matches real
+  // web exactly (`directory/page.tsx` around line 1244: "SAVED MEMBERS — hidden when filters
+  // active"). Web doesn't filter its Saved section at all; the moment any filter is active it
+  // just hides that section entirely and shows only the filtered "All Members" list instead —
+  // there's no combined saved+filtered state on web to begin with. Mobile's Saved is a toggle
+  // (not a second stacked section), so the closest real-behavior match is this: always show the
+  // full saved list regardless of `filters`, rather than either hiding the toggle or (the earlier,
+  // wrong attempt) filtering the saved list client-side, which invented a "filtered saved" concept
+  // web doesn't have.
+  const visibleProfiles = showingSaved ? savedProfiles : profiles;
   const listIsLoading = showingSaved ? isLoadingSaved : isLoading;
 
   const handleToggleSaved = () => {
     setShowingSaved(v => {
       const next = !v;
-      if (next) refetchSaved();
+      if (next) {
+        refetchSaved();
+        // Saved always shows the full unfiltered list (see `visibleProfiles` above) — clearing
+        // here keeps the filter pills honest instead of showing e.g. "Searcher" as still active
+        // while the list on screen isn't actually filtered by it.
+        clearFilters();
+      }
       return next;
     });
   };

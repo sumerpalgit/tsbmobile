@@ -281,8 +281,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   linkedinWell: {
-    width: 32,
-    height: 32,
+    // Matches `messageButton`'s full 44 height so the LinkedIn well's visible box aligns with
+    // the Message button's bordered pill next to it, instead of looking shorter inside its own
+    // (already-44) tap target.
+    width: 44,
+    height: 44,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
