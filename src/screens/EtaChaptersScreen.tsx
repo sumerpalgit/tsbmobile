@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -75,6 +76,7 @@ type ChatThreadItem =
  */
 function EtaChaptersScreen() {
   const { colors, fonts, fontSize, radius, spacing } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
   // Separate from `navigation` above (drawer-level) — `CreateAdCampaign` lives one level up on
   // the parent stack (`AppStackParamList`), same reasoning `DrawerNavigator.tsx` itself documents
@@ -661,7 +663,7 @@ function EtaChaptersScreen() {
               </View>
             )}
 
-            <View style={{ height: spacing.xxxl }} />
+            <View style={{ height: spacing.xxxl + insets.bottom }} />
           </ScrollView>
         </>
       )}

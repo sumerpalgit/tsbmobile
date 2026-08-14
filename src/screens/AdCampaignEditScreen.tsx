@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -87,6 +88,7 @@ type EditDraft = {
  * upload placeholder — that was a real gap in the first pass of this screen. */
 function AdCampaignEditScreen() {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, 'AdCampaignEdit'>>();
   const { adId } = route.params;
@@ -211,7 +213,7 @@ function AdCampaignEditScreen() {
     <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
       <AdScreenHeader title="Edit campaign" onBack={() => navigation.goBack()} />
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: styles.scroll.paddingBottom + insets.bottom }]}>
         {saved && (
           <View style={[styles.savedBanner, { backgroundColor: colors.successSurface, borderColor: colors.success, borderRadius: radius.lg }]}>
             <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.success }]}>Saved — redirecting…</Text>

@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { FlatList, Linking, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -31,6 +32,7 @@ function normalizeUrl(url: string): string {
  * the shared `TopBar`, same precedent as My Events/ETA Chapters/Messages/AI Assist. */
 export default function MyResourcesScreen() {
   const { colors, fonts, fontSize, radius } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
   // Separate from `navigation` above (drawer-level) — `ContributeResource` lives one level up on
   // the parent stack (`AppStackParamList`), same reasoning `DrawerNavigator.tsx` itself documents
@@ -119,7 +121,7 @@ export default function MyResourcesScreen() {
       <FlatList
         data={listIsLoading ? [] : visibleResources}
         keyExtractor={item => String(item.id)}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: 24 + insets.bottom }]}
         refreshControl={
           activeTab === 'all' ? <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} /> : undefined
         }
