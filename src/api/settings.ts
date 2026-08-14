@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { apiClient } from './client';
 import { SETTINGS_ENDPOINTS } from './endpoints';
 import {
@@ -29,8 +30,23 @@ export function changePassword(currentPassword: string, newPassword: string) {
     .then(res => res.data);
 }
 
-export function changeEmail(newEmail: string) {
-  return apiClient.post(SETTINGS_ENDPOINTS.CHANGE_EMAIL, { newEmail }).then(res => res.data);
+/** Step 1 of the OTP-based email change (per the backend team's spec, 2026-08-14) — `oldEmail`
+ * must exactly match the logged-in account's current email (caller passes the value from
+ * `useMe()`, not user-typed text) and `platform` (`Platform.OS`, literally `'ios'`/`'android'`)
+ * is what tells the backend to send a 4-digit code instead of the old link-based flow. Doubles
+ * as the "resend code" call — the backend has no separate resend endpoint, calling this again
+ * with the same emails just generates a fresh code and invalidates the old one. */
+export function changeEmail(oldEmail: string, newEmail: string) {
+  return apiClient
+    .post(SETTINGS_ENDPOINTS.CHANGE_EMAIL, { oldEmail, newEmail, platform: Platform.OS })
+    .then(res => res.data);
+}
+
+/** Step 2 — verifies the 4-digit code and, only on success, actually updates the account's
+ * email server-side. Caller must invalidate `useMe()`'s query on success so the new email shows
+ * up locally; on failure the account email is untouched (no rollback needed on this side). */
+export function verifyEmailChangeOtp(code: string) {
+  return apiClient.post(SETTINGS_ENDPOINTS.VERIFY_EMAIL_CHANGE_OTP, { code }).then(res => res.data);
 }
 
 function mapSession(raw: any): Session {

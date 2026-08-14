@@ -50,6 +50,7 @@ function SignupScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [agreeError, setAgreeError] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
 
   const {
     control,
@@ -269,16 +270,18 @@ function SignupScreen() {
             )}
           </View>
 
-          {/* Submit */}
+          {/* Submit — also disabled while a Google/LinkedIn sign-in is in flight (`socialLoading`),
+              so a stray tap here can't fire a second, conflicting sign-in mid-flow. */}
           <PrimaryButton
             label="Create account"
             loadingLabel="Creating account…"
             loading={isSubmitting}
+            disabled={socialLoading}
             onPress={handleSubmit(onValid)}
           />
 
           <AuthDivider label="OR" />
-          <SocialSignIn />
+          <SocialSignIn onLoadingChange={setSocialLoading} />
 
           {/* Login link */}
           <View style={authStyles.footer}>

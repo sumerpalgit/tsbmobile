@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LogOut } from 'lucide-react-native';
 import { useTheme } from '../theme';
+import { useAuth } from '../store/AuthContext';
 import { Icon, IconName } from '../components/icons/Icon';
 import { Avatar } from '../components/Avatar';
 import { useMe } from '../hooks/useMe';
+import { ConfirmDialog } from '../components/events/ConfirmDialog';
 import { DRAWER_ITEMS } from './menuConfig';
 import type { AppStackParamList } from './types';
 
@@ -15,8 +18,11 @@ import type { AppStackParamList } from './types';
  * Side menu contents — header (account avatar/name/role, close button) and item list match the
  * app bar/drawer reference (`TSB Home FV.html`), replacing the earlier logo-header version.
  * Item list itself comes from `menuConfig.ts`'s `DRAWER_ITEMS` (see its doc comment for how it
- * differs from Phase 0's original plan). Sign Out isn't here — it already lives on the Profile
- * screen. No footer/upsell card — not part of the app.
+ * differs from Phase 0's original plan). Sign Out is a fixed footer row below the scrollable
+ * list (not a `DRAWER_ITEMS` entry — it's an action, not a navigation destination, and needs its
+ * own danger-red styling `MenuRow` doesn't support), same confirm-dialog treatment as the
+ * Profile screen's own Sign out row (`ProfileScreen.tsx`) rather than signing out immediately.
+ * No footer/upsell card otherwise — not part of the app.
  */
 
 export function DrawerContent(props: DrawerContentComponentProps) {
@@ -24,6 +30,8 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   const { colors, fonts, fontSize, spacing, radius, borderWidth, letterSpacing } = useTheme();
   const insets = useSafeAreaInsets();
   const { data: me } = useMe();
+  const { logout } = useAuth();
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
 
   // `Tabs` is index 0 of the drawer; anything else means a drawer screen is
   // showing and should be highlighted.
@@ -138,7 +146,35 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         })}
       </ScrollView>
 
+      <View
+        style={[
+          styles.footer,
+          { paddingHorizontal: spacing.sm, borderTopColor: colors.borderSoft, borderTopWidth: borderWidth.thin },
+        ]}
+      >
+        <Pressable
+          onPress={() => setSignOutConfirmOpen(true)}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.row, { backgroundColor: pressed ? colors.cream : 'transparent' }]}
+        >
+          <LogOut size={21} color={colors.danger} strokeWidth={1.8} />
+          <Text style={[fonts.bold, { fontSize: fontSize.ui, color: colors.danger }]} numberOfLines={1}>
+            Sign out
+          </Text>
+        </Pressable>
+      </View>
+
       <View style={{ height: insets.bottom }} />
+
+      <ConfirmDialog
+        visible={signOutConfirmOpen}
+        title="Sign out?"
+        message="You'll need to sign in again to access your account."
+        confirmLabel="Sign out"
+        destructive
+        onConfirm={() => { setSignOutConfirmOpen(false); navigation.closeDrawer(); logout(); }}
+        onCancel={() => setSignOutConfirmOpen(false)}
+      />
     </View>
   );
 }
@@ -203,6 +239,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: 7,
     paddingVertical: 2,
+  },
+  footer: {
+    paddingTop: 8,
   },
   row: {
     flexDirection: 'row',

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import { normalizeProfile } from '../api/directory';
 import { TopBar } from '../components/TopBar';
 import { IdentityCard } from '../components/profile/IdentityCard';
 import { ProfileMenuList } from '../components/profile/ProfileMenuList';
+import { ConfirmDialog } from '../components/events/ConfirmDialog';
 import { AppStackParamList } from '../navigation/types';
 
 /**
@@ -40,6 +41,7 @@ function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { data: user, isLoading } = useMe();
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
 
   const pushedContext = navigation.getState()?.type === 'stack';
   const profile = user?.profile ? normalizeProfile(user.profile) : null;
@@ -71,7 +73,7 @@ function ProfileScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
           <Pressable
-            onPress={logout}
+            onPress={() => setSignOutConfirmOpen(true)}
             accessibilityRole="button"
             style={({ pressed }) => [styles.signOutRow, pressed && styles.pressed]}
           >
@@ -80,6 +82,16 @@ function ProfileScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <ConfirmDialog
+        visible={signOutConfirmOpen}
+        title="Sign out?"
+        message="You'll need to sign in again to access your account."
+        confirmLabel="Sign out"
+        destructive
+        onConfirm={() => { setSignOutConfirmOpen(false); logout(); }}
+        onCancel={() => setSignOutConfirmOpen(false)}
+      />
     </View>
   );
 }

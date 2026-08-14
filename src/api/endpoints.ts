@@ -36,6 +36,7 @@ export const PROFILE_ENDPOINTS = {
 export const SETTINGS_ENDPOINTS = {
   CHANGE_PASSWORD: '/settings/change-password',
   CHANGE_EMAIL: '/settings/change-email',
+  VERIFY_EMAIL_CHANGE_OTP: '/settings/verify-email-change-otp',
   SESSIONS: '/settings/sessions',
   LOGOUT_ALL_DEVICES: '/settings/logout-all-devices',
   PAUSE_ACCOUNT: '/settings/pause-account',

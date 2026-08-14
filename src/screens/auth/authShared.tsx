@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { ChevronLeft } from 'lucide-react-native';
@@ -12,7 +12,8 @@ import { WEB_BASE_URL } from '@env';
 import { useTheme } from '../../theme';
 import { useAuth } from '../../store/AuthContext';
 import { AuthStackParamList } from '../../navigation/types';
-import { oauthSignIn } from '../../api/auth';
+import { applyOAuthSession, oauthSignIn } from '../../api/auth';
+import { setLinkedInSignInInFlight } from './linkedInSignInState';
 
 GoogleSignin.configure({
   webClientId: '571675034140-q8rhmsmidot1tjeutu5hrovthu29clut.apps.googleusercontent.com',
@@ -31,6 +32,22 @@ const AUTH_LOGO = require('../../assets/images/AuthLogo.png');
  */
 
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Minimal `?key=value&...` parser for a `tsb://` deep link URL — avoids depending on the `URL`/
+ * `URLSearchParams` globals, which aren't guaranteed polyfilled in this RN environment and aren't
+ * used anywhere else in the codebase. */
+function parseQueryParams(url: string): Record<string, string> {
+  const queryStart = url.indexOf('?');
+  if (queryStart === -1) return {};
+  return url
+    .slice(queryStart + 1)
+    .split('&')
+    .reduce((acc, pair) => {
+      const [key, value] = pair.split('=');
+      if (key) acc[decodeURIComponent(key)] = decodeURIComponent(value ?? '');
+      return acc;
+    }, {} as Record<string, string>);
+}
 
 /** Google "G" mark, copied verbatim from the design file's inline SVG (viewBox 0 0 18 18). */
 export function GoogleIcon() {
@@ -100,12 +117,19 @@ export function SocialButton({
   );
 }
 
-/** The Google + LinkedIn button pair, identical on every auth sheet. */
-export function SocialSignIn() {
+/** The Google + LinkedIn button pair, identical on every auth sheet. `onLoadingChange` fires with
+ * whether either social flow is in progress — `LoginScreen` uses it to disable its own email/
+ * password submit button for that window, so a tap there can't fire a second, conflicting sign-in
+ * while a LinkedIn/Google one is still resolving. */
+export function SocialSignIn({ onLoadingChange }: { onLoadingChange?: (loading: boolean) => void }) {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const { login } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
+
+  useEffect(() => {
+    onLoadingChange?.(googleLoading || linkedinLoading);
+  }, [googleLoading, linkedinLoading, onLoadingChange]);
 
   async function handleGoogleSignIn() {
     console.log('[GoogleSignIn] button pressed');
@@ -164,23 +188,23 @@ export function SocialSignIn() {
   /** Opens webSrc's own LinkedIn sign-in flow rather than doing OAuth natively — LinkedIn's
    * code-for-token exchange needs a client secret that only webSrc's server holds (same secret
    * the "Continue with LinkedIn" button on the website flow uses). webSrc redirects back into
-   * the app via `callbackURL`, landing on the tsb://linkedin-callback deep link
-   * (`LinkedInCallbackScreen`), which does the actual session persisting/navigation once webSrc
-   * hands back a token.
+   * the app via `callbackURL`, `tsb://linkedin-callback?token=...&complete=...`.
    *
    * Uses `InAppBrowser.openAuth` (Custom Tabs on Android, `ASWebAuthenticationSession` on iOS)
    * instead of a bare `Linking.openURL` specifically because it resolves a real promise once the
    * browser navigates back to the app — that's what lets the spinner cover the *whole* round
    * trip (open → LinkedIn → webSrc → back) instead of just the instant it takes the OS to bring
    * the browser to front, and lets a cancelled/dismissed session be told apart from a genuine
-   * failure so cancelling never shows an error toast. `openAuth`'s own redirect capture doesn't
-   * reliably also fire the app's normal URL-scheme handler on every platform (`
-   * ASWebAuthenticationSession` in particular consumes it internally), so a successful result's
-   * `url` is explicitly re-opened via `Linking.openURL` — that's what actually routes into
-   * `RootNavigator`'s deep-link config and `LinkedInCallbackScreen`, keeping all the existing
-   * token/session logic there unduplicated. Falls back to a bare `Linking.openURL` if
-   * `InAppBrowser` isn't available on this device (that library's own recommended pattern) —
-   * same behavior as before this change, just for the rare device that doesn't support it. */
+   * failure so cancelling never shows an error toast. The successful result's `url` is parsed and
+   * applied right here (`applyOAuthSession`/`login`) rather than re-opened via `Linking.openURL` —
+   * on Android the OS already redelivers that same `tsb://` URL to this (singleTask) activity on
+   * its own the moment the Custom Tab redirects, independently of anything this function does, so
+   * explicitly re-opening it a second time raced a redundant navigation against the one the OS
+   * had already triggered (see `LinkedInCallbackScreen`, which still handles that OS-delivered
+   * case — this function no longer needs to depend on it firing at all). Falls back to a bare
+   * `Linking.openURL` if `InAppBrowser` isn't available on this device (that library's own
+   * recommended pattern) — that path still lands on `LinkedInCallbackScreen` via the deep link,
+   * unchanged. */
   async function handleLinkedInSignIn() {
     console.log('[LinkedInSignIn] button pressed');
     setLinkedinLoading(true);
@@ -189,11 +213,46 @@ export function SocialSignIn() {
       const url = `${WEB_BASE_URL}/mobile-auth/linkedin?callbackURL=${callbackURL}`;
 
       if (await InAppBrowser.isAvailable()) {
+        // Set before `openAuth` (not after it resolves) — the OS can redeliver the `tsb://`
+        // redirect to this activity at any point during the Custom Tab session, and
+        // `RootNavigator`'s deep-link `subscribe` needs the flag up for the whole window it could
+        // fire in, not just after this promise settles.
+        setLinkedInSignInInFlight(true);
         const result = await InAppBrowser.openAuth(url, 'tsb://', { ephemeralWebSession: false });
         console.log('[LinkedInSignIn] openAuth result:', JSON.stringify(result));
 
         if (result.type === 'success' && result.url) {
-          await Linking.openURL(result.url);
+          // Handled directly from `result.url` rather than re-dispatched via `Linking.openURL` —
+          // on Android the Custom Tab's redirect to `tsb://linkedin-callback` already gets
+          // delivered to this (singleTask) activity by the OS itself, so re-opening the same URL
+          // here raced a second, redundant navigation against the first: by the time it fired,
+          // `login()` from the OS-delivered one had already swapped AuthNavigator for
+          // AppNavigator, so the second `LinkedInCallback` navigate had nowhere to land ("was not
+          // handled by any navigator"). Applying the session straight from what `openAuth` handed
+          // back sidesteps that race entirely — no dependency on whether the OS redelivers the
+          // link or not. `LinkedInCallbackScreen` stays in place for the cold-start deep-link
+          // case (e.g. the link arriving while the app wasn't already on this screen).
+          const { token, complete, error: paramError } = parseQueryParams(result.url);
+
+          if (paramError) {
+            Toast.show({
+              type: 'error',
+              text1: 'LinkedIn sign-in failed',
+              text2:
+                paramError === 'account_not_found'
+                  ? 'No account found for this LinkedIn email. Please sign up first.'
+                  : 'Please try again.',
+            });
+          } else if (!token) {
+            Toast.show({ type: 'error', text1: 'LinkedIn sign-in failed', text2: 'Please try again.' });
+          } else {
+            await applyOAuthSession(token, complete === 'true');
+            if (complete === 'true') {
+              login();
+            } else {
+              navigation.replace('Onboarding');
+            }
+          }
         }
         // 'cancel' / 'dismiss' — user backed out of the browser; nothing to do, no error shown.
       } else {
@@ -208,6 +267,7 @@ export function SocialSignIn() {
       });
     } finally {
       setLinkedinLoading(false);
+      setLinkedInSignInInFlight(false);
     }
   }
 

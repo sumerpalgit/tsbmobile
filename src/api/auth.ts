@@ -16,7 +16,11 @@ export type LoginResponse = {
 };
 
 export async function login(payload: LoginRequest) {
+  // TEMP dev-only debug log — plaintext password included for manual on-device verification.
+  // Remove before any release/QA build; this must never ship (Metro/logcat both persist output).
+  console.log('[Login] payload:', JSON.stringify(payload));
   const data = await apiClient.post<LoginResponse>(AUTH_ENDPOINTS.LOGIN, payload).then(res => res.data);
+  console.log('[Login] response:', JSON.stringify(data));
   await AsyncStorage.setItem('accessToken', data.token);
   await AsyncStorage.setItem('refreshToken', data.refreshToken);
   // Persisted (not just held in React state) so a relaunch with a still-valid token can tell

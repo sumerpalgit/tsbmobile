@@ -55,6 +55,7 @@ function LoginScreen() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
 
   const {
     control,
@@ -143,7 +144,7 @@ function LoginScreen() {
             </Text>
           </View>
 
-          <SocialSignIn />
+          <SocialSignIn onLoadingChange={setSocialLoading} />
           <AuthDivider label="OR SIGN IN WITH EMAIL" />
 
           {/* Fields */}
@@ -228,11 +229,13 @@ function LoginScreen() {
             </Text>
           </Pressable>
 
-          {/* Submit */}
+          {/* Submit — also disabled while a Google/LinkedIn sign-in is in flight (`socialLoading`),
+              so a stray tap here can't fire a second, conflicting sign-in mid-flow. */}
           <PrimaryButton
             label="Login"
             loadingLabel="Signing in…"
             loading={isSubmitting}
+            disabled={socialLoading}
             onPress={handleSubmit(onValid)}
           />
 

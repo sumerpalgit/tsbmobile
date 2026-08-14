@@ -1,4 +1,5 @@
 import React from 'react';
+import { Linking } from 'react-native';
 import {
   DarkTheme,
   DefaultTheme,
@@ -8,6 +9,7 @@ import {
 } from '@react-navigation/native';
 import { useTheme } from '../theme';
 import { useAuth } from '../store/AuthContext';
+import { isLinkedInSignInInFlight } from '../screens/auth/linkedInSignInState';
 import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
 import { AuthStackParamList } from './types';
@@ -33,6 +35,22 @@ const linking: LinkingOptions<AuthStackParamList> = {
       ResetPassword: 'reset-password',
       LinkedInCallback: 'linkedin-callback',
     },
+  },
+  // `SocialSignIn`'s `handleLinkedInSignIn` (`authShared.tsx`) already applies the session
+  // straight from `InAppBrowser.openAuth`'s own resolved result, so while that's in flight
+  // (`isLinkedInSignInInFlight()`) the OS's own automatic redelivery of the same
+  // `tsb://linkedin-callback` URL to this (singleTask) activity is redundant — without this it
+  // still auto-navigated to `LinkedInCallbackScreen`, flashing its full-screen "Finishing
+  // LinkedIn sign-in…" UI on top of Login for a beat even though the button's own spinner
+  // already covered the wait. Swallowed only for that one in-flight window; any other
+  // `linkedin-callback` delivery (the `InAppBrowser`-unavailable fallback, or a genuine
+  // cold-start deep link) passes through untouched.
+  subscribe(listener) {
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      if (url.includes('linkedin-callback') && isLinkedInSignInInFlight()) return;
+      listener(url);
+    });
+    return () => sub.remove();
   },
 };
 
