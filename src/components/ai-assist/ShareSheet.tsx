@@ -77,7 +77,7 @@ function ShareSheetContent({
         <View style={[styles.grabber, { backgroundColor: colors.border }]} />
 
         <View style={styles.header}>
-          <View style={[styles.iconBadge, { backgroundColor: colors.gold, borderRadius: radius.lg }]}>
+          <View style={[styles.iconBadge, { backgroundColor: '#182e43', borderRadius: radius.lg }]}>
             <Share2 size={16} color="#fff" strokeWidth={1.4} />
           </View>
           <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>Share this chat</Text>
@@ -141,7 +141,7 @@ function ShareSheetContent({
               onClose();
             }}
             disabled={!shareUrl}
-            style={[styles.confirmButton, { backgroundColor: colors.gold, borderRadius: radius.lg, opacity: shareUrl ? 1 : 0.5 }]}
+            style={[styles.confirmButton, { backgroundColor: '#182e43', borderRadius: radius.lg, opacity: shareUrl ? 1 : 0.5 }]}
           >
             <Copy size={15} color="#fff" strokeWidth={1.6} />
             <Text style={[fonts.bold, { fontSize: fontSize.ui, color: '#fff' }]}>Copy &amp; close</Text>

@@ -820,7 +820,7 @@ export default function MessagesScreen() {
               onScroll={handleScroll}
               onContentSizeChange={handleContentSizeChange}
               scrollEventThrottle={32}
-              keyboardDismissMode="on-drag"
+              keyboardDismissMode="none"
               keyboardShouldPersistTaps="handled"
               onScrollToIndexFailed={info => {
                 setTimeout(() => listRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 }), 100);

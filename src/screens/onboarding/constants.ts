@@ -93,8 +93,8 @@ export const LINKEDIN_PATTERN = /linkedin\.com/;
 export const MAX_ETA_CHAPTERS = 3;
 
 // Suggested Interests (Step 3), Industries of Interest and Geography Focus (Step 4) are now
-// live, role-scoped/lookup API data — `getInterestSuggestions`/`getIndustries`/
-// `getGeographies` in `src/api/interests.ts`/`src/api/lookup.ts` — not static lists here.
+// live, role-scoped/lookup API data — `getInterestSuggestions`/`getIndustriesGrouped`/
+// `getGeographiesGrouped` in `src/api/interests.ts`/`src/api/lookup.ts` — not static lists here.
 
 export type FinancialRange = {
   key: 'rev' | 'ebitda' | 'ev';

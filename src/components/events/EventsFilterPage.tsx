@@ -30,11 +30,17 @@ export type EventsFilterState = {
   customDate: string;
   /** '' | 'In-person' | 'Online' | 'Hybrid'. Web's "Event type" AND "Location type" sections
    * both write to the same `filters.event_type` field (`my-events/page.tsx` lines 990 & 1003) —
-   * genuinely a bug on web (picking a Location-type pill silently overwrites whatever Event-type
-   * pill was selected, and vice versa), but per this project's "real web quirks are replicated,
-   * not silently fixed" convention, it's ported as-is via this one shared field rather than two
-   * independent ones. */
+   * a real bug on web (picking a Location-type pill silently selects the same-index Event-type
+   * pill, and vice versa). Deliberately NOT ported here — see `locationType` below — this is
+   * one of the rare cases where a real web quirk is fixed rather than replicated, since the
+   * "auto-selects the wrong section" behavior reads as broken rather than intentional. */
   eventType: string;
+  /** Independent from `eventType` (unlike web) so picking a pill in one section never
+   * visually selects a pill in the other. Both still filter the same real `event.event_type`
+   * field on `MyEventsScreen.tsx`'s side, as two separately-choosable AND conditions — picking
+   * a conflicting pair (e.g. Event type "Webinars" + Location type "In-Person") legitimately
+   * yields zero matches, same as any other two-condition AND filter would. */
+  locationType: string;
   /** Single selected/typed city — matches web's `filters.country` (a plain string, not a
    * multi-select array). Typing directly filters (substring match against `location`), same as
    * web; the suggestion list below is just a shortcut, not a separate "apply" step. */
@@ -45,11 +51,14 @@ export const EMPTY_EVENTS_FILTERS: EventsFilterState = {
   day: 'any',
   customDate: '',
   eventType: '',
+  locationType: '',
   city: '',
 };
 
 export function countActiveEventFilters(f: EventsFilterState): number {
-  return (f.day !== 'any' ? 1 : 0) + (f.eventType ? 1 : 0) + (f.city ? 1 : 0);
+  return (
+    (f.day !== 'any' ? 1 : 0) + (f.eventType ? 1 : 0) + (f.locationType ? 1 : 0) + (f.city ? 1 : 0)
+  );
 }
 
 const EVENT_TYPE_OPTIONS = [
@@ -275,14 +284,14 @@ function EventsFilterPageContent({
           </ChipWrap>
         </FilterSection>
 
-        <FilterSection title="Location type" count={draft.eventType ? 1 : 0}>
+        <FilterSection title="Location type" count={draft.locationType ? 1 : 0}>
           <ChipWrap>
             {LOCATION_TYPE_OPTIONS.map(opt => (
               <Pill
                 key={opt.value}
                 label={opt.label}
-                selected={draft.eventType === opt.value}
-                onPress={() => setDraft(prev => ({ ...prev, eventType: prev.eventType === opt.value ? '' : opt.value }))}
+                selected={draft.locationType === opt.value}
+                onPress={() => setDraft(prev => ({ ...prev, locationType: prev.locationType === opt.value ? '' : opt.value }))}
               />
             ))}
           </ChipWrap>

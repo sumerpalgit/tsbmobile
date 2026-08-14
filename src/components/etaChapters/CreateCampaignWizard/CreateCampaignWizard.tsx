@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { Megaphone, X } from 'lucide-react-native';
 import { useTheme } from '../../../theme';
@@ -199,7 +199,12 @@ export function CreateCampaignWizard({ onClose }: { onClose: () => void }) {
         </View>
       )}
 
-      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin, paddingBottom: 16 + insets.bottom }]}>
+      {/* `SafeAreaView` (edges: ['bottom']) instead of a manual `insets.bottom` read — same
+          "raw hook value shown unreliable" fix as `AdManagementScreen.tsx`, scoped to just this
+          footer (not the whole `KeyboardAvoidingView` screen, which can't itself become a
+          `SafeAreaView` without losing its keyboard-avoidance behavior) — same scoping
+          `ChapterChatComposer.tsx` already uses for its own footer bar. */}
+      <SafeAreaView edges={['bottom']} style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
         {step > 1 && (
           <Pressable
             onPress={() => {
@@ -233,7 +238,7 @@ export function CreateCampaignWizard({ onClose }: { onClose: () => void }) {
             </Text>
           )}
         </Pressable>
-      </View>
+      </SafeAreaView>
     </KeyboardAvoidingView>
   );
 }

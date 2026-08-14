@@ -632,6 +632,12 @@ export function isStep4Complete(
   chipValues: Record<string, string[]>,
   industries: string[],
   geographyFocus: string[],
+  /** Whether the caller's three Financial Criteria sliders (Revenue/EBITDA/Enterprise Value)
+   * have all been touched at least once — matches webSrc's own required check (`formData.
+   * revenueMin === undefined` etc.), which only passes once the user has actually dragged each
+   * slider, not just because it renders with a display default. Ignored when `!config.
+   * hasDealRange` (role has no Financial Criteria section at all). */
+  dealRangesTouched: boolean,
 ): boolean {
   const config = ROLE_CONFIG[role];
   if (!config) return false;
@@ -643,6 +649,8 @@ export function isStep4Complete(
       if (f.type === 'chips') return (chipValues[f.key] ?? []).length > 0;
       return !!fieldValues[f.key]?.trim();
     });
+
+  if (config.hasDealRange && !dealRangesTouched) return false;
 
   return fieldsOk && industries.length > 0 && geographyFocus.length > 0;
 }

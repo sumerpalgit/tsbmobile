@@ -8,6 +8,7 @@ import { ROLE_CONFIG } from '../roleConfig';
 import { ChipMultiSelect } from './ChipMultiSelect';
 import { DualRangeSlider } from './DualRangeSlider';
 import { DynamicField } from './DynamicField';
+import { SearchableMultiSelect } from './SearchableMultiSelect';
 
 /**
  * Step 4 body — "Business Details", part 2 of the 2-part flow (Step 3 is part 1). Fully
@@ -31,10 +32,10 @@ export function Step4Fields({
   chipValues,
   onChipToggle,
   industries,
-  industryOptions,
+  industryGrouped,
   onIndustriesToggle,
   geographyFocus,
-  geographyOptions,
+  geographyGrouped,
   onGeographyToggle,
   lookupLoading,
   orgWebsite,
@@ -55,10 +56,10 @@ export function Step4Fields({
   chipValues: Record<string, string[]>;
   onChipToggle: (key: string, option: string) => void;
   industries: string[];
-  industryOptions: string[];
+  industryGrouped: Record<string, string[]>;
   onIndustriesToggle: (option: string) => void;
   geographyFocus: string[];
-  geographyOptions: string[];
+  geographyGrouped: Record<string, string[]>;
   onGeographyToggle: (option: string) => void;
   lookupLoading: boolean;
   orgWebsite: string;
@@ -129,23 +130,26 @@ export function Step4Fields({
 
       <View style={[styles.divider, { backgroundColor: colors.obLine2 }]} />
 
-      {/* Shared by every role — web's role-agnostic `useIndustries()`/`useGeographies()` */}
+      {/* Shared by every role — web's role-agnostic `useIndustries()`/`useGeographies()`, both
+          searchable (matches real web's `SearchableMultiSelect`, not a flat chip wall). */}
       <View style={{ gap: 16 }}>
-        <ChipMultiSelect
+        <SearchableMultiSelect
           label="Industries of Interest"
           required
-          options={industryOptions}
+          grouped={industryGrouped}
           selected={industries}
           onToggle={onIndustriesToggle}
           loading={lookupLoading}
+          placeholder="Search and select industries"
         />
-        <ChipMultiSelect
+        <SearchableMultiSelect
           label="Geography Focus"
           required
-          options={geographyOptions}
+          grouped={geographyGrouped}
           selected={geographyFocus}
           onToggle={onGeographyToggle}
           loading={lookupLoading}
+          placeholder="Search and select regions"
         />
       </View>
 

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -85,7 +85,6 @@ function applyDayFilter(event: MyEventItem, nowDate: Date, filters: EventsFilter
  */
 function MyEventsScreen() {
   const { colors, fonts, spacing } = useTheme();
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<MyEventsNavigationProp>();
 
   const { events, rsvpEvents, userCreatedEvents, savedEvents, isLoading, refetch } = useMyEvents();
@@ -160,10 +159,11 @@ function MyEventsScreen() {
       // Matches web's `filters.country` substring match against `location` exactly
       // (`my-events/page.tsx:531`).
       if (filters.city && !(event.location ?? '').toLowerCase().includes(filters.city.toLowerCase())) return false;
-      // Matches web's `filters.event_type` check against the raw `event_type` field — the same
-      // field both the Event-type AND Location-type pills write to (see `EventsFilterState`'s
-      // `eventType` doc comment).
+      // Event type and Location type are independent selections (see `EventsFilterState`'s
+      // `locationType` doc comment) but both compare against the same real `event_type` field —
+      // picking a conflicting pair across the two sections legitimately yields zero matches.
       if (filters.eventType && (event.event_type ?? '').toLowerCase() !== filters.eventType.toLowerCase()) return false;
+      if (filters.locationType && (event.event_type ?? '').toLowerCase() !== filters.locationType.toLowerCase()) return false;
 
       if (q) {
         const haystack = [event.title, event.hosted_by, event.location, getEventTypeLabel(event)]
@@ -235,7 +235,7 @@ function MyEventsScreen() {
       : { title: 'No saved events', hint: 'Tap the bookmark on any event to save it for later.' };
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.pageBg }]}>
+    <SafeAreaView edges={['bottom']} style={[styles.screen, { backgroundColor: colors.pageBg }]}>
       <MyEventsHeader
         onMenuPress={() => navigation.openDrawer()}
         onCalendarPress={() => setCalendarOpen(true)}
@@ -328,7 +328,7 @@ function MyEventsScreen() {
             ))}
         </View>
 
-        <View style={{ height: spacing.xxxl + insets.bottom }} />
+        <View style={{ height: spacing.xxxl }} />
       </ScrollView>
 
       <EventsFilterPage
@@ -342,7 +342,7 @@ function MyEventsScreen() {
       />
 
       <ConfirmDialog {...confirmDialogProps} />
-    </View>
+    </SafeAreaView>
   );
 }
 

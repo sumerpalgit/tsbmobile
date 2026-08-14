@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -45,7 +45,6 @@ import type { AppStackParamList } from '../navigation/types';
  * `window.confirm(...)` (plan decisions #9/#10). */
 function AdCampaignDetailScreen() {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, 'AdCampaignDetail'>>();
   const { adId } = route.params;
@@ -87,7 +86,7 @@ function AdCampaignDetailScreen() {
 
   if (isLoading || !ad) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
+      <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: colors.pageBg }}>
         <AdScreenHeader title="Campaign" onBack={() => navigation.goBack()} />
         {isLoading ? (
           <ScrollView>
@@ -102,7 +101,7 @@ function AdCampaignDetailScreen() {
             </Text>
           </View>
         )}
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -154,10 +153,10 @@ function AdCampaignDetailScreen() {
   ];
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
+    <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: colors.pageBg }}>
       <AdScreenHeader title={ad.campaignName || 'Campaign'} onBack={() => navigation.goBack()} />
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 16 + insets.bottom }]}>
+      <ScrollView contentContainerStyle={styles.scroll}>
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
           <View style={styles.headerRow}>
             <View style={[styles.avatarLg, { backgroundColor: avatarColor(ad.campaignName || ad.brandName), borderRadius: radius.lg }]}>
@@ -334,7 +333,7 @@ function AdCampaignDetailScreen() {
         onConfirm={handleDelete}
         onCancel={() => setConfirmDeleteOpen(false)}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

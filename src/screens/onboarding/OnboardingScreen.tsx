@@ -11,7 +11,7 @@ import { useAuth } from '../../store/AuthContext';
 import { checkLinkedin, completeProfile, submitRoleProfile } from '../../api/auth';
 import { batchJoinEtaChapters, EtaChapter, getSuggestedEtaChapters, searchEtaChapters } from '../../api/eta';
 import { getInterestSuggestions, saveInterests } from '../../api/interests';
-import { getIndustries, getGeographies } from '../../api/lookup';
+import { getIndustriesGrouped, getGeographiesGrouped } from '../../api/lookup';
 import { getMe, uploadDocument } from '../../api/profile';
 import {
   LINKEDIN_PATTERN,
@@ -402,9 +402,14 @@ function OnboardingScreen() {
   const [industries, setIndustries] = useState<string[]>([]);
   const [geographyFocus, setGeographyFocus] = useState<string[]>([]);
   const [orgWebsite, setOrgWebsite] = useState('');
-  const [revRange, setRevRange] = useState(rangeDefault('rev'));
-  const [ebitdaRange, setEbitdaRange] = useState(rangeDefault('ebitda'));
-  const [evRange, setEvRange] = useState(rangeDefault('ev'));
+  // `null` until the user actually drags a thumb — matches webSrc's `formData.revenueMin`/etc.
+  // staying `undefined` until `onMinChange`/`onMaxChange` fires, which is what makes its Step 4
+  // validation ("Revenue range is required") mean anything. `DualRangeSlider` only calls
+  // `onChange` from a real drag gesture (never on mount), so "state is non-null" is exactly
+  // "user touched this slider" — see `isStep4Complete`'s `dealRangesTouched` check below.
+  const [revRange, setRevRange] = useState<[number, number] | null>(null);
+  const [ebitdaRange, setEbitdaRange] = useState<[number, number] | null>(null);
+  const [evRange, setEvRange] = useState<[number, number] | null>(null);
   const [uploads, setUploads] = useState<Record<string, PickedFile | null>>({});
   // Backend URL returned per uploaded document key (e.g. `cimUrl`), separate from `uploads`
   // (which just tracks what's locally picked) — this is what actually goes in the submit payload.
@@ -412,18 +417,19 @@ function OnboardingScreen() {
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
 
   // Industries/Geography lookup lists (Step 4, shared by every role) — role-agnostic, fetched
-  // once, matching webSrc's `useIndustries()`/`useGeographies()`.
-  const [industryOptions, setIndustryOptions] = useState<string[]>([]);
-  const [geographyOptions, setGeographyOptions] = useState<string[]>([]);
+  // once, matching webSrc's `useIndustries()`/`useGeographies()`. Grouped shape (not flattened)
+  // since both are now real searchable `SearchableMultiSelect`s, matching web's own component.
+  const [industryGrouped, setIndustryGrouped] = useState<Record<string, string[]>>({});
+  const [geographyGrouped, setGeographyGrouped] = useState<Record<string, string[]>>({});
   const [lookupLoading, setLookupLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getIndustries(), getGeographies()])
+    Promise.all([getIndustriesGrouped(), getGeographiesGrouped()])
       .then(([ind, geo]) => {
         if (cancelled) return;
-        setIndustryOptions(ind);
-        setGeographyOptions(geo);
+        setIndustryGrouped(ind);
+        setGeographyGrouped(geo);
       })
       .catch(() => {
         // Matches web's `useIndustries`/`useGeographies`: fails silently, leaves lists empty.
@@ -673,7 +679,8 @@ function OnboardingScreen() {
       setSubmitting(false);
     }
     if (step === 4) {
-      if (!isStep4Complete(role, fieldValues, chipValues, industries, geographyFocus)) {
+      const dealRangesTouched = revRange !== null && ebitdaRange !== null && evRange !== null;
+      if (!isStep4Complete(role, fieldValues, chipValues, industries, geographyFocus, dealRangesTouched)) {
         return setError('Complete the required fields for your role.');
       }
 
@@ -690,7 +697,8 @@ function OnboardingScreen() {
         geographyFocus,
       };
       if (config?.hasOrgWebsite) formData.organizationWebsite = orgWebsite;
-      if (config?.hasDealRange) {
+      // `dealRangesTouched` above already guarantees all three are non-null by this point.
+      if (config?.hasDealRange && revRange && ebitdaRange && evRange) {
         formData.revenueMin = String(revRange[0]);
         formData.revenueMax = String(revRange[1]);
         formData.ebitdaMin = String(ebitdaRange[0]);
@@ -889,17 +897,17 @@ function OnboardingScreen() {
               chipValues={chipValues}
               onChipToggle={toggleChipValue}
               industries={industries}
-              industryOptions={industryOptions}
+              industryGrouped={industryGrouped}
               onIndustriesToggle={toggleIndustry}
               geographyFocus={geographyFocus}
-              geographyOptions={geographyOptions}
+              geographyGrouped={geographyGrouped}
               onGeographyToggle={toggleGeography}
               lookupLoading={lookupLoading}
               orgWebsite={orgWebsite}
               onOrgWebsiteChange={setOrgWebsite}
-              revRange={revRange}
-              ebitdaRange={ebitdaRange}
-              evRange={evRange}
+              revRange={revRange ?? rangeDefault('rev')}
+              ebitdaRange={ebitdaRange ?? rangeDefault('ebitda')}
+              evRange={evRange ?? rangeDefault('ev')}
               onRevChange={(lo, hi) => setRevRange([lo, hi])}
               onEbitdaChange={(lo, hi) => setEbitdaRange([lo, hi])}
               onEvChange={(lo, hi) => setEvRange([lo, hi])}

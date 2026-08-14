@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -76,7 +76,6 @@ type ChatThreadItem =
  */
 function EtaChaptersScreen() {
   const { colors, fonts, fontSize, radius, spacing } = useTheme();
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
   // Separate from `navigation` above (drawer-level) — `CreateAdCampaign` lives one level up on
   // the parent stack (`AppStackParamList`), same reasoning `DrawerNavigator.tsx` itself documents
@@ -559,7 +558,13 @@ function EtaChaptersScreen() {
           <ChapterChatComposer value={chatInput} onChangeText={setChatInput} onSend={handleSendChat} canPost={isMember(activeChatChapter)} />
         </View>
       ) : (
-        <>
+        // `SafeAreaView` (edges: ['bottom']) instead of a manual `useSafeAreaInsets().bottom`
+        // read into the trailing spacer's height — see `AdManagementScreen.tsx`'s identical fix
+        // for why: the raw hook value has already been shown unreliable in this app in at least
+        // one position (`ChapterChatComposer.tsx` right below, in the chat branch of this same
+        // screen). Scoped to just this branch, not the whole screen, so it doesn't double up
+        // with the chat branch's own `SafeAreaView` inside `ChapterChatComposer`.
+        <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
           <EtaChaptersHeader
             onMenuPress={() => navigation.openDrawer()}
             onAddPress={() => setCreateChapterOpen(true)}
@@ -663,9 +668,9 @@ function EtaChaptersScreen() {
               </View>
             )}
 
-            <View style={{ height: spacing.xxxl + insets.bottom }} />
+            <View style={{ height: spacing.xxxl }} />
           </ScrollView>
-        </>
+        </SafeAreaView>
       )}
 
       <ChapterDetailView

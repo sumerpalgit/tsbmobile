@@ -1,6 +1,6 @@
 import React from 'react';
 import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Toast from 'react-native-toast-message';
 import { ArrowLeft, Bookmark, ExternalLink, MapPin, MessageSquare, Share2 } from 'lucide-react-native';
@@ -59,7 +59,11 @@ export function MemberProfileView({
   };
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}>
+    // `edges={['bottom']}` here, on top of the existing manual `insets.top` (kept as-is for the
+    // header — only the bottom edge has shown the raw-hook-value unreliability documented in
+    // `AdManagementScreen.tsx`'s identical fix, so only that edge switches to `SafeAreaView`'s
+    // native-level handling; the footer below no longer needs its own `insets.bottom` add).
+    <SafeAreaView edges={['bottom']} style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
         <Pressable onPress={onBack} accessibilityLabel="Back" style={styles.headerButton}>
           <ArrowLeft size={18} color={colors.ink} strokeWidth={1.8} />
@@ -179,7 +183,7 @@ export function MemberProfileView({
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin, paddingBottom: 16 + insets.bottom }]}>
+      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
         <Pressable
           onPress={onMessage}
           style={({ pressed }) => [
@@ -192,7 +196,7 @@ export function MemberProfileView({
           <Text style={[fonts.bold, { fontSize: fontSize.title, color: colors.ink }]}>Message</Text>
         </Pressable>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

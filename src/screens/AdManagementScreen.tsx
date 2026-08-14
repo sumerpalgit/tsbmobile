@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Megaphone, Plus, Search } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { useAdCampaigns } from '../hooks/useAdCampaigns';
@@ -39,7 +39,6 @@ import type { AppStackParamList } from '../navigation/types';
 function AdManagementScreen() {
   const { colors, fonts, fontSize, radius } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
-  const insets = useSafeAreaInsets();
 
   const {
     filteredAds,
@@ -71,7 +70,13 @@ function AdManagementScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
+    // `SafeAreaView` (edges: ['bottom']) instead of a manual `useSafeAreaInsets().bottom` read
+    // into padding — the raw hook value has already been shown unreliable in this app in at
+    // least one screen position (see `ChapterChatComposer.tsx`'s doc comment: a real device still
+    // showed content behind the gesture-nav bar even with the hook-based padding applied and a
+    // full app reload). `SafeAreaView` applies the inset at the native layout level instead of a
+    // JS-computed value, which is the proven fix for that exact failure mode in this codebase.
+    <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: colors.pageBg }}>
       <AdScreenHeader
         title="Ad Management"
         onBack={() => navigation.goBack()}
@@ -89,7 +94,7 @@ function AdManagementScreen() {
       <FlatList
         data={isLoading ? [] : filteredAds}
         keyExtractor={item => item.id}
-        contentContainerStyle={[styles.listContent, { paddingBottom: 32 + insets.bottom }]}
+        contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} />}
         ListHeaderComponent={
           <View style={styles.headerBlock}>
@@ -161,7 +166,7 @@ function AdManagementScreen() {
         }}
       />
 
-    </View>
+    </SafeAreaView>
   );
 }
 
