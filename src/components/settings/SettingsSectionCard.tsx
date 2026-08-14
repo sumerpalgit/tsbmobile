@@ -28,11 +28,12 @@ export function SettingsSectionCard({
           {!!eyebrow && <Text style={[fonts.bold, styles.eyebrow, { color: colors.goldDark }]}>{eyebrow.toUpperCase()}</Text>}
           <Text style={[fonts.display, styles.title, { color: colors.ink }]}>{title}</Text>
           {!!description && (
-            <Text style={[fonts.regular, styles.description, { fontSize: fontSize.caption, color: colors.ink3 }]}>{description}</Text>
+            <Text style={[fonts.regular, styles.description, { fontSize: fontSize.caption + 1, color: colors.ink3 }]}>{description}</Text>
           )}
         </View>
         {rightAction}
       </View>
+      <View style={[styles.divider, { backgroundColor: colors.borderSoft }]} />
       <View style={styles.body}>{children}</View>
     </View>
   );
@@ -58,6 +59,13 @@ const styles = StyleSheet.create({
   description: {
     lineHeight: 17,
     marginTop: 5,
+  },
+  // Bleeds out to the card's own edges (cancels `card`'s 16px `padding`) instead of sitting
+  // inset within it — matches the reference screenshot's full-width separator.
+  divider: {
+    height: 1,
+    marginTop: 14,
+    marginHorizontal: -16,
   },
   body: {
     marginTop: 14,

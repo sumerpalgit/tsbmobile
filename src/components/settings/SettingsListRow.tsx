@@ -3,21 +3,20 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 
-/** Settings index row — icon-chip + title + subtitle + chevron, modeled directly on
- * `ProfileMenuList.tsx`'s own row. Takes a `lucide-react-native` icon component directly rather
- * than the shared `IconName` union (that union is reserved for chrome reused across the tab
- * bar/drawer, not one-off per-screen icons — `ProfileMenuList.tsx` already sets this precedent).
+/** Settings index row — icon-chip + title + chevron, modeled directly on `ProfileMenuList.tsx`'s
+ * own row. Takes a `lucide-react-native` icon component directly rather than the shared
+ * `IconName` union (that union is reserved for chrome reused across the tab bar/drawer, not
+ * one-off per-screen icons — `ProfileMenuList.tsx` already sets this precedent). No subtitle
+ * line — the mockup's rows are title-only, unlike `ProfileMenuList.tsx`'s own two-line rows.
  */
 export function SettingsListRow({
   Icon,
   title,
-  subtitle,
   onPress,
   last = false,
 }: {
   Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
   title: string;
-  subtitle: string;
   onPress: () => void;
   /** Suppresses the bottom border for the last row in a grouped card. */
   last?: boolean;
@@ -36,14 +35,9 @@ export function SettingsListRow({
       <View style={[styles.iconWell, { borderRadius: radius.md, backgroundColor: colors.chip }]}>
         <Icon size={18} color={colors.goldDark} strokeWidth={1.7} />
       </View>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={[fonts.bold, { fontSize: fontSize.ui, color: colors.ink }]} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 2 }]} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      </View>
+      <Text style={[fonts.bold, { flex: 1, minWidth: 0, fontSize: fontSize.ui, color: colors.ink }]} numberOfLines={1}>
+        {title}
+      </Text>
       <ChevronRight size={15} color={colors.ink3} strokeWidth={1.8} />
     </Pressable>
   );

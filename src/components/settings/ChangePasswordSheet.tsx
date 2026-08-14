@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Eye, EyeOff } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import axios from 'axios';
@@ -18,8 +18,26 @@ import { changePassword } from '../../api/settings';
  * `KeyboardAvoidingView`'s Android resize behavior doesn't reliably apply inside a `Modal`, so the
  * bottom-anchored sheet just sat where it was and the keyboard covered the lower fields. Since
  * this sheet is fixed-height (3 short fields, no scrolling needed), pushing the whole sheet up by
- * the keyboard's own height via `marginBottom` is simpler than a scrollable body here. */
+ * the keyboard's own height via `marginBottom` is simpler than a scrollable body here.
+ *
+ * Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one
+ * (`App.tsx`) — `Modal` renders in a separate native window on Android, so insets measured
+ * against the main window aren't guaranteed to apply there too (same root cause fixed in
+ * `DirectoryFiltersPanel.tsx`/`ManageMembershipsSheet.tsx`). The insets-consuming content (and
+ * every bit of state that only matters to it) is split into `ChangePasswordSheetContent` because
+ * a component can't read a `Provider` it renders itself later in the same return —
+ * `useSafeAreaInsets()` has to be called from *inside* the new nested provider's subtree. */
 export function ChangePasswordSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <SafeAreaProvider>
+        <ChangePasswordSheetContent visible={visible} onClose={onClose} />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function ChangePasswordSheetContent({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -78,15 +96,14 @@ export function ChangePasswordSheet({ visible, onClose }: { visible: boolean; on
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={submitting ? undefined : onClose}>
-        <Pressable
-          onPress={e => e.stopPropagation()}
-          style={[
-            styles.sheet,
-            { marginBottom: keyboardHeight, paddingBottom: Math.max(insets.bottom, 16), backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl + 6, borderTopRightRadius: radius.xxl + 6 },
-          ]}
-        >
+    <Pressable style={styles.backdrop} onPress={submitting ? undefined : onClose}>
+      <Pressable
+        onPress={e => e.stopPropagation()}
+        style={[
+          styles.sheet,
+          { marginBottom: keyboardHeight, paddingBottom: Math.max(insets.bottom, 16), backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl + 6, borderTopRightRadius: radius.xxl + 6 },
+        ]}
+      >
           <View style={[styles.grabber, { backgroundColor: colors.border }]} />
           <Text style={[fonts.display, styles.title, { color: colors.ink }]}>Change password</Text>
 
@@ -119,7 +136,6 @@ export function ChangePasswordSheet({ visible, onClose }: { visible: boolean; on
           </View>
         </Pressable>
       </Pressable>
-    </Modal>
   );
 }
 

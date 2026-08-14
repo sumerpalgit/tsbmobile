@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQueryClient } from '@tanstack/react-query';
@@ -193,7 +194,7 @@ function SettingsProfileScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
+    <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: colors.pageBg }}>
       <AdScreenHeader title="Profile & Visibility" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <SettingsSectionCard
@@ -276,10 +277,23 @@ function SettingsProfileScreen() {
             <CityField value={city} onChangeText={setCity} />
           </Field>
 
-          <View style={styles.saveBar}>
+          <View
+            style={[
+              styles.saveBar,
+              { backgroundColor: colors.surfaceSunken, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl },
+            ]}
+          >
             <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>{isProfileDirty ? 'Unsaved changes' : 'All changes saved'}</Text>
             <View style={{ flex: 1 }} />
-            <Pressable onPress={handleDiscardProfile} disabled={!isProfileDirty} style={({ pressed }) => [styles.smallButton, { opacity: isProfileDirty ? 1 : 0.4 }, pressed && styles.pressed]}>
+            <Pressable
+              onPress={handleDiscardProfile}
+              disabled={!isProfileDirty}
+              style={({ pressed }) => [
+                styles.smallButton,
+                { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: borderWidth.thin, opacity: isProfileDirty ? 1 : 0.4 },
+                pressed && styles.pressed,
+              ]}
+            >
               <Text style={[fonts.semibold, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>Discard</Text>
             </Pressable>
             <Pressable
@@ -304,17 +318,27 @@ function SettingsProfileScreen() {
                 value={visibility[row.key]}
                 onValueChange={v => setVisibility(prev => ({ ...prev, [row.key]: v }))}
                 last={index === VISIBILITY_ROWS.length - 1}
+                switchColor="#182e43"
               />
             ))
           )}
 
-          <View style={styles.saveBar}>
+          <View
+            style={[
+              styles.saveBar,
+              { backgroundColor: colors.surfaceSunken, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl },
+            ]}
+          >
             <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>{isVisibilityDirty ? 'Unsaved changes' : 'All changes saved'}</Text>
             <View style={{ flex: 1 }} />
             <Pressable
               onPress={() => setVisibility(savedVisibility)}
               disabled={!isVisibilityDirty}
-              style={({ pressed }) => [styles.smallButton, { opacity: isVisibilityDirty ? 1 : 0.4 }, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.smallButton,
+                { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: borderWidth.thin, opacity: isVisibilityDirty ? 1 : 0.4 },
+                pressed && styles.pressed,
+              ]}
             >
               <Text style={[fonts.semibold, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>Discard</Text>
             </Pressable>
@@ -328,7 +352,7 @@ function SettingsProfileScreen() {
           </View>
         </SettingsSectionCard>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -414,15 +438,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Bleeds out to the card's own edges (cancels `SettingsSectionCard`'s 16px `padding`) instead
+  // of sitting as an inset chip — same fix as `SettingsAccountScreen.tsx`'s identical save bar.
   saveBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     marginTop: 16,
+    marginHorizontal: -16,
+    marginBottom: -16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   smallButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    height: 38,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   saveButton: {
     height: 38,

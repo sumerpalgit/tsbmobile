@@ -14,7 +14,17 @@ const KNOB_INSET = 3;
  * this is hand-built like `DualRangeSlider`/`ChipMultiSelect` elsewhere in the app. Generic (not
  * filter-specific) so any screen needing the same toggle look can reuse it.
  */
-export function Switch({ value, onValueChange }: { value: boolean; onValueChange: (next: boolean) => void }) {
+export function Switch({
+  value,
+  onValueChange,
+  onColor,
+}: {
+  value: boolean;
+  onValueChange: (next: boolean) => void;
+  /** Overrides the default `colors.gold` "on" track color — e.g. Settings' Visibility toggles
+   * use `#182e43` instead. */
+  onColor?: string;
+}) {
   const { colors } = useTheme();
   const progress = useRef(new Animated.Value(value ? 1 : 0)).current;
 
@@ -32,7 +42,7 @@ export function Switch({ value, onValueChange }: { value: boolean; onValueChange
   });
   const trackColor = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [colors.border, colors.gold],
+    outputRange: [colors.border, onColor ?? colors.gold],
   });
 
   return (

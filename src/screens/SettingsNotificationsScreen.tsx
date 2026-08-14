@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
@@ -27,9 +28,14 @@ function extractErrorMessage(err: unknown): string {
 /**
  * Settings' "Notifications" section — ported from the decoded mobile mockup
  * (`standalone/TSB Profile - Mobile.html`'s "NOTIFICATIONS" block): one card with 5 in-app
- * toggles and a single-button ("Save changes" only, no Discard — the mockup drops the Discard
- * button desktop web has) footer, plus a standalone info banner below the card. Real GET/PUT
+ * toggles and a Discard/Save footer, plus a standalone info banner below the card. Real GET/PUT
  * wiring against `fetchNotificationPrefs`/`saveNotificationPrefs` (already built in Phase 1).
+ *
+ * Discard is real functionality wins over mockup-only decoration (same convention as the rest of
+ * Settings) — the mobile mockup itself only shows a single "Save changes" button, but desktop
+ * web's real Notifications tab has a Discard alongside it, and every other Settings section that
+ * has a deferred-save form (Account, Profile, Matching) already has one, so this one shouldn't
+ * be the odd one out just because the mockup dropped it.
  */
 function SettingsNotificationsScreen() {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
@@ -52,6 +58,8 @@ function SettingsNotificationsScreen() {
 
   const isDirty = (Object.keys(prefs) as NotifKey[]).some(key => prefs[key] !== savedPrefs[key]);
 
+  const handleDiscard = () => setPrefs(savedPrefs);
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -67,7 +75,7 @@ function SettingsNotificationsScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
+    <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: colors.pageBg }}>
       <AdScreenHeader title="Notifications" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={[styles.card, { borderRadius: radius.xl, borderColor: colors.homeCardBorder, borderWidth: borderWidth.thin, backgroundColor: colors.surface }]}>
@@ -95,20 +103,33 @@ function SettingsNotificationsScreen() {
                   <Text style={[fonts.bold, { fontSize: fontSize.ui, color: colors.ink }]}>{label}</Text>
                   <Text style={[fonts.regular, styles.rowDescription, { color: colors.ink3 }]}>{description}</Text>
                 </View>
-                <Switch value={prefs[key]} onValueChange={v => setPrefs(prev => ({ ...prev, [key]: v }))} />
+                <Switch value={prefs[key]} onValueChange={v => setPrefs(prev => ({ ...prev, [key]: v }))} onColor="#182e43" />
               </View>
             ))
           )}
 
           <View style={[styles.footer, { backgroundColor: colors.surfaceSunken }]}>
             <Text style={[fonts.regular, styles.footerText, { color: colors.ink3 }]}>{isDirty ? 'Unsaved changes' : 'All changes saved'}</Text>
-            <Pressable
-              onPress={handleSave}
-              disabled={!isDirty || saving}
-              style={({ pressed }) => [styles.saveButton, { backgroundColor: '#182E43', borderRadius: radius.xl, opacity: isDirty ? 1 : 0.4 }, pressed && styles.pressed]}
-            >
-              {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[fonts.bold, styles.saveButtonText, { color: '#fff' }]}>Save changes</Text>}
-            </Pressable>
+            <View style={styles.footerButtonRow}>
+              <Pressable
+                onPress={handleDiscard}
+                disabled={!isDirty}
+                style={({ pressed }) => [
+                  styles.discardButton,
+                  { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: borderWidth.thin, opacity: isDirty ? 1 : 0.4 },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={[fonts.semibold, styles.saveButtonText, { color: colors.ink2 }]}>Discard</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSave}
+                disabled={!isDirty || saving}
+                style={({ pressed }) => [styles.saveButton, { backgroundColor: '#182E43', borderRadius: radius.xl, opacity: isDirty ? 1 : 0.4 }, pressed && styles.pressed]}
+              >
+                {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[fonts.bold, styles.saveButtonText, { color: '#fff' }]}>Save changes</Text>}
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -119,7 +140,7 @@ function SettingsNotificationsScreen() {
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -179,6 +200,17 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 11,
     flexShrink: 1,
+  },
+  footerButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  discardButton: {
+    height: 36,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   saveButton: {
     height: 36,

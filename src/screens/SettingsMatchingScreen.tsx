@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import LinearGradient from 'react-native-linear-gradient';
@@ -178,7 +179,7 @@ function SettingsMatchingScreen() {
   const cardStyle = [styles.card, { borderRadius: radius.xl, borderColor: colors.homeCardBorder, borderWidth: borderWidth.thin, backgroundColor: colors.surface }];
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
+    <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: colors.pageBg }}>
       <AdScreenHeader title="Matching Preferences" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <LinearGradient colors={[colors.hero1, colors.hero2]} style={[styles.statStrip, { borderRadius: radius.xl }]} start={GRADIENT_START} end={GRADIENT_END}>
@@ -254,7 +255,7 @@ function SettingsMatchingScreen() {
                     <Text style={[fonts.bold, { fontSize: fontSize.ui, color: colors.ink }]}>{label}</Text>
                     <Text style={[fonts.regular, styles.behaviorDescription, { color: colors.ink3 }]}>{description}</Text>
                   </View>
-                  <Switch value={matchBehavior[key]} onValueChange={() => toggleBehavior(key)} />
+                  <Switch value={matchBehavior[key]} onValueChange={() => toggleBehavior(key)} onColor="#182e43" />
                 </View>
               ))}
               <View style={styles.behaviorRow}>
@@ -300,7 +301,7 @@ function SettingsMatchingScreen() {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -319,19 +320,27 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     paddingHorizontal: 8,
+    alignItems: 'center',
   },
   statCellBorder: {
     borderLeftColor: 'rgba(255,255,255,0.12)',
     borderLeftWidth: 1,
   },
   statEyebrow: {
-    fontSize: 9,
+    fontSize: 10,
+    lineHeight: 13,
+    // Reserves room for 2 lines always (not just when a label like "POTENTIAL MATCHES" actually
+    // wraps) — otherwise that cell's label is taller than the other two single-line cells, which
+    // pushes just its own `statValue` down and breaks the row's alignment across all 3 cells.
+    minHeight: 26,
     letterSpacing: 0.5,
     color: 'rgba(255,255,255,0.55)',
+    textAlign: 'center',
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 18,
     marginTop: 3,
+    textAlign: 'center',
   },
   card: {
     overflow: 'hidden',

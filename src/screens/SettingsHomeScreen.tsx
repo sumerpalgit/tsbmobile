@@ -2,6 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { Bell, CreditCard, HelpCircle, IdCard, Lock, Sparkles, UserRound } from 'lucide-react-native';
 import { useTheme } from '../theme';
@@ -28,7 +29,7 @@ function SettingsHomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
+    <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: colors.pageBg }}>
       <AdScreenHeader title="Settings" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <LinearGradient
@@ -54,19 +55,16 @@ function SettingsHomeScreen() {
             <SettingsListRow
               Icon={UserRound}
               title="Account & Security"
-              subtitle="Personal info, password, sessions"
               onPress={() => navigation.navigate('SettingsAccount')}
             />
             <SettingsListRow
               Icon={IdCard}
               title="Profile & Visibility"
-              subtitle="How others see you across TSB"
               onPress={() => navigation.navigate('SettingsProfile')}
             />
             <SettingsListRow
               Icon={Sparkles}
               title="Matching Preferences"
-              subtitle="Who you want to meet"
               onPress={() => navigation.navigate('SettingsMatching')}
               last
             />
@@ -79,13 +77,11 @@ function SettingsHomeScreen() {
             <SettingsListRow
               Icon={Bell}
               title="Notifications"
-              subtitle="What triggers an in-app alert"
               onPress={() => navigation.navigate('SettingsNotifications')}
             />
             <SettingsListRow
               Icon={Lock}
               title="Privacy & Messaging"
-              subtitle="Your data, exported on request"
               onPress={() => navigation.navigate('SettingsPrivacy')}
               last
             />
@@ -98,20 +94,18 @@ function SettingsHomeScreen() {
             <SettingsListRow
               Icon={CreditCard}
               title="Billing & Subscription"
-              subtitle="Plan, features and payment history"
               onPress={() => navigation.navigate('SettingsBilling')}
             />
             <SettingsListRow
               Icon={HelpCircle}
               title="Support & Help"
-              subtitle="Report an issue, FAQs, policies"
               onPress={() => navigation.navigate('SettingsSupport')}
               last
             />
           </View>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

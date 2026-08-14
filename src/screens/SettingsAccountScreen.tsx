@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import axios from 'axios';
-import { Check, Laptop, Smartphone } from 'lucide-react-native';
+import { Check, Laptop, Pause, Smartphone, Trash2 } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { useMe } from '../hooks/useMe';
 import { ME_QUERY_KEY } from '../api/queryKeys';
@@ -15,6 +16,7 @@ import { AdScreenHeader } from '../components/adManagement/AdScreenHeader';
 import { SettingsSectionCard } from '../components/settings/SettingsSectionCard';
 import { ToggleRow } from '../components/settings/ToggleRow';
 import { ChangePasswordSheet } from '../components/settings/ChangePasswordSheet';
+import { ChangeEmailSheet } from '../components/settings/ChangeEmailSheet';
 import { DeleteAccountModal } from '../components/settings/DeleteAccountModal';
 import { ConfirmDialog } from '../components/events/ConfirmDialog';
 import { FieldSelect } from '../components/events/CreateEventWizard/FieldSelect';
@@ -73,7 +75,7 @@ function extractErrorMessage(err: unknown): string {
 function SettingsAccountScreen() {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
-  const { data: user } = useMe();
+  const { data: user, refetch: refetchMe } = useMe();
   const queryClient = useQueryClient();
 
   const [firstName, setFirstName] = useState('');
@@ -86,9 +88,11 @@ function SettingsAccountScreen() {
 
   // Hydrates from the already-loaded `useMe()` user — matches web's own split of `user.name` into
   // first/last (there's no separate first/last DB field), `user.profile.phone`/`phone_country`/
-  // `timezone` for the rest (`page.tsx:853-862`).
+  // `timezone` for the rest (`page.tsx:853-862`). Keyed on `user` itself (not just `user?.id`) so
+  // a focus-triggered refetch actually re-syncs the visible fields — skipped while the form is
+  // dirty so an in-flight background refetch can't clobber unsaved edits.
   useEffect(() => {
-    if (!user) return;
+    if (!user || isPersonalInfoDirty) return;
     const rawProfile = (user.profile ?? {}) as Record<string, unknown>;
     const nameParts = (user.name || '').trim().split(' ');
     const next: PersonalSnapshot = {
@@ -105,7 +109,7 @@ function SettingsAccountScreen() {
     setTimezone(next.timezone);
     setSavedSnapshot(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user]);
 
   const isPersonalInfoDirty =
     !!savedSnapshot &&
@@ -144,6 +148,7 @@ function SettingsAccountScreen() {
   const [loginAlerts, setLoginAlerts] = useState(true);
 
   const [passwordSheetOpen, setPasswordSheetOpen] = useState(false);
+  const [emailSheetOpen, setEmailSheetOpen] = useState(false);
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
@@ -157,7 +162,16 @@ function SettingsAccountScreen() {
       .catch(() => {})
       .finally(() => setSessionsLoading(false));
   };
-  useEffect(loadSessions, []);
+  // Refetches on every focus, not just on mount — same fix `AdManagementScreen.tsx` already
+  // needed for the same reason: React Navigation's native-stack keeps this screen mounted for
+  // back-swipe, so a mount-only effect never re-fires when the user navigates back to it (stale
+  // sessions list, stale personal info/email after e.g. a background email verification).
+  useFocusEffect(
+    useCallback(() => {
+      loadSessions();
+      refetchMe();
+    }, [refetchMe]),
+  );
 
   const handleRevoke = async (id: string) => {
     setRevokingId(id);
@@ -202,7 +216,7 @@ function SettingsAccountScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
+    <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: colors.pageBg }}>
       <AdScreenHeader title="Account & Security" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <SettingsSectionCard
@@ -227,8 +241,17 @@ function SettingsAccountScreen() {
             </Field>
           </View>
 
-          <Field label="Email address">
-            <View style={[styles.input, styles.readonlyInput, { backgroundColor: colors.surfaceSunken, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg }]}>
+          {/* Custom block, not `Field` — the mockup puts "Change email" on the label's own row
+              (not next to "Verified" below the input, like web's own layout does), which `Field`'s
+              single-label-then-children shape doesn't support. */}
+          <View style={{ marginTop: 14 }}>
+            <View style={styles.emailLabelRow}>
+              <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.ink }]}>Email address</Text>
+              <Pressable onPress={() => setEmailSheetOpen(true)} hitSlop={6}>
+                <Text style={[fonts.bold, styles.changeEmailText, { color: colors.gold }]}>Change email</Text>
+              </Pressable>
+            </View>
+            <View style={[styles.input, styles.readonlyInput, { marginTop: 7, backgroundColor: colors.surfaceSunken, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg }]}>
               <Text style={[fonts.regular, { fontSize: fontSize.body, color: colors.ink2, flex: 1 }]} numberOfLines={1}>
                 {user?.email}
               </Text>
@@ -237,7 +260,7 @@ function SettingsAccountScreen() {
               <Check size={12} color={colors.success} strokeWidth={2.4} />
               <Text style={[fonts.semibold, { fontSize: fontSize.caption, color: colors.success }]}>Verified</Text>
             </View>
-          </Field>
+          </View>
 
           <Field label="Phone number" hint="Optional — used for account recovery and security alerts.">
             <View style={styles.row}>
@@ -259,7 +282,12 @@ function SettingsAccountScreen() {
             <FieldSelect value={timezone} placeholder="Select time zone…" options={TIMEZONE_OPTIONS} onChange={setTimezone} />
           </Field>
 
-          <View style={styles.saveBar}>
+          <View
+            style={[
+              styles.saveBar,
+              { backgroundColor: colors.surfaceSunken, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl },
+            ]}
+          >
             <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>
               {isPersonalInfoDirty ? 'Unsaved changes' : 'All changes saved'}
             </Text>
@@ -293,13 +321,17 @@ function SettingsAccountScreen() {
             </Pressable>
           </View>
 
-          <View style={{ marginTop: 6 }}>
+          {/* `colors.surfaceSunken` background applied here, not inside the shared `ToggleRow`
+              (which has none, by design — it's reused 21 times across Settings and most of
+              those rows aren't meant to stand out like this one). */}
+          <View style={[styles.loginAlertsCard, { backgroundColor: colors.surfaceSunken, borderRadius: radius.lg }]}>
             <ToggleRow
               label="Email me on new sign-ins"
               description="Get an email whenever a new device signs into your account."
               value={loginAlerts}
               onValueChange={setLoginAlerts}
               last
+              switchColor="#182e43"
             />
           </View>
         </SettingsSectionCard>
@@ -309,8 +341,16 @@ function SettingsAccountScreen() {
           title="Where you're signed in"
           description="Review devices currently signed in to your account."
           rightAction={
-            <Pressable onPress={handleSignOutAll} disabled={signingOutAll} style={({ pressed }) => [styles.smallButton, pressed && styles.pressed]}>
-              {signingOutAll ? <ActivityIndicator size="small" color={colors.danger} /> : <Text style={[fonts.semibold, { fontSize: fontSize.small + 1, color: colors.danger }]}>Sign out all</Text>}
+            <Pressable
+              onPress={handleSignOutAll}
+              disabled={signingOutAll}
+              style={({ pressed }) => [
+                styles.signOutAllButton,
+                { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: borderWidth.thin },
+                pressed && styles.pressed,
+              ]}
+            >
+              {signingOutAll ? <ActivityIndicator size="small" color={colors.ink2} /> : <Text style={[fonts.semibold, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>Sign out all</Text>}
             </Pressable>
           }
         >
@@ -338,11 +378,19 @@ function SettingsAccountScreen() {
                   {session.isCurrent ? (
                     <Text style={[fonts.semibold, { fontSize: fontSize.caption, color: colors.ink3 }]}>This device</Text>
                   ) : (
-                    <Pressable onPress={() => handleRevoke(session.id)} disabled={revokingId === session.id} hitSlop={6}>
+                    <Pressable
+                      onPress={() => handleRevoke(session.id)}
+                      disabled={revokingId === session.id}
+                      style={({ pressed }) => [
+                        styles.signOutButton,
+                        { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: borderWidth.thin },
+                        pressed && styles.pressed,
+                      ]}
+                    >
                       {revokingId === session.id ? (
-                        <ActivityIndicator size="small" color={colors.danger} />
+                        <ActivityIndicator size="small" color={colors.ink2} />
                       ) : (
-                        <Text style={[fonts.semibold, { fontSize: fontSize.caption, color: colors.danger }]}>Sign out</Text>
+                        <Text style={[fonts.semibold, { fontSize: fontSize.caption, color: colors.ink2 }]}>Sign out</Text>
                       )}
                     </Pressable>
                   )}
@@ -352,23 +400,66 @@ function SettingsAccountScreen() {
           )}
         </SettingsSectionCard>
 
-        <SettingsSectionCard eyebrow="Danger zone" title="Pause or delete your account">
-          <Pressable onPress={() => setPauseConfirmOpen(true)} style={({ pressed }) => [styles.dangerRow, { borderBottomColor: colors.borderSoft, borderBottomWidth: borderWidth.thin }, pressed && styles.pressed]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[fonts.semibold, { fontSize: fontSize.ui, color: colors.ink }]}>Pause account</Text>
-              <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 2 }]}>Temporarily hide your profile. You can come back anytime.</Text>
+        {/* Custom card, not `SettingsSectionCard` — this is the one place in Settings that needs
+            a danger-tinted background/border and a red eyebrow/title, which the shared card's
+            hardcoded gold-eyebrow/ink-title styling doesn't support (and no other Settings
+            section needs a danger variant, so a one-off block here beats a new shared prop). */}
+        <View style={[styles.dangerCard, { backgroundColor: colors.dangerSurface, borderColor: colors.danger, borderWidth: borderWidth.thin, borderRadius: radius.xl }]}>
+          <View style={styles.dangerHeader}>
+            <View style={styles.dangerEyebrowRow}>
+              <View style={[styles.dangerEyebrowBar, { backgroundColor: colors.danger }]} />
+              <Text style={[fonts.bold, styles.dangerEyebrow, { color: colors.danger }]}>DANGER ZONE</Text>
             </View>
-          </Pressable>
-          <Pressable onPress={() => setDeleteModalOpen(true)} style={({ pressed }) => [styles.dangerRow, pressed && styles.pressed]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[fonts.semibold, { fontSize: fontSize.ui, color: colors.danger }]}>Delete account</Text>
-              <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 2 }]}>Permanently removed after 30 days.</Text>
+            <Text style={[fonts.display, styles.dangerTitle, { color: colors.danger }]}>Delete your account</Text>
+            <Text style={[fonts.regular, styles.dangerDescription, { fontSize: fontSize.caption, color: colors.ink2 }]}>
+              These actions are permanent. Take a moment before proceeding.
+            </Text>
+          </View>
+
+          <View style={[styles.dangerRow, { borderTopColor: colors.borderSoft, borderTopWidth: borderWidth.thin }]}>
+            <View style={[styles.dangerIconWell, { backgroundColor: colors.chip, borderRadius: radius.lg }]}>
+              <Pause size={16} color={colors.goldDark} strokeWidth={1.8} />
             </View>
-          </Pressable>
-        </SettingsSectionCard>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[fonts.bold, { fontSize: fontSize.ui, color: colors.ink }]}>Pause my account</Text>
+              <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 2 }]}>
+                Hides your profile and stops notifications. You can reactivate anytime.
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setPauseConfirmOpen(true)}
+              style={({ pressed }) => [
+                styles.dangerButton,
+                { backgroundColor: colors.chip, borderColor: colors.goldLight, borderWidth: borderWidth.thin, borderRadius: radius.lg },
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={[fonts.semibold, { fontSize: fontSize.small + 1, color: colors.goldDark }]}>Pause account</Text>
+            </Pressable>
+          </View>
+
+          <View style={[styles.dangerRow, { borderTopColor: colors.borderSoft, borderTopWidth: borderWidth.thin }]}>
+            <View style={[styles.dangerIconWell, { backgroundColor: 'rgba(204,68,68,0.12)', borderRadius: radius.lg }]}>
+              <Trash2 size={16} color={colors.danger} strokeWidth={1.8} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[fonts.bold, { fontSize: fontSize.ui, color: colors.ink }]}>Delete account permanently</Text>
+              <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3, marginTop: 2 }]}>
+                All posts, messages, matches and data will be permanently removed after 30 days.
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setDeleteModalOpen(true)}
+              style={({ pressed }) => [styles.dangerButton, { backgroundColor: colors.danger, borderRadius: radius.lg }, pressed && styles.pressed]}
+            >
+              <Text style={[fonts.semibold, { fontSize: fontSize.small + 1, color: '#fff' }]}>Delete account</Text>
+            </Pressable>
+          </View>
+        </View>
       </ScrollView>
 
       <ChangePasswordSheet visible={passwordSheetOpen} onClose={() => setPasswordSheetOpen(false)} />
+      <ChangeEmailSheet visible={emailSheetOpen} currentEmail={user?.email ?? ''} onClose={() => setEmailSheetOpen(false)} />
       <DeleteAccountModal visible={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} />
       <ConfirmDialog
         visible={pauseConfirmOpen}
@@ -380,7 +471,7 @@ function SettingsAccountScreen() {
         onConfirm={handlePause}
         onCancel={() => setPauseConfirmOpen(false)}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -408,6 +499,14 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 12.5,
   },
+  emailLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  changeEmailText: {
+    fontSize: 11.5,
+  },
   input: {
     height: 44,
     paddingHorizontal: 13,
@@ -426,11 +525,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    // Bleeds out to the card's own edges (cancels `SettingsSectionCard`'s 16px `padding`) instead
+    // of sitting as an inset chip, matching the reference screenshot's flush full-width bar —
+    // only the bottom corners are rounded (to `radius.xl`, inline, matching the card's own
+    // radius) since this always renders as the last thing in the card.
     marginTop: 16,
+    marginHorizontal: -16,
+    marginBottom: -16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  loginAlertsCard: {
+    marginTop: 6,
+    paddingHorizontal: 12,
   },
   smallButton: {
     paddingVertical: 6,
     paddingHorizontal: 4,
+  },
+  signOutAllButton: {
+    height: 34,
+    paddingHorizontal: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signOutButton: {
+    height: 30,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   saveButton: {
     height: 38,
@@ -456,8 +579,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  dangerCard: {
+    padding: 16,
+  },
+  dangerHeader: {
+    gap: 4,
+  },
+  dangerEyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  dangerEyebrowBar: {
+    width: 3,
+    height: 12,
+    borderRadius: 2,
+  },
+  dangerEyebrow: {
+    fontSize: 9.5,
+    letterSpacing: 0.7,
+  },
+  dangerTitle: {
+    fontSize: 18,
+  },
+  dangerDescription: {
+    lineHeight: 17,
+  },
   dangerRow: {
-    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+  },
+  dangerIconWell: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dangerButton: {
+    height: 36,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.65,

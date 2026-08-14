@@ -12,6 +12,7 @@ export function ToggleRow({
   value,
   onValueChange,
   last = false,
+  switchColor,
 }: {
   label: string;
   description?: string;
@@ -19,6 +20,9 @@ export function ToggleRow({
   onValueChange: (next: boolean) => void;
   /** Suppresses the bottom border for the last row in a card. */
   last?: boolean;
+  /** Overrides `Switch`'s default `colors.gold` "on" color — e.g. Visibility's toggles use
+   * `#182e43` instead, while every other `ToggleRow` in Settings stays gold. */
+  switchColor?: string;
 }) {
   const { colors, fonts, fontSize, borderWidth } = useTheme();
 
@@ -30,7 +34,7 @@ export function ToggleRow({
           <Text style={[fonts.regular, styles.description, { fontSize: fontSize.caption, color: colors.ink3 }]}>{description}</Text>
         )}
       </View>
-      <Switch value={value} onValueChange={onValueChange} />
+      <Switch value={value} onValueChange={onValueChange} onColor={switchColor} />
     </View>
   );
 }
