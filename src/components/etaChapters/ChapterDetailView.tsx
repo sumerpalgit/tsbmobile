@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Calendar, Share2 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { fetchChapterEvents } from '../../api/eta';
@@ -21,21 +21,7 @@ import type { ChapterEvent, EtaGroup } from '../../types/etaChapters';
  * to `null` in the source) — wired here to a natural tap target instead (see `EtaChaptersScreen`).
  * `shareDetail` fakes a clipboard toast on web's mockup; this uses RN's real native `Share` API
  * instead, a straightforward improvement over a placeholder-grade stub, not new scope. */
-export function ChapterDetailView({
-  visible,
-  chapter,
-  tab,
-  isMember,
-  primaryUsedCount,
-  pendingAcceptedAt,
-  isJoining,
-  isLeaving,
-  onClose,
-  onJoin,
-  onOpenChat,
-  onPreview,
-  onLeave,
-}: {
+type ChapterDetailViewProps = {
   visible: boolean;
   chapter: EtaGroup | null;
   tab: EtaChapterTab;
@@ -51,7 +37,44 @@ export function ChapterDetailView({
   onOpenChat: () => void;
   onPreview: () => void;
   onLeave: () => void;
-}) {
+};
+
+/** Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one —
+ * `Modal` renders in a separate native window on Android, so insets measured against the main
+ * window aren't guaranteed to apply there too (same root cause fixed in `DirectoryFiltersPanel`).
+ * The insets-consuming content is split into `ChapterDetailViewContent` because a component can't
+ * read a `Provider` it renders itself later in the same return — `useSafeAreaInsets()` has to be
+ * called from *inside* the new nested provider's subtree. The `!chapter` guard stays on this
+ * outer shell (rather than moving inside the content) so the whole component — including the
+ * `Modal` itself — renders nothing when there's no chapter, matching the original's single early
+ * return that skipped the `Modal` entirely. */
+export function ChapterDetailView(props: ChapterDetailViewProps) {
+  const { visible, chapter, onClose } = props;
+  if (!chapter) return null;
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <SafeAreaProvider>
+        <ChapterDetailViewContent {...props} chapter={chapter} />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function ChapterDetailViewContent({
+  visible,
+  chapter,
+  tab,
+  isMember,
+  primaryUsedCount,
+  pendingAcceptedAt,
+  isJoining,
+  isLeaving,
+  onClose,
+  onJoin,
+  onOpenChat,
+  onPreview,
+  onLeave,
+}: Omit<ChapterDetailViewProps, 'chapter'> & { chapter: EtaGroup }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -79,8 +102,6 @@ export function ChapterDetailView({
       cancelled = true;
     };
   }, [visible, chapter]);
-
-  if (!chapter) return null;
 
   const gradient = CHAPTER_GRADIENTS[getChapterGradientIdx(chapter.name)];
   const foundedYear = (() => {
@@ -113,101 +134,99 @@ export function ChapterDetailView({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <View style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}>
-        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-          <Pressable onPress={onClose} accessibilityLabel="Back" style={styles.headerButton}>
-            <ArrowLeft size={18} color={colors.ink} strokeWidth={1.8} />
-          </Pressable>
-          <Text style={[fonts.semibold, styles.headerTitle, { color: colors.ink2 }]} numberOfLines={1}>
-            {chapter.name} chapter
-          </Text>
-          <Pressable onPress={handleShare} accessibilityLabel="Share" style={styles.headerButton}>
-            <Share2 size={16} color={colors.ink2} strokeWidth={1.6} />
-          </Pressable>
+    <View style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+        <Pressable onPress={onClose} accessibilityLabel="Back" style={styles.headerButton}>
+          <ArrowLeft size={18} color={colors.ink} strokeWidth={1.8} />
+        </Pressable>
+        <Text style={[fonts.semibold, styles.headerTitle, { color: colors.ink2 }]} numberOfLines={1}>
+          {chapter.name} chapter
+        </Text>
+        <Pressable onPress={handleShare} accessibilityLabel="Share" style={styles.headerButton}>
+          <Share2 size={16} color={colors.ink2} strokeWidth={1.6} />
+        </Pressable>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.cover}>
+          {chapter.groupImageUrl ? (
+            <FastImage source={{ uri: chapter.groupImageUrl, priority: FastImage.priority.normal }} style={StyleSheet.absoluteFillObject} resizeMode={FastImage.resizeMode.cover} />
+          ) : (
+            <LinearGradient colors={[gradient.from, gradient.to]} style={StyleSheet.absoluteFillObject} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
+          )}
+          <View style={[StyleSheet.absoluteFillObject, styles.coverOverlay]} />
+          <View style={styles.coverText}>
+            <View style={[styles.badge, { backgroundColor: isMember ? colors.goldLight : 'rgba(255,255,255,0.2)' }]}>
+              <Text style={[fonts.bold, styles.badgeText, { color: isMember ? '#182E43' : '#fff' }]}>{badgeLabel.toUpperCase()}</Text>
+            </View>
+            <Text style={[fonts.display, styles.coverName, { color: '#fff' }]}>{chapter.name}</Text>
+            <Text style={[fonts.regular, styles.coverPlace, { color: 'rgba(255,255,255,0.78)' }]}>{getChapterPlace(chapter, 'Chapter')}</Text>
+          </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.cover}>
-            {chapter.groupImageUrl ? (
-              <FastImage source={{ uri: chapter.groupImageUrl, priority: FastImage.priority.normal }} style={StyleSheet.absoluteFillObject} resizeMode={FastImage.resizeMode.cover} />
-            ) : (
-              <LinearGradient colors={[gradient.from, gradient.to]} style={StyleSheet.absoluteFillObject} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
-            )}
-            <View style={[StyleSheet.absoluteFillObject, styles.coverOverlay]} />
-            <View style={styles.coverText}>
-              <View style={[styles.badge, { backgroundColor: isMember ? colors.goldLight : 'rgba(255,255,255,0.2)' }]}>
-                <Text style={[fonts.bold, styles.badgeText, { color: isMember ? '#182E43' : '#fff' }]}>{badgeLabel.toUpperCase()}</Text>
+        <View style={styles.body}>
+          <View style={[styles.statsRow, { backgroundColor: colors.border, borderColor: colors.border, borderRadius: radius.xl }]}>
+            {stats.map(s => (
+              <View key={s.label} style={[styles.statCell, { backgroundColor: colors.surface }]}>
+                <Text style={[fonts.display, styles.statNumber, { color: colors.ink }]}>{s.n}</Text>
+                <Text style={[fonts.bold, styles.statLabel, { color: colors.ink3 }]}>{s.label.toUpperCase()}</Text>
               </View>
-              <Text style={[fonts.display, styles.coverName, { color: '#fff' }]}>{chapter.name}</Text>
-              <Text style={[fonts.regular, styles.coverPlace, { color: 'rgba(255,255,255,0.78)' }]}>{getChapterPlace(chapter, 'Chapter')}</Text>
-            </View>
+            ))}
           </View>
 
-          <View style={styles.body}>
-            <View style={[styles.statsRow, { backgroundColor: colors.border, borderColor: colors.border, borderRadius: radius.xl }]}>
-              {stats.map(s => (
-                <View key={s.label} style={[styles.statCell, { backgroundColor: colors.surface }]}>
-                  <Text style={[fonts.display, styles.statNumber, { color: colors.ink }]}>{s.n}</Text>
-                  <Text style={[fonts.bold, styles.statLabel, { color: colors.ink3 }]}>{s.label.toUpperCase()}</Text>
-                </View>
-              ))}
-            </View>
-
-            {!!chapter.description && (
-              <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
-                <Text style={[fonts.bold, styles.cardLabel, { color: colors.ink3 }]}>ABOUT</Text>
-                <Text style={[fonts.regular, styles.cardBody, { color: colors.ink2 }]}>{chapter.description}</Text>
-              </View>
-            )}
-
+          {!!chapter.description && (
             <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
-              <View style={styles.nextMeetupRow}>
-                <View style={[styles.iconWell, { backgroundColor: colors.chip, borderRadius: radius.lg }]}>
-                  <Calendar size={16} color={colors.goldDark} strokeWidth={1.6} />
-                </View>
-                <View style={styles.nextMeetupBody}>
-                  <Text style={[fonts.bold, styles.cardLabel, { color: colors.ink3 }]}>NEXT MEETUP</Text>
-                  <Text style={[fonts.semibold, styles.nextMeetupText, { color: colors.ink }]}>{nextMeetupText}</Text>
-                </View>
-              </View>
+              <Text style={[fonts.bold, styles.cardLabel, { color: colors.ink3 }]}>ABOUT</Text>
+              <Text style={[fonts.regular, styles.cardBody, { color: colors.ink2 }]}>{chapter.description}</Text>
             </View>
-
-            {!!notice && (
-              <View style={[styles.noticeRow, { backgroundColor: colors.surface2, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
-                <Text style={[fonts.regular, styles.noticeText, { color: colors.ink2 }]}>{notice}</Text>
-              </View>
-            )}
-          </View>
-        </ScrollView>
-
-        <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
-          {isMember ? (
-            <Pressable
-              onPress={onLeave}
-              disabled={isLeaving}
-              style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.xl, opacity: isLeaving ? 0.6 : 1 }]}
-            >
-              <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.danger }]}>{isLeaving ? 'Leaving…' : 'Leave chapter'}</Text>
-            </Pressable>
-          ) : (
-            <Pressable onPress={onPreview} style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.xl }]}>
-              <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Preview</Text>
-            </Pressable>
           )}
 
-          <Pressable
-            onPress={isMember ? onOpenChat : onJoin}
-            disabled={isJoining || !!pendingAcceptedAt}
-            style={[styles.primaryButton, { backgroundColor: colors.gold, borderRadius: radius.xl, opacity: isJoining || pendingAcceptedAt ? 0.6 : 1 }]}
-          >
-            <Text style={[fonts.bold, { fontSize: fontSize.title, color: '#fff' }]}>
-              {pendingAcceptedAt ? 'Pending' : isMember ? 'Open member chat' : isJoining ? 'Joining…' : 'Join chapter'}
-            </Text>
-          </Pressable>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
+            <View style={styles.nextMeetupRow}>
+              <View style={[styles.iconWell, { backgroundColor: colors.chip, borderRadius: radius.lg }]}>
+                <Calendar size={16} color={colors.goldDark} strokeWidth={1.6} />
+              </View>
+              <View style={styles.nextMeetupBody}>
+                <Text style={[fonts.bold, styles.cardLabel, { color: colors.ink3 }]}>NEXT MEETUP</Text>
+                <Text style={[fonts.semibold, styles.nextMeetupText, { color: colors.ink }]}>{nextMeetupText}</Text>
+              </View>
+            </View>
+          </View>
+
+          {!!notice && (
+            <View style={[styles.noticeRow, { backgroundColor: colors.surface2, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
+              <Text style={[fonts.regular, styles.noticeText, { color: colors.ink2 }]}>{notice}</Text>
+            </View>
+          )}
         </View>
+      </ScrollView>
+
+      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin, paddingBottom: 16 + insets.bottom }]}>
+        {isMember ? (
+          <Pressable
+            onPress={onLeave}
+            disabled={isLeaving}
+            style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.xl, opacity: isLeaving ? 0.6 : 1 }]}
+          >
+            <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.danger }]}>{isLeaving ? 'Leaving…' : 'Leave chapter'}</Text>
+          </Pressable>
+        ) : (
+          <Pressable onPress={onPreview} style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.xl }]}>
+            <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Preview</Text>
+          </Pressable>
+        )}
+
+        <Pressable
+          onPress={isMember ? onOpenChat : onJoin}
+          disabled={isJoining || !!pendingAcceptedAt}
+          style={[styles.primaryButton, { backgroundColor: colors.gold, borderRadius: radius.xl, opacity: isJoining || pendingAcceptedAt ? 0.6 : 1 }]}
+        >
+          <Text style={[fonts.bold, { fontSize: fontSize.title, color: '#fff' }]}>
+            {pendingAcceptedAt ? 'Pending' : isMember ? 'Open member chat' : isJoining ? 'Joining…' : 'Join chapter'}
+          </Text>
+        </Pressable>
       </View>
-    </Modal>
+    </View>
   );
 }
 

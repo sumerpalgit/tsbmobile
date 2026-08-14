@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar, Mail, MapPin, MessageSquare, Star, User, Volume2, X } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { useTheme } from '../../theme';
@@ -32,8 +32,38 @@ const EMAIL_ROWS: { key: keyof ChapterNotifPrefs; label: string; description: st
 /** Per-chapter notification preferences — matches web's `ChapterNotificationPrefsModal`
  * (`fetchChapterPrefs`/`updateChapterPrefs`). "Mute all" (top-level) disables every other row
  * while on, same as web. `onPinChange` bubbles the saved `pinned` value up so the caller can
- * update the chat-list's pinned-first sort without a full refetch. */
+ * update the chat-list's pinned-first sort without a full refetch.
+ *
+ * Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one —
+ * `Modal` renders in a separate native window on Android, so insets measured against the main
+ * window aren't guaranteed to apply there too (same root cause fixed for
+ * `DirectoryFiltersPanel.tsx`). The insets-consuming content is split into
+ * `ChapterNotificationPrefsModalContent` because a component can't read a `Provider` it renders
+ * itself later in the same return — `useSafeAreaInsets()` has to be called from *inside* the new
+ * nested provider's subtree. */
 export function ChapterNotificationPrefsModal({
+  visible,
+  chapterId,
+  chapterName,
+  onPinChange,
+  onClose,
+}: {
+  visible: boolean;
+  chapterId: string | null;
+  chapterName: string;
+  onPinChange?: (pinned: boolean) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={onClose}>
+      <SafeAreaProvider>
+        <ChapterNotificationPrefsModalContent chapterId={chapterId} chapterName={chapterName} visible={visible} onPinChange={onPinChange} onClose={onClose} />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function ChapterNotificationPrefsModalContent({
   visible,
   chapterId,
   chapterName,
@@ -88,105 +118,103 @@ export function ChapterNotificationPrefsModal({
   };
 
   return (
-    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable
-          onPress={e => e.stopPropagation()}
-          style={[
-            styles.sheet,
-            { backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingBottom: insets.bottom + 16 },
-          ]}
-        >
-          <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+    <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable
+        onPress={e => e.stopPropagation()}
+        style={[
+          styles.sheet,
+          { backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingBottom: insets.bottom + 16 },
+        ]}
+      >
+        <View style={[styles.grabber, { backgroundColor: colors.border }]} />
 
-          <View style={styles.headerRow}>
-            <View style={[styles.headerIcon, { backgroundColor: colors.navy, borderRadius: radius.lg }]}>
-              <MapPin size={16} color={colors.gold} strokeWidth={1.8} />
-            </View>
-            <View style={styles.headerTextWrap}>
-              <Text style={[fonts.bold, styles.eyebrow, { color: colors.gold }]}>CHAPTER SETTINGS</Text>
-              <Text numberOfLines={1} style={[fonts.display, styles.title, { color: colors.ink }]}>
-                Notification Preferences
+        <View style={styles.headerRow}>
+          <View style={[styles.headerIcon, { backgroundColor: colors.navy, borderRadius: radius.lg }]}>
+            <MapPin size={16} color={colors.gold} strokeWidth={1.8} />
+          </View>
+          <View style={styles.headerTextWrap}>
+            <Text style={[fonts.bold, styles.eyebrow, { color: colors.gold }]}>CHAPTER SETTINGS</Text>
+            <Text numberOfLines={1} style={[fonts.display, styles.title, { color: colors.ink }]}>
+              Notification Preferences
+            </Text>
+            {!!chapterName && (
+              <Text numberOfLines={1} style={[fonts.regular, styles.subtitle, { color: colors.ink3 }]}>
+                {chapterName}
               </Text>
-              {!!chapterName && (
-                <Text numberOfLines={1} style={[fonts.regular, styles.subtitle, { color: colors.ink3 }]}>
-                  {chapterName}
-                </Text>
-              )}
-            </View>
-            <Pressable
-              onPress={onClose}
-              accessibilityLabel="Close"
-              style={[styles.closeButton, { backgroundColor: colors.surface2, borderColor: colors.border, borderRadius: radius.lg, borderWidth: borderWidth.thin }]}
-            >
-              <X size={13} color={colors.ink2} strokeWidth={1.8} />
-            </Pressable>
+            )}
           </View>
+          <Pressable
+            onPress={onClose}
+            accessibilityLabel="Close"
+            style={[styles.closeButton, { backgroundColor: colors.surface2, borderColor: colors.border, borderRadius: radius.lg, borderWidth: borderWidth.thin }]}
+          >
+            <X size={13} color={colors.ink2} strokeWidth={1.8} />
+          </Pressable>
+        </View>
 
-          {loading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color={colors.gold} />
-              <Text style={[fonts.regular, { fontSize: fontSize.body, color: colors.ink3 }]}>Loading preferences…</Text>
-            </View>
-          ) : (
-            <View style={styles.rows}>
+        {loading ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator size="small" color={colors.gold} />
+            <Text style={[fonts.regular, { fontSize: fontSize.body, color: colors.ink3 }]}>Loading preferences…</Text>
+          </View>
+        ) : (
+          <View style={styles.rows}>
+            <ToggleRow
+              icon={Volume2}
+              label="Mute all notifications"
+              description="Silence everything from this chapter"
+              value={prefs.mute_all}
+              onChange={v => setField('mute_all', v)}
+              emphasis
+            />
+
+            <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink3 }]}>NOTIFICATION TYPES</Text>
+            {TYPE_ROWS.map(row => (
               <ToggleRow
-                icon={Volume2}
-                label="Mute all notifications"
-                description="Silence everything from this chapter"
-                value={prefs.mute_all}
-                onChange={v => setField('mute_all', v)}
-                emphasis
+                key={row.key}
+                icon={row.icon}
+                label={row.label}
+                description={row.description}
+                value={prefs[row.key] as boolean}
+                onChange={v => setField(row.key, v)}
+                disabled={prefs.mute_all}
               />
+            ))}
 
-              <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink3 }]}>NOTIFICATION TYPES</Text>
-              {TYPE_ROWS.map(row => (
-                <ToggleRow
-                  key={row.key}
-                  icon={row.icon}
-                  label={row.label}
-                  description={row.description}
-                  value={prefs[row.key] as boolean}
-                  onChange={v => setField(row.key, v)}
-                  disabled={prefs.mute_all}
-                />
-              ))}
-
-              <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink3 }]}>EMAIL</Text>
-              {EMAIL_ROWS.map(row => (
-                <ToggleRow
-                  key={row.key}
-                  icon={row.icon}
-                  label={row.label}
-                  description={row.description}
-                  value={prefs[row.key] as boolean}
-                  onChange={v => setField(row.key, v)}
-                  last
-                />
-              ))}
-            </View>
-          )}
-
-          {error && <Text style={[fonts.regular, styles.errorText, { color: colors.danger }]}>{error}</Text>}
-
-          <View style={styles.actions}>
-            <Pressable
-              onPress={onClose}
-              style={[styles.cancelButton, { backgroundColor: colors.surface2, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xl }]}
-            >
-              <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleSave}
-              disabled={saving || loading}
-              style={[styles.saveButton, { backgroundColor: colors.navy, borderRadius: radius.xl, opacity: saving || loading ? 0.7 : 1 }]}
-            >
-              <Text style={[fonts.bold, { fontSize: fontSize.body, color: '#fff' }]}>{saved ? 'Saved ✓' : saving ? 'Saving…' : 'Save preferences'}</Text>
-            </Pressable>
+            <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink3 }]}>EMAIL</Text>
+            {EMAIL_ROWS.map(row => (
+              <ToggleRow
+                key={row.key}
+                icon={row.icon}
+                label={row.label}
+                description={row.description}
+                value={prefs[row.key] as boolean}
+                onChange={v => setField(row.key, v)}
+                last
+              />
+            ))}
           </View>
-        </Pressable>
+        )}
+
+        {error && <Text style={[fonts.regular, styles.errorText, { color: colors.danger }]}>{error}</Text>}
+
+        <View style={styles.actions}>
+          <Pressable
+            onPress={onClose}
+            style={[styles.cancelButton, { backgroundColor: colors.surface2, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xl }]}
+          >
+            <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Cancel</Text>
+          </Pressable>
+          <Pressable
+            onPress={handleSave}
+            disabled={saving || loading}
+            style={[styles.saveButton, { backgroundColor: colors.navy, borderRadius: radius.xl, opacity: saving || loading ? 0.7 : 1 }]}
+          >
+            <Text style={[fonts.bold, { fontSize: fontSize.body, color: '#fff' }]}>{saved ? 'Saved ✓' : saving ? 'Saving…' : 'Save preferences'}</Text>
+          </Pressable>
+        </View>
       </Pressable>
-    </Modal>
+    </Pressable>
   );
 }
 

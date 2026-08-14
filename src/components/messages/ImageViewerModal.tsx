@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, Modal, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 
 /** Full-screen in-app viewer for a chat image message — previously tapping an image message
@@ -10,13 +10,31 @@ import { X } from 'lucide-react-native';
  * button to dismiss. No pinch-zoom — not asked for, and this app has no other image-zoom
  * precedent to match; can be added later if needed. Owned by `MessagesScreen` (one instance
  * shared across every bubble in the thread, not one per message), same convention as
- * `MessageActionsSheet`/`ConfirmDialog` there. */
+ * `MessageActionsSheet`/`ConfirmDialog` there.
+ *
+ * Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one
+ * (`App.tsx`) — `Modal` renders in a separate native window on Android, so insets measured
+ * against the main window aren't guaranteed to apply there too. Same root cause/fix as
+ * `DirectoryFiltersPanel.tsx`. The insets-consuming content is split into
+ * `ImageViewerModalContent` because a component can't read a `Provider` it renders itself later in
+ * the same return — `useSafeAreaInsets()` has to be called from *inside* the new nested
+ * provider's subtree. */
 export function ImageViewerModal({ visible, imageUrl, onClose }: { visible: boolean; imageUrl: string | null; onClose: () => void }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <SafeAreaProvider>
+        <ImageViewerModalContent imageUrl={imageUrl} onClose={onClose} />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function ImageViewerModalContent({ imageUrl, onClose }: { imageUrl: string | null; onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+    <>
       <Pressable style={styles.backdrop} onPress={onClose}>
         {imageUrl ? (
           <Image source={{ uri: imageUrl }} style={{ width, height: height - insets.top - insets.bottom }} resizeMode="contain" />
@@ -29,7 +47,7 @@ export function ImageViewerModal({ visible, imageUrl, onClose }: { visible: bool
       >
         <X size={18} color="#fff" strokeWidth={2} />
       </Pressable>
-    </Modal>
+    </>
   );
 }
 

@@ -199,7 +199,7 @@ export function CreateCampaignWizard({ onClose }: { onClose: () => void }) {
         </View>
       )}
 
-      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
+      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin, paddingBottom: 16 + insets.bottom }]}>
         {step > 1 && (
           <Pressable
             onPress={() => {

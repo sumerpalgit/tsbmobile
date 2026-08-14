@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Dimensions, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { Icon } from '../icons/Icon';
 import { Pill } from '../Pill';
@@ -76,6 +76,16 @@ const QUICK_DATE_OPTIONS: { value: EventDay; label: string }[] = [
  * true range) / Chapter-City (single select, live-search suggestions only, capped to 6). No
  * Sort-by section — web's filter drawer doesn't have one; the list's own default chronological
  * order is unchanged, just no longer user-selectable.
+ *
+ * Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one
+ * (`App.tsx`) — `Modal` renders in a separate native window on Android, so insets measured
+ * against the main window aren't guaranteed to apply there too. Same root cause/fix as
+ * `DirectoryFiltersPanel.tsx`. The insets-consuming content (and every bit of state that only
+ * matters to that content — filter draft, city search, the manual keyboard-scroll fix) is split
+ * into `EventsFilterPageContent` because a component can't read a `Provider` it renders itself
+ * later in the same return — `useSafeAreaInsets()` has to be called from *inside* the new nested
+ * provider's subtree. The slide animation's `translateX` stays owned by this outer shell (it
+ * drives `Modal`'s own `shouldRender` prop) and is passed down as a plain `Animated.Value` prop.
  */
 export function EventsFilterPage({
   visible,
@@ -87,6 +97,53 @@ export function EventsFilterPage({
   initialFilters: EventsFilterState;
   onClose: () => void;
   onApply: (filters: EventsFilterState) => void;
+}) {
+  const screenWidth = Dimensions.get('window').width;
+  const [shouldRender, setShouldRender] = useState(visible);
+  const translateX = useRef(new Animated.Value(visible ? 0 : screenWidth)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setShouldRender(true);
+      translateX.setValue(screenWidth);
+      Animated.timing(translateX, { toValue: 0, duration: 280, useNativeDriver: true }).start();
+    } else {
+      Animated.timing(translateX, { toValue: screenWidth, duration: 220, useNativeDriver: true }).start(({ finished }) => {
+        if (finished) setShouldRender(false);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  return (
+    // `statusBarTranslucent` — see `EventDetailView.tsx`'s identical fix for why: without it, this
+    // Modal's status-bar coordinate handling is inconsistent across Android devices/versions.
+    <Modal visible={shouldRender} animationType="none" transparent statusBarTranslucent onRequestClose={onClose}>
+      <SafeAreaProvider>
+        <EventsFilterPageContent
+          visible={visible}
+          initialFilters={initialFilters}
+          onClose={onClose}
+          onApply={onApply}
+          translateX={translateX}
+        />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function EventsFilterPageContent({
+  visible,
+  initialFilters,
+  onClose,
+  onApply,
+  translateX,
+}: {
+  visible: boolean;
+  initialFilters: EventsFilterState;
+  onClose: () => void;
+  onApply: (filters: EventsFilterState) => void;
+  translateX: Animated.Value;
 }) {
   const { colors, fonts, fontSize, spacing, radius, borderWidth, letterSpacing } = useTheme();
   const insets = useSafeAreaInsets();
@@ -106,6 +163,11 @@ export function EventsFilterPage({
   const scrollOffsetRef = useRef(0);
   const cityInputRef = useRef<TextInput>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (visible) setDraft(initialFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', e => {
@@ -158,152 +220,130 @@ export function EventsFilterPage({
     };
   }, [draft.city]);
 
-  const screenWidth = Dimensions.get('window').width;
-  const [shouldRender, setShouldRender] = useState(visible);
-  const translateX = useRef(new Animated.Value(visible ? 0 : screenWidth)).current;
-
-  useEffect(() => {
-    if (visible) {
-      setShouldRender(true);
-      setDraft(initialFilters);
-      translateX.setValue(screenWidth);
-      Animated.timing(translateX, { toValue: 0, duration: 280, useNativeDriver: true }).start();
-    } else {
-      Animated.timing(translateX, { toValue: screenWidth, duration: 220, useNativeDriver: true }).start(({ finished }) => {
-        if (finished) setShouldRender(false);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
-
   const activeCount = countActiveEventFilters(draft);
   // Matches web's own `citySuggestions.slice(0, 6)` cap (`my-events/page.tsx:1034`).
   const cityStub = liveCities.slice(0, 6);
 
   return (
-    // `statusBarTranslucent` — see `EventDetailView.tsx`'s identical fix for why: without it, this
-    // Modal's status-bar coordinate handling is inconsistent across Android devices/versions.
-    <Modal visible={shouldRender} animationType="none" transparent statusBarTranslucent onRequestClose={onClose}>
-      <Animated.View style={[styles.container, { backgroundColor: colors.pageBg, paddingTop: insets.top, transform: [{ translateX }] }]}>
-        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-          <View style={styles.headerRow}>
-            <View style={{ flex: 1 }}>
-              <View style={styles.eyebrowRow}>
-                <View style={[styles.eyebrowDash, { backgroundColor: colors.gold }]} />
-                <Text style={[fonts.bold, styles.eyebrow, { color: colors.goldDark, letterSpacing: letterSpacing.wider }]}>
-                  Refine your events
-                </Text>
-              </View>
-              <Text style={[fonts.display, styles.title, { color: colors.ink }]}>Filter events</Text>
+    <Animated.View style={[styles.container, { backgroundColor: colors.pageBg, paddingTop: insets.top, transform: [{ translateX }] }]}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <View style={styles.eyebrowRow}>
+              <View style={[styles.eyebrowDash, { backgroundColor: colors.gold }]} />
+              <Text style={[fonts.bold, styles.eyebrow, { color: colors.goldDark, letterSpacing: letterSpacing.wider }]}>
+                Refine your events
+              </Text>
             </View>
-            <Pressable
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              style={({ pressed }) => [
-                styles.closeButton,
-                { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.lg },
-                pressed && styles.pressed,
-              ]}
-            >
-              <Icon name="close" size={14} color={colors.ink2} />
-            </Pressable>
+            <Text style={[fonts.display, styles.title, { color: colors.ink }]}>Filter events</Text>
           </View>
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            style={({ pressed }) => [
+              styles.closeButton,
+              { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.lg },
+              pressed && styles.pressed,
+            ]}
+          >
+            <Icon name="close" size={14} color={colors.ink2} />
+          </Pressable>
         </View>
+      </View>
 
-        <ScrollView
-          ref={scrollRef}
-          contentContainerStyle={[styles.body, { paddingBottom: 20 + keyboardHeight }]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          onScroll={e => {
-            scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
-          }}
-          scrollEventThrottle={16}
-        >
-          <FilterSection title="Event type" count={draft.eventType ? 1 : 0}>
-            <ChipWrap>
-              {EVENT_TYPE_OPTIONS.map(opt => (
-                <Pill
-                  key={opt.value}
-                  label={opt.label}
-                  selected={draft.eventType === opt.value}
-                  onPress={() => setDraft(prev => ({ ...prev, eventType: prev.eventType === opt.value ? '' : opt.value }))}
-                />
-              ))}
-            </ChipWrap>
-          </FilterSection>
-
-          <FilterSection title="Location type" count={draft.eventType ? 1 : 0}>
-            <ChipWrap>
-              {LOCATION_TYPE_OPTIONS.map(opt => (
-                <Pill
-                  key={opt.value}
-                  label={opt.label}
-                  selected={draft.eventType === opt.value}
-                  onPress={() => setDraft(prev => ({ ...prev, eventType: prev.eventType === opt.value ? '' : opt.value }))}
-                />
-              ))}
-            </ChipWrap>
-          </FilterSection>
-
-          <FilterSection title="Date range" count={draft.day !== 'any' ? 1 : 0}>
-            <DateTimeField
-              value={draft.customDate}
-              mode="date"
-              placeholder="Select date"
-              onChange={v => setDraft(prev => ({ ...prev, day: 'custom', customDate: v }))}
-            />
-            <View style={{ height: spacing.md }} />
-            <ChipWrap>
-              {QUICK_DATE_OPTIONS.map(opt => (
-                <Pill
-                  key={opt.value}
-                  label={opt.label}
-                  selected={draft.day === opt.value}
-                  onPress={() => setDraft(prev => ({ ...prev, day: prev.day === opt.value ? 'any' : opt.value, customDate: '' }))}
-                />
-              ))}
-            </ChipWrap>
-          </FilterSection>
-
-          <FilterSection title="Chapter / city" count={draft.city ? 1 : 0}>
-            <View style={[styles.citySearch, { backgroundColor: colors.surface2, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg }]}>
-              <Icon name="search" size={15} color={colors.ink3} />
-              <TextInput
-                ref={cityInputRef}
-                value={draft.city}
-                onChangeText={v => setDraft(prev => ({ ...prev, city: v }))}
-                placeholder="Search city…"
-                placeholderTextColor={colors.ink3}
-                style={[styles.cityInput, { fontSize: fontSize.body, color: colors.ink }]}
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={[styles.body, { paddingBottom: 20 + keyboardHeight }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        onScroll={e => {
+          scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+      >
+        <FilterSection title="Event type" count={draft.eventType ? 1 : 0}>
+          <ChipWrap>
+            {EVENT_TYPE_OPTIONS.map(opt => (
+              <Pill
+                key={opt.value}
+                label={opt.label}
+                selected={draft.eventType === opt.value}
+                onPress={() => setDraft(prev => ({ ...prev, eventType: prev.eventType === opt.value ? '' : opt.value }))}
               />
-              {cityLoading && <ActivityIndicator size="small" color={colors.ink3} />}
-            </View>
-            {cityStub.length > 0 && (
-              <>
-                <View style={{ height: spacing.md }} />
-                <ChipWrap>
-                  {cityStub.map(city => (
-                    <Pill
-                      key={city}
-                      label={city}
-                      selected={draft.city === city}
-                      onPress={() => setDraft(prev => ({ ...prev, city: prev.city === city ? '' : city }))}
-                    />
-                  ))}
-                </ChipWrap>
-              </>
-            )}
-          </FilterSection>
-        </ScrollView>
+            ))}
+          </ChipWrap>
+        </FilterSection>
 
-        <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin, paddingBottom: 16 + insets.bottom }]}>
-          <Button label="Clear all" icon="close" variant="secondary" disabled={activeCount === 0} onPress={() => setDraft(EMPTY_EVENTS_FILTERS)} />
-          <Button label="Apply filters" icon="checkmark" variant="primary" fullWidth color="#182E43" onPress={() => onApply(draft)} />
-        </View>
-      </Animated.View>
-    </Modal>
+        <FilterSection title="Location type" count={draft.eventType ? 1 : 0}>
+          <ChipWrap>
+            {LOCATION_TYPE_OPTIONS.map(opt => (
+              <Pill
+                key={opt.value}
+                label={opt.label}
+                selected={draft.eventType === opt.value}
+                onPress={() => setDraft(prev => ({ ...prev, eventType: prev.eventType === opt.value ? '' : opt.value }))}
+              />
+            ))}
+          </ChipWrap>
+        </FilterSection>
+
+        <FilterSection title="Date range" count={draft.day !== 'any' ? 1 : 0}>
+          <DateTimeField
+            value={draft.customDate}
+            mode="date"
+            placeholder="Select date"
+            onChange={v => setDraft(prev => ({ ...prev, day: 'custom', customDate: v }))}
+          />
+          <View style={{ height: spacing.md }} />
+          <ChipWrap>
+            {QUICK_DATE_OPTIONS.map(opt => (
+              <Pill
+                key={opt.value}
+                label={opt.label}
+                selected={draft.day === opt.value}
+                onPress={() => setDraft(prev => ({ ...prev, day: prev.day === opt.value ? 'any' : opt.value, customDate: '' }))}
+              />
+            ))}
+          </ChipWrap>
+        </FilterSection>
+
+        <FilterSection title="Chapter / city" count={draft.city ? 1 : 0}>
+          <View style={[styles.citySearch, { backgroundColor: colors.surface2, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg }]}>
+            <Icon name="search" size={15} color={colors.ink3} />
+            <TextInput
+              ref={cityInputRef}
+              value={draft.city}
+              onChangeText={v => setDraft(prev => ({ ...prev, city: v }))}
+              placeholder="Search city…"
+              placeholderTextColor={colors.ink3}
+              style={[styles.cityInput, { fontSize: fontSize.body, color: colors.ink }]}
+            />
+            {cityLoading && <ActivityIndicator size="small" color={colors.ink3} />}
+          </View>
+          {cityStub.length > 0 && (
+            <>
+              <View style={{ height: spacing.md }} />
+              <ChipWrap>
+                {cityStub.map(city => (
+                  <Pill
+                    key={city}
+                    label={city}
+                    selected={draft.city === city}
+                    onPress={() => setDraft(prev => ({ ...prev, city: prev.city === city ? '' : city }))}
+                  />
+                ))}
+              </ChipWrap>
+            </>
+          )}
+        </FilterSection>
+      </ScrollView>
+
+      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin, paddingBottom: 16 + insets.bottom }]}>
+        <Button label="Clear all" icon="close" variant="secondary" disabled={activeCount === 0} onPress={() => setDraft(EMPTY_EVENTS_FILTERS)} />
+        <Button label="Apply filters" icon="checkmark" variant="primary" fullWidth color="#182E43" onPress={() => onApply(draft)} />
+      </View>
+    </Animated.View>
   );
 }
 

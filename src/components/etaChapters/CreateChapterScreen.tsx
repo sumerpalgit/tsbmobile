@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, ClipboardCheck } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { searchEtaChapters } from '../../api/eta';
@@ -37,7 +37,18 @@ const NEXT_STEPS = [
  * Trending sections. The duplicate-city check is real here (debounced `searchEtaChapters`
  * against actual chapters), not the mockup's in-memory array scan against fake data. The
  * confirmation REF# is still client-generated (`requestEtaCity`'s real response has no such
- * field — matches web's own placeholder-grade behavior, not a new fabrication). */
+ * field — matches web's own placeholder-grade behavior, not a new fabrication).
+ *
+ * Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one —
+ * `Modal` renders in a separate native window on Android, so insets measured against the main
+ * window aren't guaranteed to apply there too (same root cause fixed for
+ * `DirectoryFiltersPanel.tsx`). The insets-consuming content is split into
+ * `CreateChapterScreenContent` because a component can't read a `Provider` it renders itself
+ * later in the same return — `useSafeAreaInsets()` has to be called from *inside* the new nested
+ * provider's subtree. `done`/`setDone` and `handleClose` stay lifted into this outer shell (rather
+ * than living in the content component like everything else) because `Modal`'s `onRequestClose`
+ * — the Android hardware-back handler — has to live here alongside the `Modal` itself, and it
+ * needs to reset `done` the same way the original single-component version did. */
 export function CreateChapterScreen({
   visible,
   isSubmitting,
@@ -49,6 +60,47 @@ export function CreateChapterScreen({
   onSubmit: (payload: { city: string; country: string; chapterName: string; reason: string; connection: string }) => Promise<boolean>;
   onClose: () => void;
 }) {
+  const [done, setDone] = useState(false);
+
+  const handleClose = () => {
+    setDone(false);
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={handleClose} statusBarTranslucent>
+      <SafeAreaProvider>
+        <CreateChapterScreenContent
+          visible={visible}
+          isSubmitting={isSubmitting}
+          onSubmit={onSubmit}
+          onClose={onClose}
+          done={done}
+          setDone={setDone}
+          handleClose={handleClose}
+        />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function CreateChapterScreenContent({
+  visible,
+  isSubmitting,
+  onSubmit,
+  onClose,
+  done,
+  setDone,
+  handleClose,
+}: {
+  visible: boolean;
+  isSubmitting: boolean;
+  onSubmit: (payload: { city: string; country: string; chapterName: string; reason: string; connection: string }) => Promise<boolean>;
+  onClose: () => void;
+  done: boolean;
+  setDone: React.Dispatch<React.SetStateAction<boolean>>;
+  handleClose: () => void;
+}) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -58,7 +110,6 @@ export function CreateChapterScreen({
   const [why, setWhy] = useState('');
   const [connection, setConnection] = useState('');
   const [isDuplicate, setIsDuplicate] = useState(false);
-  const [done, setDone] = useState(false);
   const [ref, setRef] = useState('');
   const dupCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -114,6 +165,7 @@ export function CreateChapterScreen({
     setIsDuplicate(false);
     setDone(false);
     setRef('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   useEffect(() => {
@@ -152,209 +204,202 @@ export function CreateChapterScreen({
     }
   };
 
-  const handleClose = () => {
-    setDone(false);
-    onClose();
-  };
-
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={handleClose} statusBarTranslucent>
-      <KeyboardAvoidingView
-        style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
-      >
-        {done ? (
-          <>
-            <ScrollView contentContainerStyle={styles.doneScroll} showsVerticalScrollIndicator={false}>
-              <View style={[styles.doneIcon, { backgroundColor: colors.gold }]}>
-                <ClipboardCheck size={28} color="#fff" strokeWidth={1.8} />
-              </View>
-              <Text style={[fonts.display, styles.doneTitle, { color: colors.goldDark }]}>Pending admin approval</Text>
-              <Text style={[fonts.regular, styles.doneBody, { color: colors.ink2 }]}>
-                Your chapter request for <Text style={fonts.bold}>{trimmedCity}{country ? `, ${country}` : ''}</Text> has been submitted. We
-                review new chapters within 48 hours and notify you as soon as it is approved.
+    <KeyboardAvoidingView
+      style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
+    >
+      {done ? (
+        <>
+          <ScrollView contentContainerStyle={styles.doneScroll} showsVerticalScrollIndicator={false}>
+            <View style={[styles.doneIcon, { backgroundColor: colors.gold }]}>
+              <ClipboardCheck size={28} color="#fff" strokeWidth={1.8} />
+            </View>
+            <Text style={[fonts.display, styles.doneTitle, { color: colors.goldDark }]}>Pending admin approval</Text>
+            <Text style={[fonts.regular, styles.doneBody, { color: colors.ink2 }]}>
+              Your chapter request for <Text style={fonts.bold}>{trimmedCity}{country ? `, ${country}` : ''}</Text> has been submitted. We
+              review new chapters within 48 hours and notify you as soon as it is approved.
+            </Text>
+            <View style={[styles.refChip, { borderColor: colors.goldLight, backgroundColor: colors.chip, borderRadius: radius.md }]}>
+              <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.goldDark }]}>REF {ref}</Text>
+            </View>
+
+            <View style={[styles.stepsCard, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
+              {NEXT_STEPS.map((step, i) => (
+                <View key={step.n} style={[styles.stepRow, i < NEXT_STEPS.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+                  <View style={[styles.stepNumber, { backgroundColor: colors.chip }]}>
+                    <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.goldDark }]}>{step.n}</Text>
+                  </View>
+                  <View style={styles.stepText}>
+                    <Text style={[fonts.bold, { fontSize: fontSize.body, color: colors.ink }]}>{step.title}</Text>
+                    <Text style={[fonts.regular, styles.stepBody, { color: colors.ink3 }]}>{step.body}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+
+          <View
+            style={[
+              styles.doneFooter,
+              { paddingBottom: insets.bottom, backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin },
+            ]}
+          >
+            <Pressable onPress={handleClose} style={[styles.doneButton, { backgroundColor: colors.feedFill, borderRadius: radius.xl }]}>
+              <Text style={[fonts.bold, { fontSize: fontSize.body, color: colors.feedOnFill }]}>Done</Text>
+            </Pressable>
+            <Pressable onPress={() => setDone(false)} hitSlop={10} style={styles.anotherButton}>
+              <Text style={[fonts.semibold, { fontSize: fontSize.small, color: colors.ink3 }]}>Submit another city</Text>
+            </Pressable>
+          </View>
+        </>
+      ) : (
+        <>
+          <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+            <Pressable onPress={onClose} accessibilityLabel="Back" style={styles.backButton}>
+              <ArrowLeft size={18} color={colors.ink} strokeWidth={1.8} />
+            </Pressable>
+            <View style={styles.headerText}>
+              <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>Create a new ETA chapter</Text>
+              <Text style={[fonts.regular, styles.headerSub, { color: colors.ink3 }]}>
+                Submit for admin review — usually approved within 48 hours
               </Text>
-              <View style={[styles.refChip, { borderColor: colors.goldLight, backgroundColor: colors.chip, borderRadius: radius.md }]}>
-                <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.goldDark }]}>REF {ref}</Text>
-              </View>
-
-              <View style={[styles.stepsCard, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
-                {NEXT_STEPS.map((step, i) => (
-                  <View key={step.n} style={[styles.stepRow, i < NEXT_STEPS.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-                    <View style={[styles.stepNumber, { backgroundColor: colors.chip }]}>
-                      <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.goldDark }]}>{step.n}</Text>
-                    </View>
-                    <View style={styles.stepText}>
-                      <Text style={[fonts.bold, { fontSize: fontSize.body, color: colors.ink }]}>{step.title}</Text>
-                      <Text style={[fonts.regular, styles.stepBody, { color: colors.ink3 }]}>{step.body}</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
-
-            <View
-              style={[
-                styles.doneFooter,
-                { paddingBottom: insets.bottom, backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin },
-              ]}
-            >
-              <Pressable onPress={handleClose} style={[styles.doneButton, { backgroundColor: colors.feedFill, borderRadius: radius.xl }]}>
-                <Text style={[fonts.bold, { fontSize: fontSize.body, color: colors.feedOnFill }]}>Done</Text>
-              </Pressable>
-              <Pressable onPress={() => setDone(false)} hitSlop={10} style={styles.anotherButton}>
-                <Text style={[fonts.semibold, { fontSize: fontSize.small, color: colors.ink3 }]}>Submit another city</Text>
-              </Pressable>
             </View>
-          </>
-        ) : (
-          <>
-            <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-              <Pressable onPress={onClose} accessibilityLabel="Back" style={styles.backButton}>
-                <ArrowLeft size={18} color={colors.ink} strokeWidth={1.8} />
-              </Pressable>
-              <View style={styles.headerText}>
-                <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>Create a new ETA chapter</Text>
-                <Text style={[fonts.regular, styles.headerSub, { color: colors.ink3 }]}>
-                  Submit for admin review — usually approved within 48 hours
-                </Text>
-              </View>
+          </View>
+
+          <ScrollView
+            ref={scrollRef}
+            contentContainerStyle={[styles.formScroll, { paddingBottom: 16 + keyboardHeight }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            onScroll={e => {
+              scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
+          >
+            <View style={[styles.noticeBox, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: colors.gold, borderRadius: radius.xl }]}>
+              <Text style={[fonts.bold, styles.noticeLabel, { color: colors.gold }]}>ADMIN REVIEW</Text>
+              <Text style={[fonts.regular, styles.noticeBody, { color: colors.ink2 }]}>
+                Chapters are reviewed within 48 hours. Once approved you become the founding moderator and can invite
+                members.
+              </Text>
             </View>
 
-            <ScrollView
-              ref={scrollRef}
-              contentContainerStyle={[styles.formScroll, { paddingBottom: 16 + keyboardHeight }]}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              onScroll={e => {
-                scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
-              }}
-              scrollEventThrottle={16}
-            >
-              <View style={[styles.noticeBox, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: colors.gold, borderRadius: radius.xl }]}>
-                <Text style={[fonts.bold, styles.noticeLabel, { color: colors.gold }]}>ADMIN REVIEW</Text>
-                <Text style={[fonts.regular, styles.noticeBody, { color: colors.ink2 }]}>
-                  Chapters are reviewed within 48 hours. Once approved you become the founding moderator and can invite
-                  members.
-                </Text>
-              </View>
+            <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
+              <Field label="City" required>
+                <TextInput
+                  ref={cityInputRef}
+                  value={city}
+                  onChangeText={setCity}
+                  onFocus={() => {
+                    focusedInputRef.current = cityInputRef.current;
+                  }}
+                  onBlur={() => {
+                    focusedInputRef.current = null;
+                  }}
+                  placeholder="e.g. Hyderabad"
+                  placeholderTextColor={colors.ink3}
+                  style={[fonts.regular, styles.input, { borderColor: colors.border, backgroundColor: colors.surface2, color: colors.ink, borderRadius: radius.lg }]}
+                />
+                {isDuplicate && (
+                  <Text style={[fonts.regular, styles.errorText, { color: colors.danger }]}>
+                    A chapter already exists in this city — join it instead.
+                  </Text>
+                )}
+              </Field>
 
-              <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
-                <Field label="City" required>
-                  <TextInput
-                    ref={cityInputRef}
-                    value={city}
-                    onChangeText={setCity}
-                    onFocus={() => {
-                      focusedInputRef.current = cityInputRef.current;
-                    }}
-                    onBlur={() => {
-                      focusedInputRef.current = null;
-                    }}
-                    placeholder="e.g. Hyderabad"
-                    placeholderTextColor={colors.ink3}
-                    style={[fonts.regular, styles.input, { borderColor: colors.border, backgroundColor: colors.surface2, color: colors.ink, borderRadius: radius.lg }]}
-                  />
-                  {isDuplicate && (
-                    <Text style={[fonts.regular, styles.errorText, { color: colors.danger }]}>
-                      A chapter already exists in this city — join it instead.
-                    </Text>
-                  )}
-                </Field>
+              <Field label="Country" required>
+                <FieldSelect value={country} placeholder="Select country…" options={COUNTRIES} onChange={setCountry} />
+              </Field>
 
-                <Field label="Country" required>
-                  <FieldSelect value={country} placeholder="Select country…" options={COUNTRIES} onChange={setCountry} />
-                </Field>
+              <Field label="Chapter name" required>
+                <TextInput
+                  ref={nameInputRef}
+                  value={name}
+                  onChangeText={setName}
+                  onFocus={() => {
+                    focusedInputRef.current = nameInputRef.current;
+                  }}
+                  onBlur={() => {
+                    focusedInputRef.current = null;
+                  }}
+                  placeholder={trimmedCity ? `TSB ${trimmedCity}` : 'e.g. TSB Hyderabad'}
+                  placeholderTextColor={colors.ink3}
+                  style={[fonts.regular, styles.input, { borderColor: colors.border, backgroundColor: colors.surface2, color: colors.ink, borderRadius: radius.lg }]}
+                />
+              </Field>
 
-                <Field label="Chapter name" required>
-                  <TextInput
-                    ref={nameInputRef}
-                    value={name}
-                    onChangeText={setName}
-                    onFocus={() => {
-                      focusedInputRef.current = nameInputRef.current;
-                    }}
-                    onBlur={() => {
-                      focusedInputRef.current = null;
-                    }}
-                    placeholder={trimmedCity ? `TSB ${trimmedCity}` : 'e.g. TSB Hyderabad'}
-                    placeholderTextColor={colors.ink3}
-                    style={[fonts.regular, styles.input, { borderColor: colors.border, backgroundColor: colors.surface2, color: colors.ink, borderRadius: radius.lg }]}
-                  />
-                </Field>
+              <Field label="Why this city?" required>
+                <TextInput
+                  ref={whyInputRef}
+                  value={why}
+                  onChangeText={text => setWhy(text.slice(0, WHY_MAX_LENGTH))}
+                  onFocus={() => {
+                    focusedInputRef.current = whyInputRef.current;
+                  }}
+                  onBlur={() => {
+                    focusedInputRef.current = null;
+                  }}
+                  placeholder="Describe the ETA / search fund community here and why a TSB chapter would be valuable…"
+                  placeholderTextColor={colors.ink3}
+                  multiline
+                  style={[fonts.regular, styles.textarea, { borderColor: colors.border, backgroundColor: colors.surface2, color: colors.ink, borderRadius: radius.lg }]}
+                />
+                <View style={styles.hintRow}>
+                  <Text style={[fonts.regular, styles.hintText, { color: colors.ink3 }]}>
+                    {whyOk ? 'Looks good' : `At least ${WHY_MIN_LENGTH} characters`}
+                  </Text>
+                  <Text style={[fonts.regular, styles.hintText, { color: colors.ink3 }]}>
+                    {trimmedWhy.length} / {WHY_MAX_LENGTH}
+                  </Text>
+                </View>
+              </Field>
 
-                <Field label="Why this city?" required>
-                  <TextInput
-                    ref={whyInputRef}
-                    value={why}
-                    onChangeText={text => setWhy(text.slice(0, WHY_MAX_LENGTH))}
-                    onFocus={() => {
-                      focusedInputRef.current = whyInputRef.current;
-                    }}
-                    onBlur={() => {
-                      focusedInputRef.current = null;
-                    }}
-                    placeholder="Describe the ETA / search fund community here and why a TSB chapter would be valuable…"
-                    placeholderTextColor={colors.ink3}
-                    multiline
-                    style={[fonts.regular, styles.textarea, { borderColor: colors.border, backgroundColor: colors.surface2, color: colors.ink, borderRadius: radius.lg }]}
-                  />
-                  <View style={styles.hintRow}>
-                    <Text style={[fonts.regular, styles.hintText, { color: colors.ink3 }]}>
-                      {whyOk ? 'Looks good' : `At least ${WHY_MIN_LENGTH} characters`}
-                    </Text>
-                    <Text style={[fonts.regular, styles.hintText, { color: colors.ink3 }]}>
-                      {trimmedWhy.length} / {WHY_MAX_LENGTH}
-                    </Text>
-                  </View>
-                </Field>
-
-                <Field label="Your connection to the city" hint="optional">
-                  <TextInput
-                    ref={connectionInputRef}
-                    value={connection}
-                    onChangeText={setConnection}
-                    onFocus={() => {
-                      focusedInputRef.current = connectionInputRef.current;
-                    }}
-                    onBlur={() => {
-                      focusedInputRef.current = null;
-                    }}
-                    placeholder="e.g. Based here, local investor network"
-                    placeholderTextColor={colors.ink3}
-                    style={[fonts.regular, styles.input, { borderColor: colors.border, backgroundColor: colors.surface2, color: colors.ink, borderRadius: radius.lg }]}
-                  />
-                </Field>
-              </View>
-            </ScrollView>
-
-            <View
-              style={[
-                styles.footer,
-                { paddingBottom: insets.bottom, backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin },
-              ]}
-            >
-              <Pressable
-                onPress={onClose}
-                style={[styles.cancelButton, { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}
-              >
-                <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleSubmit}
-                disabled={!ready}
-                style={[styles.submitButton, { backgroundColor: ready ? colors.gold : colors.surfaceSunken, borderRadius: radius.xl }]}
-              >
-                <Text style={[fonts.bold, { fontSize: fontSize.body, color: ready ? '#fff' : colors.ink3 }]}>
-                  {isSubmitting ? 'Submitting…' : 'Submit for approval'}
-                </Text>
-              </Pressable>
+              <Field label="Your connection to the city" hint="optional">
+                <TextInput
+                  ref={connectionInputRef}
+                  value={connection}
+                  onChangeText={setConnection}
+                  onFocus={() => {
+                    focusedInputRef.current = connectionInputRef.current;
+                  }}
+                  onBlur={() => {
+                    focusedInputRef.current = null;
+                  }}
+                  placeholder="e.g. Based here, local investor network"
+                  placeholderTextColor={colors.ink3}
+                  style={[fonts.regular, styles.input, { borderColor: colors.border, backgroundColor: colors.surface2, color: colors.ink, borderRadius: radius.lg }]}
+                />
+              </Field>
             </View>
-          </>
-        )}
-      </KeyboardAvoidingView>
-    </Modal>
+          </ScrollView>
+
+          <View
+            style={[
+              styles.footer,
+              { paddingBottom: insets.bottom, backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin },
+            ]}
+          >
+            <Pressable
+              onPress={onClose}
+              style={[styles.cancelButton, { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}
+            >
+              <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleSubmit}
+              disabled={!ready}
+              style={[styles.submitButton, { backgroundColor: ready ? colors.gold : colors.surfaceSunken, borderRadius: radius.xl }]}
+            >
+              <Text style={[fonts.bold, { fontSize: fontSize.body, color: ready ? '#fff' : colors.ink3 }]}>
+                {isSubmitting ? 'Submitting…' : 'Submit for approval'}
+              </Text>
+            </Pressable>
+          </View>
+        </>
+      )}
+    </KeyboardAvoidingView>
   );
 }
 

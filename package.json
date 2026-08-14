@@ -32,6 +32,7 @@
     "react-native-dotenv": "^4.1.1",
     "react-native-element-dropdown": "^2.12.4",
     "react-native-gesture-handler": "^3.0.2",
+    "react-native-inappbrowser-reborn": "^3.7.1",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-markdown-display": "^7.0.2",

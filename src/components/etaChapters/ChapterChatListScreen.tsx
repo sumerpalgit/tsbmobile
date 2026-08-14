@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { fetchBulkChapterPrefs } from '../../api/eta';
@@ -13,21 +13,39 @@ import type { EtaGroup } from '../../types/etaChapters';
  * prefs modal, Phase 4), plus the first 8 not-yet-joined chapters with inline Join, filtered by
  * an un-debounced client-side text match (matches the mockup — this is a local filter over
  * already-fetched lists, not a server search, so no debounce is needed). */
-export function ChapterChatListScreen({
-  visible,
-  myChapters,
-  availableChapters,
-  onClose,
-  onOpenChapter,
-  onJoinChapter,
-}: {
+type ChapterChatListScreenProps = {
   visible: boolean;
   myChapters: EtaGroup[];
   availableChapters: EtaGroup[];
   onClose: () => void;
   onOpenChapter: (chapter: EtaGroup) => void;
   onJoinChapter: (chapter: EtaGroup) => void;
-}) {
+};
+
+/** Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one —
+ * `Modal` renders in a separate native window on Android, so insets measured against the main
+ * window aren't guaranteed to apply there too (same root cause fixed in `DirectoryFiltersPanel`).
+ * The insets-consuming content is split into `ChapterChatListScreenContent` because a component
+ * can't read a `Provider` it renders itself later in the same return — `useSafeAreaInsets()` has
+ * to be called from *inside* the new nested provider's subtree. */
+export function ChapterChatListScreen({ visible, myChapters, availableChapters, onClose, onOpenChapter, onJoinChapter }: ChapterChatListScreenProps) {
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <SafeAreaProvider>
+        <ChapterChatListScreenContent
+          visible={visible}
+          myChapters={myChapters}
+          availableChapters={availableChapters}
+          onClose={onClose}
+          onOpenChapter={onOpenChapter}
+          onJoinChapter={onJoinChapter}
+        />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function ChapterChatListScreenContent({ visible, myChapters, availableChapters, onClose, onOpenChapter, onJoinChapter }: ChapterChatListScreenProps) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
@@ -52,67 +70,65 @@ export function ChapterChatListScreen({
   );
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <View style={[styles.screen, { backgroundColor: colors.surface, paddingTop: insets.top }]}>
-        <View style={[styles.header, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-          <Pressable onPress={onClose} accessibilityLabel="Back" style={styles.backButton}>
-            <ChevronLeft size={20} color={colors.ink} strokeWidth={1.8} />
-          </Pressable>
-          <View style={styles.headerText}>
-            <Text style={[fonts.bold, styles.eyebrow, { color: colors.ink3 }]}>MEMBER CHAT</Text>
-            <Text style={[fonts.display, styles.title, { color: colors.ink }]}>My ETA Chapters</Text>
-          </View>
+    <View style={[styles.screen, { backgroundColor: colors.surface, paddingTop: insets.top }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+        <Pressable onPress={onClose} accessibilityLabel="Back" style={styles.backButton}>
+          <ChevronLeft size={20} color={colors.ink} strokeWidth={1.8} />
+        </Pressable>
+        <View style={styles.headerText}>
+          <Text style={[fonts.bold, styles.eyebrow, { color: colors.ink3 }]}>MEMBER CHAT</Text>
+          <Text style={[fonts.display, styles.title, { color: colors.ink }]}>My ETA Chapters</Text>
         </View>
+      </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {sortedMyChapters.map(chapter => (
-            <Pressable key={chapter.id} onPress={() => onOpenChapter(chapter)} style={[styles.row, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-              <ChapterAvatar name={chapter.name} size={46} />
-              <View style={styles.rowText}>
-                <Text style={[fonts.bold, styles.rowName, { color: colors.ink }]} numberOfLines={1}>
-                  {chapter.name}
-                </Text>
-                <View style={styles.presenceRow}>
-                  <View style={[styles.presenceDot, { backgroundColor: colors.success }]} />
-                  <Text style={[fonts.regular, styles.rowSub, { color: colors.ink3 }]} numberOfLines={1}>
-                    {getChapterPlace(chapter, 'Chapter')} · Active now
-                  </Text>
-                </View>
-              </View>
-              <ChevronRight size={13} color={colors.ink3} strokeWidth={1.6} />
-            </Pressable>
-          ))}
-
-          <View style={styles.dividerRow}>
-            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-            <Text style={[fonts.bold, styles.dividerLabel, { color: colors.ink3 }]}>AVAILABLE</Text>
-          </View>
-
-          <View style={[styles.searchWrap, { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.xl }]}>
-            <Search size={14} color={colors.ink3} strokeWidth={1.6} />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search chapters…"
-              placeholderTextColor={colors.ink3}
-              style={[fonts.regular, styles.searchInput, { fontSize: fontSize.body, color: colors.ink }]}
-            />
-          </View>
-
-          {filteredAvailable.map(chapter => (
-            <View key={chapter.id} style={[styles.availableRow, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-              <ChapterAvatar name={chapter.name} size={38} />
-              <Text style={[fonts.bold, styles.availableName, { color: colors.ink }]} numberOfLines={1}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {sortedMyChapters.map(chapter => (
+          <Pressable key={chapter.id} onPress={() => onOpenChapter(chapter)} style={[styles.row, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+            <ChapterAvatar name={chapter.name} size={46} />
+            <View style={styles.rowText}>
+              <Text style={[fonts.bold, styles.rowName, { color: colors.ink }]} numberOfLines={1}>
                 {chapter.name}
               </Text>
-              <Pressable onPress={() => onJoinChapter(chapter)}>
-                <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.goldDark }]}>Join</Text>
-              </Pressable>
+              <View style={styles.presenceRow}>
+                <View style={[styles.presenceDot, { backgroundColor: colors.success }]} />
+                <Text style={[fonts.regular, styles.rowSub, { color: colors.ink3 }]} numberOfLines={1}>
+                  {getChapterPlace(chapter, 'Chapter')} · Active now
+                </Text>
+              </View>
             </View>
-          ))}
-        </ScrollView>
-      </View>
-    </Modal>
+            <ChevronRight size={13} color={colors.ink3} strokeWidth={1.6} />
+          </Pressable>
+        ))}
+
+        <View style={styles.dividerRow}>
+          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          <Text style={[fonts.bold, styles.dividerLabel, { color: colors.ink3 }]}>AVAILABLE</Text>
+        </View>
+
+        <View style={[styles.searchWrap, { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.xl }]}>
+          <Search size={14} color={colors.ink3} strokeWidth={1.6} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search chapters…"
+            placeholderTextColor={colors.ink3}
+            style={[fonts.regular, styles.searchInput, { fontSize: fontSize.body, color: colors.ink }]}
+          />
+        </View>
+
+        {filteredAvailable.map(chapter => (
+          <View key={chapter.id} style={[styles.availableRow, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+            <ChapterAvatar name={chapter.name} size={38} />
+            <Text style={[fonts.bold, styles.availableName, { color: colors.ink }]} numberOfLines={1}>
+              {chapter.name}
+            </Text>
+            <Pressable onPress={() => onJoinChapter(chapter)}>
+              <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.goldDark }]}>Join</Text>
+            </Pressable>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 

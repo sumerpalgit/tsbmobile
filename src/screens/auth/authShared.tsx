@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } 
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { ChevronLeft } from 'lucide-react-native';
 import { GoogleSignin, isSuccessResponse, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
+import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import axios from 'axios';
@@ -160,21 +161,44 @@ export function SocialSignIn() {
     }
   }
 
-  /** Opens webSrc's own LinkedIn sign-in flow in the system browser rather than doing OAuth
-   * natively — LinkedIn's code-for-token exchange needs a client secret that only webSrc's
-   * server holds (same secret the "Continue with LinkedIn" button on the website flow uses).
-   * webSrc redirects back into the app via `callbackURL`, landing on the
-   * tsb://linkedin-callback deep link (`LinkedInCallbackScreen`), which does the actual
-   * session persisting/navigation once webSrc hands back a token. Because this just opens a
-   * browser, there's no way to detect the user backing out without completing sign-in — the
-   * spinner only covers the moment it takes the OS to bring the browser to front. */
+  /** Opens webSrc's own LinkedIn sign-in flow rather than doing OAuth natively — LinkedIn's
+   * code-for-token exchange needs a client secret that only webSrc's server holds (same secret
+   * the "Continue with LinkedIn" button on the website flow uses). webSrc redirects back into
+   * the app via `callbackURL`, landing on the tsb://linkedin-callback deep link
+   * (`LinkedInCallbackScreen`), which does the actual session persisting/navigation once webSrc
+   * hands back a token.
+   *
+   * Uses `InAppBrowser.openAuth` (Custom Tabs on Android, `ASWebAuthenticationSession` on iOS)
+   * instead of a bare `Linking.openURL` specifically because it resolves a real promise once the
+   * browser navigates back to the app — that's what lets the spinner cover the *whole* round
+   * trip (open → LinkedIn → webSrc → back) instead of just the instant it takes the OS to bring
+   * the browser to front, and lets a cancelled/dismissed session be told apart from a genuine
+   * failure so cancelling never shows an error toast. `openAuth`'s own redirect capture doesn't
+   * reliably also fire the app's normal URL-scheme handler on every platform (`
+   * ASWebAuthenticationSession` in particular consumes it internally), so a successful result's
+   * `url` is explicitly re-opened via `Linking.openURL` — that's what actually routes into
+   * `RootNavigator`'s deep-link config and `LinkedInCallbackScreen`, keeping all the existing
+   * token/session logic there unduplicated. Falls back to a bare `Linking.openURL` if
+   * `InAppBrowser` isn't available on this device (that library's own recommended pattern) —
+   * same behavior as before this change, just for the rare device that doesn't support it. */
   async function handleLinkedInSignIn() {
     console.log('[LinkedInSignIn] button pressed');
     setLinkedinLoading(true);
     try {
       const callbackURL = encodeURIComponent('tsb://linkedin-callback');
       const url = `${WEB_BASE_URL}/mobile-auth/linkedin?callbackURL=${callbackURL}`;
-      await Linking.openURL(url);
+
+      if (await InAppBrowser.isAvailable()) {
+        const result = await InAppBrowser.openAuth(url, 'tsb://', { ephemeralWebSession: false });
+        console.log('[LinkedInSignIn] openAuth result:', JSON.stringify(result));
+
+        if (result.type === 'success' && result.url) {
+          await Linking.openURL(result.url);
+        }
+        // 'cancel' / 'dismiss' — user backed out of the browser; nothing to do, no error shown.
+      } else {
+        await Linking.openURL(url);
+      }
     } catch (error) {
       console.log('[LinkedInSignIn] error opening browser:', error);
       Toast.show({
