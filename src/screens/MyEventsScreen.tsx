@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, CompositeNavigationProp } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -84,6 +85,7 @@ function applyDayFilter(event: MyEventItem, nowDate: Date, filters: EventsFilter
  */
 function MyEventsScreen() {
   const { colors, fonts, spacing } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<MyEventsNavigationProp>();
 
   const { events, rsvpEvents, userCreatedEvents, savedEvents, isLoading, refetch } = useMyEvents();
@@ -326,7 +328,7 @@ function MyEventsScreen() {
             ))}
         </View>
 
-        <View style={{ height: spacing.xxxl }} />
+        <View style={{ height: spacing.xxxl + insets.bottom }} />
       </ScrollView>
 
       <EventsFilterPage

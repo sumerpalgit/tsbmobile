@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -24,6 +25,7 @@ const METRICS: AdMetricKey[] = ['impressions', 'clicks', 'spend', 'cpm'];
  * real web too (no hourly tracking exists) — shipped as the same static placeholder. */
 function AdInsightsScreen() {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, 'AdInsights'>>();
 
@@ -65,7 +67,7 @@ function AdInsightsScreen() {
           <AdInsightsSkeleton />
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 16 + insets.bottom }]}>
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}>
             <Text style={[fonts.bold, styles.eyebrow, { color: colors.goldDark }]}>{METRIC_LABELS[metric].toUpperCase()} · INSIGHTS</Text>
             <Text style={[fonts.display, styles.heroValue, { color: colors.ink }]}>{heroValueDisplay}</Text>

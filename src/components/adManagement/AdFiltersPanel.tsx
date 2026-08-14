@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, X } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { DateTimeField } from '../events/CreateEventWizard/DateTimeField';
@@ -35,7 +35,17 @@ const PLACEMENT_OPTIONS: AdPlacement[] = ['home', 'eta', 'both'];
  * fields — `KeyboardAvoidingView` doesn't reliably resize content inside a `Modal` on Android (the
  * `Modal` renders in its own native window), so the Budget Min/Max inputs need the keyboard height
  * tracked and the focused input scrolled clear of it manually rather than relying on
- * `KeyboardAvoidingView` alone. */
+ * `KeyboardAvoidingView` alone.
+ *
+ * Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one
+ * (`App.tsx`) — `Modal` renders in a separate native window on Android, so insets measured
+ * against the main window aren't guaranteed to apply there too. Same root cause/fix as
+ * `DirectoryFiltersPanel.tsx`. The insets-consuming content (and every bit of state that only
+ * matters to that content — filter draft, the manual keyboard-scroll fix) is split into
+ * `AdFiltersPanelContent` because a component can't read a `Provider` it renders itself later in
+ * the same return — `useSafeAreaInsets()` has to be called from *inside* the new nested
+ * provider's subtree. The slide animation's `translateX` stays owned by this outer shell (it
+ * drives `Modal`'s own `shouldRender` prop) and is passed down as a plain `Animated.Value` prop. */
 export function AdFiltersPanel({
   visible,
   filters,
@@ -49,12 +59,56 @@ export function AdFiltersPanel({
   onClose: () => void;
   onApply: (filters: AdFilters) => void;
 }) {
-  const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
-  const insets = useSafeAreaInsets();
-
   const screenWidth = Dimensions.get('window').width;
   const [shouldRender, setShouldRender] = useState(visible);
   const translateX = useRef(new Animated.Value(visible ? 0 : screenWidth)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setShouldRender(true);
+      translateX.setValue(screenWidth);
+      Animated.timing(translateX, { toValue: 0, duration: 280, useNativeDriver: true }).start();
+    } else {
+      Animated.timing(translateX, { toValue: screenWidth, duration: 220, useNativeDriver: true }).start(({ finished }) => {
+        if (finished) setShouldRender(false);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  return (
+    <Modal visible={shouldRender} animationType="none" transparent onRequestClose={onClose}>
+      <SafeAreaProvider>
+        <AdFiltersPanelContent
+          visible={visible}
+          filters={filters}
+          statusCounts={statusCounts}
+          onClose={onClose}
+          onApply={onApply}
+          translateX={translateX}
+        />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function AdFiltersPanelContent({
+  visible,
+  filters,
+  statusCounts,
+  onClose,
+  onApply,
+  translateX,
+}: {
+  visible: boolean;
+  filters: AdFilters;
+  statusCounts: Record<AdStatus, number>;
+  onClose: () => void;
+  onApply: (filters: AdFilters) => void;
+  translateX: Animated.Value;
+}) {
+  const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
+  const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(filters);
 
   const scrollRef = useRef<ScrollView>(null);
@@ -65,16 +119,7 @@ export function AdFiltersPanel({
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
-    if (visible) {
-      setShouldRender(true);
-      setDraft(filters);
-      translateX.setValue(screenWidth);
-      Animated.timing(translateX, { toValue: 0, duration: 280, useNativeDriver: true }).start();
-    } else {
-      Animated.timing(translateX, { toValue: screenWidth, duration: 220, useNativeDriver: true }).start(({ finished }) => {
-        if (finished) setShouldRender(false);
-      });
-    }
+    if (visible) setDraft(filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
@@ -110,153 +155,151 @@ export function AdFiltersPanel({
   const activeCount = countActiveFilterCategories(draft);
 
   return (
-    <Modal visible={shouldRender} animationType="none" transparent onRequestClose={onClose}>
-      <Animated.View style={[styles.container, { backgroundColor: colors.pageBg, paddingTop: insets.top, transform: [{ translateX }] }]}>
-        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
-          <View style={styles.header}>
-            <View style={styles.headerRow}>
-              <View style={{ flex: 1 }}>
-                <View style={styles.eyebrowRow}>
-                  <View style={[styles.eyebrowDash, { backgroundColor: colors.gold }]} />
-                  <Text style={[fonts.bold, styles.eyebrow, { color: colors.goldDark }]}>REFINE YOUR CAMPAIGNS</Text>
-                </View>
-                <Text style={[fonts.display, styles.title, { color: colors.ink }]}>Filters</Text>
+    <Animated.View style={[styles.container, { backgroundColor: colors.pageBg, paddingTop: insets.top, transform: [{ translateX }] }]}>
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <View style={{ flex: 1 }}>
+              <View style={styles.eyebrowRow}>
+                <View style={[styles.eyebrowDash, { backgroundColor: colors.gold }]} />
+                <Text style={[fonts.bold, styles.eyebrow, { color: colors.goldDark }]}>REFINE YOUR CAMPAIGNS</Text>
               </View>
-              {activeCount > 0 && (
-                <View style={[styles.activeBadge, { backgroundColor: colors.chip, borderColor: colors.goldLight, borderRadius: radius.md, borderWidth: borderWidth.thin }]}>
-                  <Text style={[fonts.bold, styles.activeBadgeText, { color: colors.goldDark }]}>{activeCount} active</Text>
-                </View>
-              )}
-              <Pressable
-                onPress={onClose}
-                accessibilityLabel="Close"
-                style={[styles.closeButton, { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: borderWidth.thin }]}
-              >
-                <X size={14} color={colors.ink2} strokeWidth={1.7} />
-              </Pressable>
+              <Text style={[fonts.display, styles.title, { color: colors.ink }]}>Filters</Text>
             </View>
+            {activeCount > 0 && (
+              <View style={[styles.activeBadge, { backgroundColor: colors.chip, borderColor: colors.goldLight, borderRadius: radius.md, borderWidth: borderWidth.thin }]}>
+                <Text style={[fonts.bold, styles.activeBadgeText, { color: colors.goldDark }]}>{activeCount} active</Text>
+              </View>
+            )}
+            <Pressable
+              onPress={onClose}
+              accessibilityLabel="Close"
+              style={[styles.closeButton, { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: borderWidth.thin }]}
+            >
+              <X size={14} color={colors.ink2} strokeWidth={1.7} />
+            </Pressable>
           </View>
+        </View>
 
-          <ScrollView
-            ref={scrollRef}
-            style={styles.scroll}
-            contentContainerStyle={{ paddingBottom: 16 + keyboardHeight }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            onScroll={e => {
-              scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
-            }}
-            scrollEventThrottle={16}
-          >
-            <View style={[styles.section, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-              <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink }]}>STATUS</Text>
-              <View style={{ gap: 8, marginTop: 13 }}>
-                {STATUS_OPTIONS.map(s => {
-                  const active = draft.statuses.includes(s);
-                  return (
-                    <Pressable key={s} onPress={() => toggleStatus(s)} style={styles.checkRow}>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          { borderRadius: radius.sm, borderColor: active ? colors.gold : colors.border, backgroundColor: active ? colors.gold : 'transparent' },
-                        ]}
-                      >
-                        {active && <Check size={12} color="#fff" strokeWidth={2.4} />}
-                      </View>
-                      <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink, flex: 1 }]}>{STATUS_LABELS[s]}</Text>
-                      <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>{statusCounts[s]}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={[styles.section, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-              <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink }]}>PLACEMENT</Text>
-              <View style={styles.chipsRow}>
-                {PLACEMENT_OPTIONS.map(p => {
-                  const active = draft.placements.includes(p);
-                  return (
-                    <Pressable
-                      key={p}
-                      onPress={() => togglePlacement(p)}
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={{ paddingBottom: 16 + keyboardHeight }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onScroll={e => {
+            scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
+        >
+          <View style={[styles.section, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+            <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink }]}>STATUS</Text>
+            <View style={{ gap: 8, marginTop: 13 }}>
+              {STATUS_OPTIONS.map(s => {
+                const active = draft.statuses.includes(s);
+                return (
+                  <Pressable key={s} onPress={() => toggleStatus(s)} style={styles.checkRow}>
+                    <View
                       style={[
-                        styles.filterChip,
-                        { borderRadius: radius.lg },
-                        active
-                          ? { backgroundColor: colors.chip, borderColor: colors.goldLight, borderWidth: 1 }
-                          : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: borderWidth.thin },
+                        styles.checkbox,
+                        { borderRadius: radius.sm, borderColor: active ? colors.gold : colors.border, backgroundColor: active ? colors.gold : 'transparent' },
                       ]}
                     >
-                      <Text style={[active ? fonts.bold : fonts.semibold, { fontSize: fontSize.small, color: active ? colors.goldDark : colors.ink2 }]}>
-                        {PLACEMENT_LABELS[p]}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                      {active && <Check size={12} color="#fff" strokeWidth={2.4} />}
+                    </View>
+                    <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink, flex: 1 }]}>{STATUS_LABELS[s]}</Text>
+                    <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>{statusCounts[s]}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
-
-            <View style={[styles.section, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-              <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink }]}>BUDGET RANGE</Text>
-              <View style={styles.budgetRow}>
-                <TextInput
-                  ref={minInputRef}
-                  value={draft.minBudget}
-                  onChangeText={t => setDraft(d => ({ ...d, minBudget: t.replace(/[^0-9]/g, '') }))}
-                  onFocus={() => (focusedInputRef.current = minInputRef.current)}
-                  placeholder="$ Min"
-                  placeholderTextColor={colors.ink3}
-                  keyboardType="number-pad"
-                  style={[styles.input, { borderColor: colors.border, borderRadius: radius.lg, color: colors.ink, backgroundColor: colors.surface }]}
-                />
-                <View style={[styles.dash, { backgroundColor: colors.border }]} />
-                <TextInput
-                  ref={maxInputRef}
-                  value={draft.maxBudget}
-                  onChangeText={t => setDraft(d => ({ ...d, maxBudget: t.replace(/[^0-9]/g, '') }))}
-                  onFocus={() => (focusedInputRef.current = maxInputRef.current)}
-                  placeholder="$ Max"
-                  placeholderTextColor={colors.ink3}
-                  keyboardType="number-pad"
-                  style={[styles.input, { borderColor: colors.border, borderRadius: radius.lg, color: colors.ink, backgroundColor: colors.surface }]}
-                />
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink }]}>DATE RANGE</Text>
-              <View style={{ gap: 10, marginTop: 13 }}>
-                <View>
-                  <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.ink2 }]}>Starts on or after</Text>
-                  <DateTimeField value={draft.startAfter} mode="date" placeholder="Any" onChange={v => setDraft(d => ({ ...d, startAfter: v }))} />
-                </View>
-                <View>
-                  <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.ink2 }]}>Ends on or before</Text>
-                  <DateTimeField value={draft.endBefore} mode="date" placeholder="Any" onChange={v => setDraft(d => ({ ...d, endBefore: v }))} />
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-
-          <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
-            <Pressable
-              onPress={() => setDraft(EMPTY_AD_FILTERS)}
-              style={({ pressed }) => [styles.clearButton, { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: borderWidth.thin }, pressed && styles.pressed]}
-            >
-              <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Clear</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => onApply(draft)}
-              style={({ pressed }) => [styles.applyButton, { backgroundColor: '#182E43', borderRadius: radius.lg }, pressed && styles.pressed]}
-            >
-              <Check size={15} color="#fff" strokeWidth={1.9} />
-              <Text style={[fonts.bold, { fontSize: fontSize.body, color: '#fff' }]}>Apply filters</Text>
-            </Pressable>
           </View>
-        </KeyboardAvoidingView>
-      </Animated.View>
-    </Modal>
+
+          <View style={[styles.section, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+            <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink }]}>PLACEMENT</Text>
+            <View style={styles.chipsRow}>
+              {PLACEMENT_OPTIONS.map(p => {
+                const active = draft.placements.includes(p);
+                return (
+                  <Pressable
+                    key={p}
+                    onPress={() => togglePlacement(p)}
+                    style={[
+                      styles.filterChip,
+                      { borderRadius: radius.lg },
+                      active
+                        ? { backgroundColor: colors.chip, borderColor: colors.goldLight, borderWidth: 1 }
+                        : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: borderWidth.thin },
+                    ]}
+                  >
+                    <Text style={[active ? fonts.bold : fonts.semibold, { fontSize: fontSize.small, color: active ? colors.goldDark : colors.ink2 }]}>
+                      {PLACEMENT_LABELS[p]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={[styles.section, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+            <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink }]}>BUDGET RANGE</Text>
+            <View style={styles.budgetRow}>
+              <TextInput
+                ref={minInputRef}
+                value={draft.minBudget}
+                onChangeText={t => setDraft(d => ({ ...d, minBudget: t.replace(/[^0-9]/g, '') }))}
+                onFocus={() => (focusedInputRef.current = minInputRef.current)}
+                placeholder="$ Min"
+                placeholderTextColor={colors.ink3}
+                keyboardType="number-pad"
+                style={[styles.input, { borderColor: colors.border, borderRadius: radius.lg, color: colors.ink, backgroundColor: colors.surface }]}
+              />
+              <View style={[styles.dash, { backgroundColor: colors.border }]} />
+              <TextInput
+                ref={maxInputRef}
+                value={draft.maxBudget}
+                onChangeText={t => setDraft(d => ({ ...d, maxBudget: t.replace(/[^0-9]/g, '') }))}
+                onFocus={() => (focusedInputRef.current = maxInputRef.current)}
+                placeholder="$ Max"
+                placeholderTextColor={colors.ink3}
+                keyboardType="number-pad"
+                style={[styles.input, { borderColor: colors.border, borderRadius: radius.lg, color: colors.ink, backgroundColor: colors.surface }]}
+              />
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink }]}>DATE RANGE</Text>
+            <View style={{ gap: 10, marginTop: 13 }}>
+              <View>
+                <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.ink2 }]}>Starts on or after</Text>
+                <DateTimeField value={draft.startAfter} mode="date" placeholder="Any" onChange={v => setDraft(d => ({ ...d, startAfter: v }))} />
+              </View>
+              <View>
+                <Text style={[fonts.semibold, styles.fieldLabel, { color: colors.ink2 }]}>Ends on or before</Text>
+                <DateTimeField value={draft.endBefore} mode="date" placeholder="Any" onChange={v => setDraft(d => ({ ...d, endBefore: v }))} />
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+
+        <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin, paddingBottom: 16 + insets.bottom }]}>
+          <Pressable
+            onPress={() => setDraft(EMPTY_AD_FILTERS)}
+            style={({ pressed }) => [styles.clearButton, { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: borderWidth.thin }, pressed && styles.pressed]}
+          >
+            <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Clear</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => onApply(draft)}
+            style={({ pressed }) => [styles.applyButton, { backgroundColor: '#182E43', borderRadius: radius.lg }, pressed && styles.pressed]}
+          >
+            <Check size={15} color="#fff" strokeWidth={1.9} />
+            <Text style={[fonts.bold, { fontSize: fontSize.body, color: '#fff' }]}>Apply filters</Text>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </Animated.View>
   );
 }
 

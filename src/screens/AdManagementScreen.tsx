@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Megaphone, Plus, Search } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { useAdCampaigns } from '../hooks/useAdCampaigns';
@@ -38,6 +39,7 @@ import type { AppStackParamList } from '../navigation/types';
 function AdManagementScreen() {
   const { colors, fonts, fontSize, radius } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const insets = useSafeAreaInsets();
 
   const {
     filteredAds,
@@ -87,7 +89,7 @@ function AdManagementScreen() {
       <FlatList
         data={isLoading ? [] : filteredAds}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: 32 + insets.bottom }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} />}
         ListHeaderComponent={
           <View style={styles.headerBlock}>

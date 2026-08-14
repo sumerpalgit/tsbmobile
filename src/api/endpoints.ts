@@ -17,7 +17,6 @@ export const AUTH_ENDPOINTS = {
 
 export const PROFILE_ENDPOINTS = {
   ME: '/profile/me',
-  UPLOAD_DOCUMENT: '/profile/upload-document',
   COMPLETION: '/profile/completion',
   SEARCH: '/profile/search',
   /** Single-profile lookup — matches web's real `profiles/[username]/page.tsx:634`

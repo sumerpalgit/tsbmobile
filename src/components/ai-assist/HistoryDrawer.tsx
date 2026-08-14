@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Clock, MessageSquare, MoreVertical, Plus, Sparkles } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { Icon } from '../icons/Icon';
@@ -28,7 +28,14 @@ function formatRelativeTime(dateStr: string): string {
  * Header content (icon badge + "AI Assist" + close, one compact row) matches the `AIAssist.html`
  * mockup's history panel exactly — NOT `FilterPanel`'s own eyebrow-dash + big-serif-title header,
  * which is that component's content, not part of the shared right-slide chrome being reused here.
- * Real `conversations` list (Recent/Saved), replacing web's always-visible sidebar. */
+ * Real `conversations` list (Recent/Saved), replacing web's always-visible sidebar.
+ *
+ * Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one
+ * (`App.tsx`) — `Modal` renders in a separate native window on Android, so insets measured
+ * against the main window aren't guaranteed to apply there too. The insets-consuming content is
+ * split into `HistoryDrawerContent` because a component can't read a `Provider` it renders itself
+ * later in the same return — `useSafeAreaInsets()` has to be called from *inside* the new nested
+ * provider's subtree. */
 export function HistoryDrawer({
   visible,
   onClose,
@@ -50,8 +57,7 @@ export function HistoryDrawer({
   onOpenMenu: (conversation: Conversation) => void;
   onOpenLibrary: () => void;
 }) {
-  const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
-  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
 
   const screenWidth = Dimensions.get('window').width;
   const [shouldRender, setShouldRender] = useState(visible);
@@ -72,85 +78,123 @@ export function HistoryDrawer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
+  return (
+    <Modal visible={shouldRender} animationType="none" transparent onRequestClose={onClose}>
+      <Animated.View style={[styles.container, { backgroundColor: colors.pageBg, transform: [{ translateX }] }]}>
+        <SafeAreaProvider>
+          <HistoryDrawerContent
+            onClose={onClose}
+            conversations={conversations}
+            loading={loading}
+            activeConversationId={activeConversationId}
+            onSelect={onSelect}
+            onNewChat={onNewChat}
+            onOpenMenu={onOpenMenu}
+            onOpenLibrary={onOpenLibrary}
+          />
+        </SafeAreaProvider>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+function HistoryDrawerContent({
+  onClose,
+  conversations,
+  loading,
+  activeConversationId,
+  onSelect,
+  onNewChat,
+  onOpenMenu,
+  onOpenLibrary,
+}: {
+  onClose: () => void;
+  conversations: Conversation[];
+  loading: boolean;
+  activeConversationId: string | null;
+  onSelect: (id: string) => void;
+  onNewChat: () => void;
+  onOpenMenu: (conversation: Conversation) => void;
+  onOpenLibrary: () => void;
+}) {
+  const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
+  const insets = useSafeAreaInsets();
+
   const recent = conversations.filter(c => !c.is_saved);
   const saved = conversations.filter(c => c.is_saved);
 
   return (
-    <Modal visible={shouldRender} animationType="none" transparent onRequestClose={onClose}>
-      <Animated.View
-        style={[styles.container, { backgroundColor: colors.pageBg, paddingTop: insets.top, transform: [{ translateX }] }]}
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin },
+        ]}
       >
-        <View
-          style={[
-            styles.header,
-            { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin },
-          ]}
-        >
-          <View style={styles.headerRow}>
-            <View style={[styles.brandBadge, { backgroundColor: colors.gold, borderRadius: radius.lg }]}>
-              <Sparkles size={16} color="#fff" strokeWidth={1.8} />
-            </View>
-            <Text style={[fonts.bold, styles.title, { color: colors.ink }]}>AI Assist</Text>
-            <Pressable
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              style={[styles.closeButton, { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.lg }]}
-            >
-              <Icon name="close" size={14} color={colors.ink2} />
-            </Pressable>
+        <View style={styles.headerRow}>
+          <View style={[styles.brandBadge, { backgroundColor: colors.gold, borderRadius: radius.lg }]}>
+            <Sparkles size={16} color="#fff" strokeWidth={1.8} />
           </View>
-
+          <Text style={[fonts.bold, styles.title, { color: colors.ink }]}>AI Assist</Text>
           <Pressable
-            onPress={onNewChat}
-            style={({ pressed }) => [
-              styles.newChatButton,
-              { backgroundColor: colors.feedFill, borderRadius: radius.xl, opacity: pressed ? 0.9 : 1 },
-            ]}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            style={[styles.closeButton, { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.lg }]}
           >
-            <Plus size={15} color={colors.feedOnFill} strokeWidth={1.8} />
-            <Text style={[fonts.semibold, styles.newChatText, { color: colors.feedOnFill }]}>New chat</Text>
+            <Icon name="close" size={14} color={colors.ink2} />
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-          <Section
-            icon={<Clock size={12} color={colors.ink3} strokeWidth={1.4} />}
-            label="Recent"
-            items={recent}
-            loading={loading}
-            activeConversationId={activeConversationId}
-            onSelect={onSelect}
-            onOpenMenu={onOpenMenu}
-          />
-          <Section
-            icon={<Icon name="bookmark" size={12} color={colors.ink3} />}
-            label="Saved"
-            items={saved}
-            loading={false}
-            activeConversationId={activeConversationId}
-            onSelect={onSelect}
-            onOpenMenu={onOpenMenu}
-            collapsible
-          />
-        </ScrollView>
-
-        <View
-          style={[
-            styles.footer,
-            { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin, paddingBottom: 16 + insets.bottom },
+        <Pressable
+          onPress={onNewChat}
+          style={({ pressed }) => [
+            styles.newChatButton,
+            { backgroundColor: colors.feedFill, borderRadius: radius.xl, opacity: pressed ? 0.9 : 1 },
           ]}
         >
-          <Pressable
-            onPress={onOpenLibrary}
-            style={[styles.libraryButton, { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken }]}
-          >
-            <Icon name="aiAssist" size={15} color={colors.goldDark} />
-            <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink }]}>Prompt library</Text>
-          </Pressable>
-        </View>
-      </Animated.View>
-    </Modal>
+          <Plus size={15} color={colors.feedOnFill} strokeWidth={1.8} />
+          <Text style={[fonts.semibold, styles.newChatText, { color: colors.feedOnFill }]}>New chat</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <Section
+          icon={<Clock size={12} color={colors.ink3} strokeWidth={1.4} />}
+          label="Recent"
+          items={recent}
+          loading={loading}
+          activeConversationId={activeConversationId}
+          onSelect={onSelect}
+          onOpenMenu={onOpenMenu}
+        />
+        <Section
+          icon={<Icon name="bookmark" size={12} color={colors.ink3} />}
+          label="Saved"
+          items={saved}
+          loading={false}
+          activeConversationId={activeConversationId}
+          onSelect={onSelect}
+          onOpenMenu={onOpenMenu}
+          collapsible
+        />
+      </ScrollView>
+
+      <View
+        style={[
+          styles.footer,
+          { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin, paddingBottom: 16 + insets.bottom },
+        ]}
+      >
+        <Pressable
+          onPress={onOpenLibrary}
+          style={[styles.libraryButton, { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken }]}
+        >
+          <Icon name="aiAssist" size={15} color={colors.goldDark} />
+          <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink }]}>Prompt library</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 

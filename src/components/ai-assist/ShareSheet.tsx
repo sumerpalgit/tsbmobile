@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Copy, Share2, X } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { Switch } from '../Switch';
@@ -10,7 +10,14 @@ type ShareToggleKey = 'comments' | 'followups';
 /** Bottom sheet — shareable link + copy, access toggles, Cancel/Copy & close. `link` is real
  * (`shareAiConversation`); `comments`/`followups` mirror the mockup's toggle labels but have no
  * backing endpoint on web either — kept as local UI state, same "toast-only stub" treatment as
- * `MoreSheet`'s regenerate button. */
+ * `MoreSheet`'s regenerate button.
+ *
+ * Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one
+ * (`App.tsx`) — `Modal` renders in a separate native window on Android, so insets measured
+ * against the main window aren't guaranteed to apply there too. The insets-consuming content is
+ * split into `ShareSheetContent` because a component can't read a `Provider` it renders itself
+ * later in the same return — `useSafeAreaInsets()` has to be called from *inside* the new nested
+ * provider's subtree. */
 export function ShareSheet({
   visible,
   onClose,
@@ -19,6 +26,26 @@ export function ShareSheet({
   onCopy,
 }: {
   visible: boolean;
+  onClose: () => void;
+  shareUrl: string;
+  loading: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <SafeAreaProvider>
+        <ShareSheetContent onClose={onClose} shareUrl={shareUrl} loading={loading} onCopy={onCopy} />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function ShareSheetContent({
+  onClose,
+  shareUrl,
+  loading,
+  onCopy,
+}: {
   onClose: () => void;
   shareUrl: string;
   loading: boolean;
@@ -34,96 +61,94 @@ export function ShareSheet({
   ];
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable
-          onPress={e => e.stopPropagation()}
-          style={[
-            styles.sheet,
-            {
-              paddingBottom: Math.max(insets.bottom, 18),
-              backgroundColor: colors.surface,
-              borderTopLeftRadius: radius.xxl + 6,
-              borderTopRightRadius: radius.xxl + 6,
-            },
-          ]}
-        >
-          <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+    <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable
+        onPress={e => e.stopPropagation()}
+        style={[
+          styles.sheet,
+          {
+            paddingBottom: Math.max(insets.bottom, 18),
+            backgroundColor: colors.surface,
+            borderTopLeftRadius: radius.xxl + 6,
+            borderTopRightRadius: radius.xxl + 6,
+          },
+        ]}
+      >
+        <View style={[styles.grabber, { backgroundColor: colors.border }]} />
 
-          <View style={styles.header}>
-            <View style={[styles.iconBadge, { backgroundColor: colors.gold, borderRadius: radius.lg }]}>
-              <Share2 size={16} color="#fff" strokeWidth={1.4} />
-            </View>
-            <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>Share this chat</Text>
-            <Pressable
-              onPress={onClose}
-              accessibilityLabel="Close"
-              style={[styles.closeButton, { backgroundColor: colors.surfaceSunken, borderRadius: radius.md }]}
-            >
-              <X size={13} color={colors.ink3} strokeWidth={1.7} />
-            </Pressable>
+        <View style={styles.header}>
+          <View style={[styles.iconBadge, { backgroundColor: colors.gold, borderRadius: radius.lg }]}>
+            <Share2 size={16} color="#fff" strokeWidth={1.4} />
           </View>
+          <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>Share this chat</Text>
+          <Pressable
+            onPress={onClose}
+            accessibilityLabel="Close"
+            style={[styles.closeButton, { backgroundColor: colors.surfaceSunken, borderRadius: radius.md }]}
+          >
+            <X size={13} color={colors.ink3} strokeWidth={1.7} />
+          </Pressable>
+        </View>
 
-          <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink3 }]}>Shareable link</Text>
-          <View style={styles.linkRow}>
-            <View
-              style={[
-                styles.linkField,
-                { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken },
-              ]}
-            >
-              <Text numberOfLines={1} style={[fonts.regular, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>
-                {loading ? 'Generating link…' : shareUrl || 'Link unavailable'}
-              </Text>
-            </View>
-            <Pressable
-              onPress={onCopy}
-              disabled={!shareUrl}
-              style={[
-                styles.copyButton,
-                { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg, opacity: shareUrl ? 1 : 0.5 },
-              ]}
-            >
-              <Copy size={13} color={colors.ink} strokeWidth={1.5} />
-              <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink }]}>Copy</Text>
-            </Pressable>
+        <Text style={[fonts.bold, styles.sectionLabel, { color: colors.ink3 }]}>Shareable link</Text>
+        <View style={styles.linkRow}>
+          <View
+            style={[
+              styles.linkField,
+              { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken },
+            ]}
+          >
+            <Text numberOfLines={1} style={[fonts.regular, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>
+              {loading ? 'Generating link…' : shareUrl || 'Link unavailable'}
+            </Text>
           </View>
+          <Pressable
+            onPress={onCopy}
+            disabled={!shareUrl}
+            style={[
+              styles.copyButton,
+              { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg, opacity: shareUrl ? 1 : 0.5 },
+            ]}
+          >
+            <Copy size={13} color={colors.ink} strokeWidth={1.5} />
+            <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink }]}>Copy</Text>
+          </Pressable>
+        </View>
 
-          <Text style={[fonts.bold, styles.sectionLabel, { marginTop: 18, color: colors.ink3 }]}>
-            Access settings
-          </Text>
-          {rows.map(r => (
-            <View key={r.key} style={[styles.toggleRow, { borderBottomColor: colors.borderSoft, borderBottomWidth: borderWidth.thin }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[fonts.semibold, { fontSize: fontSize.ui, color: colors.ink }]}>{r.label}</Text>
-                <Text style={[fonts.regular, styles.toggleSub, { color: colors.ink3 }]}>{r.sub}</Text>
-              </View>
-              <Switch value={toggles[r.key]} onValueChange={v => setToggles(prev => ({ ...prev, [r.key]: v }))} />
+        <Text style={[fonts.bold, styles.sectionLabel, { marginTop: 18, color: colors.ink3 }]}>
+          Access settings
+        </Text>
+        {rows.map(r => (
+          <View key={r.key} style={[styles.toggleRow, { borderBottomColor: colors.borderSoft, borderBottomWidth: borderWidth.thin }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[fonts.semibold, { fontSize: fontSize.ui, color: colors.ink }]}>{r.label}</Text>
+              <Text style={[fonts.regular, styles.toggleSub, { color: colors.ink3 }]}>{r.sub}</Text>
             </View>
-          ))}
-
-          <View style={styles.actions}>
-            <Pressable
-              onPress={onClose}
-              style={[styles.cancelButton, { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg }]}
-            >
-              <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                onCopy();
-                onClose();
-              }}
-              disabled={!shareUrl}
-              style={[styles.confirmButton, { backgroundColor: colors.gold, borderRadius: radius.lg, opacity: shareUrl ? 1 : 0.5 }]}
-            >
-              <Copy size={15} color="#fff" strokeWidth={1.6} />
-              <Text style={[fonts.bold, { fontSize: fontSize.ui, color: '#fff' }]}>Copy &amp; close</Text>
-            </Pressable>
+            <Switch value={toggles[r.key]} onValueChange={v => setToggles(prev => ({ ...prev, [r.key]: v }))} />
           </View>
-        </Pressable>
+        ))}
+
+        <View style={styles.actions}>
+          <Pressable
+            onPress={onClose}
+            style={[styles.cancelButton, { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg }]}
+          >
+            <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Cancel</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              onCopy();
+              onClose();
+            }}
+            disabled={!shareUrl}
+            style={[styles.confirmButton, { backgroundColor: colors.gold, borderRadius: radius.lg, opacity: shareUrl ? 1 : 0.5 }]}
+          >
+            <Copy size={15} color="#fff" strokeWidth={1.6} />
+            <Text style={[fonts.bold, { fontSize: fontSize.ui, color: '#fff' }]}>Copy &amp; close</Text>
+          </Pressable>
+        </View>
       </Pressable>
-    </Modal>
+    </Pressable>
   );
 }
 

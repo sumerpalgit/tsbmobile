@@ -268,6 +268,7 @@ export const ROLE_CONFIG: Record<string, RoleConfigEntry> = {
             label: 'When do you typically get involved?',
             type: 'select',
             required: true,
+            placeholder: 'Select deal stage',
             options: opts([
               'Pre-search (planning, structuring, readiness)',
               'Active search phase',
@@ -284,6 +285,7 @@ export const ROLE_CONFIG: Record<string, RoleConfigEntry> = {
             label: 'Who do you typically work with?',
             type: 'select',
             required: true,
+            placeholder: 'Select client type',
             options: opts([
               'Searchers/First-time acquirers',
               'Independent sponsors',
@@ -303,6 +305,7 @@ export const ROLE_CONFIG: Record<string, RoleConfigEntry> = {
             label: 'Which side do you primarily represent?',
             type: 'select',
             required: true,
+            placeholder: 'Select side',
             options: opts(['Buy-side only', 'Sell-side only', 'Both sides (different engagements)']),
           },
           {
@@ -310,6 +313,7 @@ export const ROLE_CONFIG: Record<string, RoleConfigEntry> = {
             label: 'How do you engage with clients?',
             type: 'select',
             required: true,
+            placeholder: 'Select engagement type',
             options: opts([
               'Project basis (defined scope)',
               'Retainer (ongoing relationship)',

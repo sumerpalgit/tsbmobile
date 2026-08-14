@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 
 export type ActionSheetItem = {
@@ -15,7 +15,14 @@ export type ActionSheetItem = {
  * mockup renders all three as the same drag-handle + icon/label row list, just with different
  * item sets, so the chrome lives once here rather than being copy-pasted three times. Same
  * `Modal` + `Pressable`-backdrop pattern as `ConfirmDialog.tsx`/`EventsCalendarPopover.tsx` (no
- * bottom-sheet library in this app). */
+ * bottom-sheet library in this app).
+ *
+ * Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one
+ * (`App.tsx`) — `Modal` renders in a separate native window on Android, so insets measured
+ * against the main window aren't guaranteed to apply there too. The insets-consuming content is
+ * split into `ActionSheetContent` because a component can't read a `Provider` it renders itself
+ * later in the same return — `useSafeAreaInsets()` has to be called from *inside* the new nested
+ * provider's subtree. */
 export function ActionSheet({
   visible,
   onClose,
@@ -29,69 +36,87 @@ export function ActionSheet({
   subtitle?: string;
   items: ActionSheetItem[];
 }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <SafeAreaProvider>
+        <ActionSheetContent onClose={onClose} title={title} subtitle={subtitle} items={items} />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function ActionSheetContent({
+  onClose,
+  title,
+  subtitle,
+  items,
+}: {
+  onClose: () => void;
+  title?: string;
+  subtitle?: string;
+  items: ActionSheetItem[];
+}) {
   const { colors, fonts, fontSize, radius } = useTheme();
   const insets = useSafeAreaInsets();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      <Pressable style={[styles.backdrop, { backgroundColor: 'rgba(10,16,24,0.5)' }]} onPress={onClose}>
-        <Pressable
-          onPress={e => e.stopPropagation()}
-          style={[
-            styles.sheet,
-            {
-              paddingBottom: Math.max(insets.bottom, 16),
-              backgroundColor: colors.surface,
-              borderTopLeftRadius: radius.xxl + 6,
-              borderTopRightRadius: radius.xxl + 6,
-            },
-          ]}
-        >
-          <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+    <Pressable style={[styles.backdrop, { backgroundColor: 'rgba(10,16,24,0.5)' }]} onPress={onClose}>
+      <Pressable
+        onPress={e => e.stopPropagation()}
+        style={[
+          styles.sheet,
+          {
+            paddingBottom: Math.max(insets.bottom, 16),
+            backgroundColor: colors.surface,
+            borderTopLeftRadius: radius.xxl + 6,
+            borderTopRightRadius: radius.xxl + 6,
+          },
+        ]}
+      >
+        <View style={[styles.grabber, { backgroundColor: colors.border }]} />
 
-          {title ? (
-            <Text numberOfLines={1} style={[fonts.bold, styles.title, { color: colors.ink }]}>
-              {title}
-            </Text>
-          ) : null}
-          {subtitle ? (
-            <Text style={[fonts.regular, styles.subtitle, { color: colors.ink3 }]}>{subtitle}</Text>
-          ) : null}
+        {title ? (
+          <Text numberOfLines={1} style={[fonts.bold, styles.title, { color: colors.ink }]}>
+            {title}
+          </Text>
+        ) : null}
+        {subtitle ? (
+          <Text style={[fonts.regular, styles.subtitle, { color: colors.ink3 }]}>{subtitle}</Text>
+        ) : null}
 
-          <View style={{ gap: 2 }}>
-            {items.map((item, i) => (
-              <React.Fragment key={item.key}>
-                {/* A destructive item that isn't the sheet's only item gets a divider above it —
-                    matches the reference design's separation of "Leave chapter"/etc. from the
-                    regular actions above it. A separate hairline (not border-on-the-row) since
-                    the row's fixed `height` would otherwise clip extra top padding. */}
-                {item.danger && i > 0 && <View style={[styles.dangerDivider, { backgroundColor: colors.border }]} />}
-                <Pressable
-                  onPress={() => {
-                    onClose();
-                    item.onPress();
-                  }}
-                  style={({ pressed }) => [
-                    styles.row,
-                    { borderRadius: radius.xl, backgroundColor: pressed ? colors.surfaceSunken : 'transparent' },
+        <View style={{ gap: 2 }}>
+          {items.map((item, i) => (
+            <React.Fragment key={item.key}>
+              {/* A destructive item that isn't the sheet's only item gets a divider above it —
+                  matches the reference design's separation of "Leave chapter"/etc. from the
+                  regular actions above it. A separate hairline (not border-on-the-row) since
+                  the row's fixed `height` would otherwise clip extra top padding. */}
+              {item.danger && i > 0 && <View style={[styles.dangerDivider, { backgroundColor: colors.border }]} />}
+              <Pressable
+                onPress={() => {
+                  onClose();
+                  item.onPress();
+                }}
+                style={({ pressed }) => [
+                  styles.row,
+                  { borderRadius: radius.xl, backgroundColor: pressed ? colors.surfaceSunken : 'transparent' },
+                ]}
+              >
+                <View style={styles.rowIcon}>{item.icon}</View>
+                <Text
+                  style={[
+                    fonts.semibold,
+                    { fontSize: fontSize.ui, color: item.danger ? colors.danger : colors.ink },
                   ]}
                 >
-                  <View style={styles.rowIcon}>{item.icon}</View>
-                  <Text
-                    style={[
-                      fonts.semibold,
-                      { fontSize: fontSize.ui, color: item.danger ? colors.danger : colors.ink },
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                </Pressable>
-              </React.Fragment>
-            ))}
-          </View>
-        </Pressable>
+                  {item.label}
+                </Text>
+              </Pressable>
+            </React.Fragment>
+          ))}
+        </View>
       </Pressable>
-    </Modal>
+    </Pressable>
   );
 }
 

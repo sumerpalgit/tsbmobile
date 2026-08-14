@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { Icon, IconName } from '../icons/Icon';
 import { Pill } from '../Pill';
@@ -23,6 +23,13 @@ import { Button } from '../Button';
  *
  * No feed exists yet to actually filter — this panel only produces a `FilterState` value via
  * `onApply`; wiring it to a real feed/search call is a later step once the feed itself is built.
+ *
+ * Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one
+ * (`App.tsx`) — `Modal` renders in a separate native window on Android, so insets measured
+ * against the main window aren't guaranteed to apply there too. The insets-consuming content is
+ * split into `FilterPanelContent` because a component can't read a `Provider` it renders itself
+ * later in the same return — `useSafeAreaInsets()` has to be called from *inside* the new nested
+ * provider's subtree.
  */
 
 export type FilterState = {
@@ -137,10 +144,7 @@ export function FilterPanel({
   onClose: () => void;
   onApply: (filters: FilterState) => void;
 }) {
-  const { colors, fonts, fontSize, spacing, radius, borderWidth, letterSpacing } = useTheme();
-  const insets = useSafeAreaInsets();
-  const [draft, setDraft] = useState(initialFilters);
-  const [topicQuery, setTopicQuery] = useState('');
+  const { colors } = useTheme();
 
   // Matches the reference's `tsbSlideIn` keyframe (`translateX(28px) → translateX(0)`) — a
   // horizontal slide from the right, not RN Modal's built-in `animationType="slide"`, which
@@ -154,8 +158,6 @@ export function FilterPanel({
   useEffect(() => {
     if (visible) {
       setShouldRender(true);
-      setDraft(initialFilters);
-      setTopicQuery('');
       translateX.setValue(screenWidth);
       Animated.timing(translateX, { toValue: 0, duration: 280, useNativeDriver: true }).start();
     } else {
@@ -164,6 +166,41 @@ export function FilterPanel({
           if (finished) setShouldRender(false);
         },
       );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  return (
+    <Modal visible={shouldRender} animationType="none" transparent onRequestClose={onClose}>
+      <Animated.View style={[styles.container, { backgroundColor: colors.pageBg, transform: [{ translateX }] }]}>
+        <SafeAreaProvider>
+          <FilterPanelContent visible={visible} initialFilters={initialFilters} onClose={onClose} onApply={onApply} />
+        </SafeAreaProvider>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+function FilterPanelContent({
+  visible,
+  initialFilters,
+  onClose,
+  onApply,
+}: {
+  visible: boolean;
+  initialFilters: FilterState;
+  onClose: () => void;
+  onApply: (filters: FilterState) => void;
+}) {
+  const { colors, fonts, fontSize, spacing, radius, borderWidth, letterSpacing } = useTheme();
+  const insets = useSafeAreaInsets();
+  const [draft, setDraft] = useState(initialFilters);
+  const [topicQuery, setTopicQuery] = useState('');
+
+  useEffect(() => {
+    if (visible) {
+      setDraft(initialFilters);
+      setTopicQuery('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -180,161 +217,157 @@ export function FilterPanel({
   const filteredTopics = TOPICS.filter(t => t.toLowerCase().includes(topicQuery.trim().toLowerCase()));
 
   return (
-    <Modal visible={shouldRender} animationType="none" transparent onRequestClose={onClose}>
-      <Animated.View
-        style={[styles.container, { backgroundColor: colors.pageBg, paddingTop: insets.top, transform: [{ translateX }] }]}
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin },
+        ]}
       >
-        <View
-          style={[
-            styles.header,
-            { backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin },
-          ]}
-        >
-          <View style={styles.headerRow}>
-            <View style={{ flex: 1 }}>
-              <View style={styles.eyebrowRow}>
-                <View style={[styles.eyebrowDash, { backgroundColor: colors.gold }]} />
-                <Text
-                  style={[
-                    fonts.bold,
-                    styles.eyebrow,
-                    { color: colors.goldDark, letterSpacing: letterSpacing.wider },
-                  ]}
-                >
-                  Refine your feed
-                </Text>
-              </View>
-              <Text style={[fonts.display, styles.title, { color: colors.ink }]}>Filters</Text>
-            </View>
-            <Pressable
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              style={[
-                styles.closeButton,
-                { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.lg },
-              ]}
-            >
-              <Icon name="close" size={14} color={colors.ink2} />
-            </Pressable>
-          </View>
-          <Text style={[fonts.regular, styles.subtitle, { color: colors.ink2 }]}>
-            Narrow what shows in your feed. Filters stack — pick from any group.
-          </Text>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-          <FilterSection icon="docList" title="Post type" count={draft.postTypes.length}>
-            <ChipWrap>
-              {POST_TYPES.map(t => (
-                <Pill
-                  key={t.value}
-                  label={t.label}
-                  selected={draft.postTypes.includes(t.value)}
-                  onPress={() => toggleArrayValue('postTypes', t.value)}
-                />
-              ))}
-            </ChipWrap>
-          </FilterSection>
-
-          <FilterSection icon="people" title="Posted by" count={draft.postedBy.length}>
-            <ChipWrap>
-              {POSTED_BY.map(b => (
-                <Pill
-                  key={b.value}
-                  label={b.label}
-                  selected={draft.postedBy.includes(b.value)}
-                  onPress={() => toggleArrayValue('postedBy', b.value)}
-                />
-              ))}
-            </ChipWrap>
-          </FilterSection>
-
-          <FilterSection icon="grid" title="Topic & sector" count={draft.topics.length}>
-            <View
-              style={[
-                styles.topicSearch,
-                { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg },
-              ]}
-            >
-              <Icon name="search" size={15} color={colors.ink3} />
-              <TextInput
-                value={topicQuery}
-                onChangeText={setTopicQuery}
-                placeholder="Search topics (e.g. QoE, SaaS, LOI)…"
-                placeholderTextColor={colors.ink3}
-                style={[styles.topicInput, { fontSize: fontSize.body, color: colors.ink }]}
-              />
-            </View>
-            <View style={{ height: spacing.md }} />
-            <ChipWrap>
-              {filteredTopics.map(topic => (
-                <Pill
-                  key={topic}
-                  label={topic}
-                  selected={draft.topics.includes(topic)}
-                  onPress={() => toggleArrayValue('topics', topic)}
-                />
-              ))}
-            </ChipWrap>
-          </FilterSection>
-
-          <FilterSection icon="clock" title="Posted within" count={draft.postedWithin !== 'all' ? 1 : 0}>
-            <SegmentedControl
-              options={POSTED_WITHIN}
-              value={draft.postedWithin}
-              onChange={v => setDraft(prev => ({ ...prev, postedWithin: v }))}
-            />
-          </FilterSection>
-
-          <FilterSection icon="check" title="More relevance">
-            {RELEVANCE_TOGGLES.map((item, index) => (
-              <View
-                key={item.key}
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <View style={styles.eyebrowRow}>
+              <View style={[styles.eyebrowDash, { backgroundColor: colors.gold }]} />
+              <Text
                 style={[
-                  styles.toggleRow,
-                  index < RELEVANCE_TOGGLES.length - 1 && {
-                    borderBottomColor: colors.border,
-                    borderBottomWidth: borderWidth.hairline,
-                  },
+                  fonts.bold,
+                  styles.eyebrow,
+                  { color: colors.goldDark, letterSpacing: letterSpacing.wider },
                 ]}
               >
-                <Icon name={item.icon} size={16} color={colors.ink2} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[fonts.semibold, styles.toggleLabel, { color: colors.ink }]}>{item.label}</Text>
-                  <Text style={[fonts.regular, styles.toggleSub, { color: colors.ink3 }]}>{item.sub}</Text>
-                </View>
-                <Switch
-                  value={draft[item.key]}
-                  onValueChange={next => setDraft(prev => ({ ...prev, [item.key]: next }))}
-                />
-              </View>
-            ))}
-          </FilterSection>
-        </ScrollView>
-
-        <View
-          style={[
-            styles.footer,
-            {
-              backgroundColor: colors.surface,
-              borderTopColor: colors.border,
-              borderTopWidth: borderWidth.thin,
-              paddingBottom: 16 + insets.bottom,
-            },
-          ]}
-        >
-          <Button label="Clear" icon="close" variant="secondary" disabled={activeCount === 0} onPress={() => setDraft(EMPTY_FILTERS)} />
-          <Button
-            label={activeCount === 0 ? 'Show all posts' : `Apply ${activeCount} filter${activeCount === 1 ? '' : 's'}`}
-            icon="checkmark"
-            variant="primary"
-            fullWidth
-            onPress={() => onApply(draft)}
-          />
+                Refine your feed
+              </Text>
+            </View>
+            <Text style={[fonts.display, styles.title, { color: colors.ink }]}>Filters</Text>
+          </View>
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            style={[
+              styles.closeButton,
+              { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.lg },
+            ]}
+          >
+            <Icon name="close" size={14} color={colors.ink2} />
+          </Pressable>
         </View>
-      </Animated.View>
-    </Modal>
+        <Text style={[fonts.regular, styles.subtitle, { color: colors.ink2 }]}>
+          Narrow what shows in your feed. Filters stack — pick from any group.
+        </Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <FilterSection icon="docList" title="Post type" count={draft.postTypes.length}>
+          <ChipWrap>
+            {POST_TYPES.map(t => (
+              <Pill
+                key={t.value}
+                label={t.label}
+                selected={draft.postTypes.includes(t.value)}
+                onPress={() => toggleArrayValue('postTypes', t.value)}
+              />
+            ))}
+          </ChipWrap>
+        </FilterSection>
+
+        <FilterSection icon="people" title="Posted by" count={draft.postedBy.length}>
+          <ChipWrap>
+            {POSTED_BY.map(b => (
+              <Pill
+                key={b.value}
+                label={b.label}
+                selected={draft.postedBy.includes(b.value)}
+                onPress={() => toggleArrayValue('postedBy', b.value)}
+              />
+            ))}
+          </ChipWrap>
+        </FilterSection>
+
+        <FilterSection icon="grid" title="Topic & sector" count={draft.topics.length}>
+          <View
+            style={[
+              styles.topicSearch,
+              { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg },
+            ]}
+          >
+            <Icon name="search" size={15} color={colors.ink3} />
+            <TextInput
+              value={topicQuery}
+              onChangeText={setTopicQuery}
+              placeholder="Search topics (e.g. QoE, SaaS, LOI)…"
+              placeholderTextColor={colors.ink3}
+              style={[styles.topicInput, { fontSize: fontSize.body, color: colors.ink }]}
+            />
+          </View>
+          <View style={{ height: spacing.md }} />
+          <ChipWrap>
+            {filteredTopics.map(topic => (
+              <Pill
+                key={topic}
+                label={topic}
+                selected={draft.topics.includes(topic)}
+                onPress={() => toggleArrayValue('topics', topic)}
+              />
+            ))}
+          </ChipWrap>
+        </FilterSection>
+
+        <FilterSection icon="clock" title="Posted within" count={draft.postedWithin !== 'all' ? 1 : 0}>
+          <SegmentedControl
+            options={POSTED_WITHIN}
+            value={draft.postedWithin}
+            onChange={v => setDraft(prev => ({ ...prev, postedWithin: v }))}
+          />
+        </FilterSection>
+
+        <FilterSection icon="check" title="More relevance">
+          {RELEVANCE_TOGGLES.map((item, index) => (
+            <View
+              key={item.key}
+              style={[
+                styles.toggleRow,
+                index < RELEVANCE_TOGGLES.length - 1 && {
+                  borderBottomColor: colors.border,
+                  borderBottomWidth: borderWidth.hairline,
+                },
+              ]}
+            >
+              <Icon name={item.icon} size={16} color={colors.ink2} />
+              <View style={{ flex: 1 }}>
+                <Text style={[fonts.semibold, styles.toggleLabel, { color: colors.ink }]}>{item.label}</Text>
+                <Text style={[fonts.regular, styles.toggleSub, { color: colors.ink3 }]}>{item.sub}</Text>
+              </View>
+              <Switch
+                value={draft[item.key]}
+                onValueChange={next => setDraft(prev => ({ ...prev, [item.key]: next }))}
+              />
+            </View>
+          ))}
+        </FilterSection>
+      </ScrollView>
+
+      <View
+        style={[
+          styles.footer,
+          {
+            backgroundColor: colors.surface,
+            borderTopColor: colors.border,
+            borderTopWidth: borderWidth.thin,
+            paddingBottom: 16 + insets.bottom,
+          },
+        ]}
+      >
+        <Button label="Clear" icon="close" variant="secondary" disabled={activeCount === 0} onPress={() => setDraft(EMPTY_FILTERS)} />
+        <Button
+          label={activeCount === 0 ? 'Show all posts' : `Apply ${activeCount} filter${activeCount === 1 ? '' : 's'}`}
+          icon="checkmark"
+          variant="primary"
+          fullWidth
+          onPress={() => onApply(draft)}
+        />
+      </View>
+    </View>
   );
 }
 

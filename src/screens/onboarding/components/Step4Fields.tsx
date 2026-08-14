@@ -1,5 +1,6 @@
 import React, { Fragment } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { types } from '@react-native-documents/picker';
 import { useTheme } from '../../../theme';
 import { FileUploadButton, PickedFile } from '../../../components';
 import { FINANCIAL_RANGES } from '../constants';
@@ -17,6 +18,12 @@ import { DynamicField } from './DynamicField';
  * Criteria sliders (7 of 8 roles — not Student), and its declared file uploads (varies by role,
  * several roles have none).
  */
+// `POST /api/upload/document` (`src/api/profile.ts`'s `uploadDocument`) only accepts these three
+// MIME types server-side (confirmed by backend, 2026-08-13) — a few of web's own forms let users
+// pick .ppt/.pptx and the backend 400s, a real web inconsistency deliberately NOT replicated here.
+const DOCUMENT_UPLOAD_TYPES = [types.pdf, types.doc, types.docx];
+const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
+
 export function Step4Fields({
   role,
   fieldValues,
@@ -196,6 +203,9 @@ export function Step4Fields({
                   value={uploads[upload.key] ?? null}
                   onChange={file => onUploadChange(upload.key, file)}
                   loading={uploadingKey === upload.key}
+                  acceptedTypes={DOCUMENT_UPLOAD_TYPES}
+                  maxSizeBytes={MAX_UPLOAD_SIZE_BYTES}
+                  placeholder="Tap to upload (PDF, DOC, DOCX)"
                 />
               </View>
             ))}

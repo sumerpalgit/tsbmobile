@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { PROFILE_ENDPOINTS } from './endpoints';
+import { PROFILE_ENDPOINTS, UPLOAD_ENDPOINTS } from './endpoints';
 import { normalizeProfile } from './directory';
 import type { PickedFile } from '../components/FileUploadButton';
 import type { Profile } from '../types/directory';
@@ -62,21 +62,52 @@ export type UploadDocumentResponse = {
   fileUrl: string;
 };
 
-/** Matches webSrc's `UnifiedRoleForm.tsx` `uploadFile`: `POST /api/profile/upload-document`,
- * multipart (`file` + `type`), returns `{ fileUrl }` to embed directly into the role PUT
- * payload. `fileType` is the same document-category tag web sends (`cim`, `resume`,
- * `pitch_deck`, `investment_criteria`, `lending_criteria`, `credentials`, `cover_letter`). */
+/** The backend's MIME whitelist (`application/pdf` / `application/msword` /
+ * `application/vnd.openxmlformats-officedocument.wordprocessingml.document`) matches these exact
+ * strings. A browser's `<input type=file>` always reports the real one, which is why web works —
+ * but `@react-native-documents/picker` can hand back an unreliable or generic `mimeType`
+ * (`application/octet-stream`, or nothing at all) depending on the device/file manager the file
+ * came from, and the backend then rejects it. Deriving from the file extension instead of
+ * trusting the OS-reported type is the fix — matches what a browser does implicitly. */
+function resolveDocumentMimeType(fileName: string, reportedMimeType: string | null): string {
+  const ext = fileName.toLowerCase().split('.').pop();
+  if (ext === 'pdf') return 'application/pdf';
+  if (ext === 'doc') return 'application/msword';
+  if (ext === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  return reportedMimeType ?? 'application/octet-stream';
+}
+
+/** `POST /api/upload/document` (real endpoint confirmed by backend, 2026-08-13 — this was
+ * previously wired to a nonexistent `/profile/upload-document`, same class of wrong-route bug as
+ * the RSVP-cancel one, see `MY_ACTIVITY_ENDPOINTS.EVENT_RSVP`'s doc comment). Multipart
+ * (`file` + `type`), returns `{ success, fileUrl }` — only `fileUrl` is embedded directly into
+ * the role PUT payload. `fileType` is the document-category tag the backend expects exactly:
+ * `cim`, `investment_criteria`, `pitch_deck`, `lending_criteria`, `credentials`, `resume`,
+ * `cover_letter`, or the generic `other_document` fallback.
+ *
+ * `Content-Type: 'multipart/form-data'` IS set explicitly here (even with no boundary
+ * parameter) — counter-intuitive, but required on this app's specific setup: `apiClient`
+ * (`src/api/client.ts`) has an instance-level default `Content-Type: application/json`, and
+ * axios's own `transformRequest` (`node_modules/axios/lib/defaults/index.js`) special-cases
+ * exactly this combination — `FormData` body + a Content-Type that resolves to
+ * `application/json` gets **JSON.stringified instead of sent as real multipart binary data**.
+ * Omitting the header here (an earlier attempt at this fix) fell through to that instance
+ * default and silently broke the upload — the backend's generic 500 was it receiving a JSON
+ * blob where it expected multipart. Explicitly setting `multipart/form-data` avoids that branch;
+ * React Native's own native networking layer fills in the real boundary regardless of the
+ * JS-level header value, same as the other 3 upload call sites already doing this successfully
+ * elsewhere in this app (`ai-assist.ts`/`events.ts`/`messages.ts`). */
 export function uploadDocument(file: PickedFile, fileType: string) {
   const form = new FormData();
   form.append('file', {
     uri: file.uri,
     name: file.name,
-    type: file.mimeType ?? 'application/octet-stream',
+    type: resolveDocumentMimeType(file.name, file.mimeType),
   } as unknown as Blob);
   form.append('type', fileType);
 
   return apiClient
-    .post<UploadDocumentResponse>(PROFILE_ENDPOINTS.UPLOAD_DOCUMENT, form, {
+    .post<UploadDocumentResponse>(UPLOAD_ENDPOINTS.DOCUMENT, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     .then(res => res.data);

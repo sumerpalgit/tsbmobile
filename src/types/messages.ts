@@ -1,7 +1,7 @@
 /**
  * Messages — types matching webSrc's own interfaces in `webSrc/src/app/dashboard/messages/page.tsx`
  * exactly, so a value can always be traced back to the web source. See `src/api/messages.ts` for
- * which endpoint returns which shape, and `src/hooks/useWebSocket.ts` for the real-time payloads.
+ * which endpoint returns which shape, and `src/store/SocketContext.tsx` for the real-time payloads.
  */
 
 export type Conversation = {

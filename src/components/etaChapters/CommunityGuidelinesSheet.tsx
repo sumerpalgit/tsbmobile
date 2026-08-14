@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { Check, TriangleAlert, X } from 'lucide-react-native';
 import { useTheme } from '../../theme';
@@ -87,8 +87,36 @@ const GUIDE_RULES: { n: string; title: string; body: string; bullets?: string[];
  * persist across app launches.
  *
  * `viewOnly` (reopened from the chat options menu) skips the "opens chat on accept" behavior —
- * closing or accepting both just dismiss the sheet. */
+ * closing or accepting both just dismiss the sheet.
+ *
+ * Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one —
+ * `Modal` renders in a separate native window on Android, so insets measured against the main
+ * window aren't guaranteed to apply there too (same root cause fixed for
+ * `DirectoryFiltersPanel.tsx`). The insets-consuming content is split into
+ * `CommunityGuidelinesSheetContent` because a component can't read a `Provider` it renders itself
+ * later in the same return — `useSafeAreaInsets()` has to be called from *inside* the new nested
+ * provider's subtree. */
 export function CommunityGuidelinesSheet({
+  visible,
+  viewOnly = false,
+  onAccept,
+  onClose,
+}: {
+  visible: boolean;
+  viewOnly?: boolean;
+  onAccept: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={onClose}>
+      <SafeAreaProvider>
+        <CommunityGuidelinesSheetContent visible={visible} viewOnly={viewOnly} onAccept={onAccept} onClose={onClose} />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function CommunityGuidelinesSheetContent({
   visible,
   viewOnly = false,
   onAccept,
@@ -108,106 +136,104 @@ export function CommunityGuidelinesSheet({
   }, [visible]);
 
   return (
-    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable
-          onPress={e => e.stopPropagation()}
-          style={[
-            styles.sheet,
-            { backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingBottom: insets.bottom },
-          ]}
-        >
-          <LinearGradient colors={[colors.hero1, colors.hero2]} style={styles.header} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-            <View style={styles.headerRow}>
-              <Text style={[fonts.display, styles.title, { color: '#fff' }]}>Community Guidelines</Text>
-              <Pressable onPress={onClose} accessibilityLabel="Close" style={styles.closeButton}>
-                <X size={13} color="#fff" strokeWidth={1.8} />
-              </Pressable>
-            </View>
-            <Text style={[fonts.regular, styles.headerSub, { color: 'rgba(255,255,255,0.72)' }]}>
-              The standards every member agrees to before joining chapter discussions.
+    <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable
+        onPress={e => e.stopPropagation()}
+        style={[
+          styles.sheet,
+          { backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingBottom: insets.bottom },
+        ]}
+      >
+        <LinearGradient colors={[colors.hero1, colors.hero2]} style={styles.header} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <View style={styles.headerRow}>
+            <Text style={[fonts.display, styles.title, { color: '#fff' }]}>Community Guidelines</Text>
+            <Pressable onPress={onClose} accessibilityLabel="Close" style={styles.closeButton}>
+              <X size={13} color="#fff" strokeWidth={1.8} />
+            </Pressable>
+          </View>
+          <Text style={[fonts.regular, styles.headerSub, { color: 'rgba(255,255,255,0.72)' }]}>
+            The standards every member agrees to before joining chapter discussions.
+          </Text>
+        </LinearGradient>
+
+        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={[styles.introBox, { backgroundColor: colors.chip, borderLeftColor: colors.gold }]}>
+            <Text style={[fonts.regular, styles.introText, { color: colors.ink2 }]}>
+              TSB is a professional community for searchers, investors, advisors and operators. Violations may
+              result in warnings, suspension, or removal.
             </Text>
-          </LinearGradient>
+          </View>
 
-          <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-            <View style={[styles.introBox, { backgroundColor: colors.chip, borderLeftColor: colors.gold }]}>
-              <Text style={[fonts.regular, styles.introText, { color: colors.ink2 }]}>
-                TSB is a professional community for searchers, investors, advisors and operators. Violations may
-                result in warnings, suspension, or removal.
-              </Text>
+          {GUIDE_RULES.map(rule => (
+            <View key={rule.n} style={styles.ruleRow}>
+              <View style={[styles.ruleNumber, { backgroundColor: colors.feedFill }]}>
+                <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.feedOnFill }]}>{rule.n}</Text>
+              </View>
+              <View style={styles.ruleBody}>
+                <Text style={[fonts.bold, styles.ruleTitle, { color: colors.ink }]}>{rule.title}</Text>
+                <Text style={[fonts.regular, styles.ruleText, { color: colors.ink3 }]}>{rule.body}</Text>
+                {rule.bullets?.map((b, i) => (
+                  <View key={i} style={styles.bulletRow}>
+                    <View style={[styles.bulletDot, { backgroundColor: colors.goldDark }]} />
+                    <Text style={[fonts.regular, styles.bulletText, { color: colors.ink3 }]}>{b}</Text>
+                  </View>
+                ))}
+                {rule.hard && (
+                  <View style={[styles.hardBox, { backgroundColor: colors.chip }]}>
+                    <TriangleAlert size={14} color={colors.goldDark} strokeWidth={1.6} style={styles.hardIcon} />
+                    <Text style={[fonts.regular, styles.hardText, { color: colors.goldDark }]}>
+                      <Text style={fonts.bold}>Hard rule: </Text>
+                      {rule.hard}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
+          ))}
+          <View style={{ height: 12 }} />
+        </ScrollView>
 
-            {GUIDE_RULES.map(rule => (
-              <View key={rule.n} style={styles.ruleRow}>
-                <View style={[styles.ruleNumber, { backgroundColor: colors.feedFill }]}>
-                  <Text style={[fonts.bold, { fontSize: fontSize.small, color: colors.feedOnFill }]}>{rule.n}</Text>
-                </View>
-                <View style={styles.ruleBody}>
-                  <Text style={[fonts.bold, styles.ruleTitle, { color: colors.ink }]}>{rule.title}</Text>
-                  <Text style={[fonts.regular, styles.ruleText, { color: colors.ink3 }]}>{rule.body}</Text>
-                  {rule.bullets?.map((b, i) => (
-                    <View key={i} style={styles.bulletRow}>
-                      <View style={[styles.bulletDot, { backgroundColor: colors.goldDark }]} />
-                      <Text style={[fonts.regular, styles.bulletText, { color: colors.ink3 }]}>{b}</Text>
-                    </View>
-                  ))}
-                  {rule.hard && (
-                    <View style={[styles.hardBox, { backgroundColor: colors.chip }]}>
-                      <TriangleAlert size={14} color={colors.goldDark} strokeWidth={1.6} style={styles.hardIcon} />
-                      <Text style={[fonts.regular, styles.hardText, { color: colors.goldDark }]}>
-                        <Text style={fonts.bold}>Hard rule: </Text>
-                        {rule.hard}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            ))}
-            <View style={{ height: 12 }} />
-          </ScrollView>
+        <View style={[styles.footer, { borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
+          <Pressable onPress={() => setChecked(c => !c)} style={styles.checkboxRow}>
+            <View
+              style={[
+                styles.checkbox,
+                { borderRadius: radius.sm, backgroundColor: checked ? colors.gold : colors.surface, borderColor: checked ? colors.gold : colors.border },
+              ]}
+            >
+              {checked && <Check size={10} color="#fff" strokeWidth={2.4} />}
+            </View>
+            <Text style={[fonts.regular, styles.checkboxText, { color: colors.ink2 }]}>
+              I have read and agree to the <Text style={[fonts.bold, { color: colors.ink }]}>TSB Community Guidelines</Text>, the
+              Terms of Service, and the Privacy Policy. I understand that violations may result in warnings,
+              suspension, or removal.
+            </Text>
+          </Pressable>
+          <Text style={[fonts.semibold, styles.lastUpdated, { color: colors.ink3 }]}>Last updated May 2026</Text>
 
-          <View style={[styles.footer, { borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
-            <Pressable onPress={() => setChecked(c => !c)} style={styles.checkboxRow}>
-              <View
-                style={[
-                  styles.checkbox,
-                  { borderRadius: radius.sm, backgroundColor: checked ? colors.gold : colors.surface, borderColor: checked ? colors.gold : colors.border },
-                ]}
-              >
-                {checked && <Check size={10} color="#fff" strokeWidth={2.4} />}
-              </View>
-              <Text style={[fonts.regular, styles.checkboxText, { color: colors.ink2 }]}>
-                I have read and agree to the <Text style={[fonts.bold, { color: colors.ink }]}>TSB Community Guidelines</Text>, the
-                Terms of Service, and the Privacy Policy. I understand that violations may result in warnings,
-                suspension, or removal.
+          <View style={styles.actions}>
+            <Pressable
+              onPress={onClose}
+              style={[styles.readLaterButton, { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}
+            >
+              <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Read later</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (!checked) return;
+                onAccept();
+              }}
+              disabled={!checked}
+              style={[styles.acceptButton, { backgroundColor: checked ? colors.gold : colors.surfaceSunken, borderRadius: radius.xl }]}
+            >
+              <Text style={[fonts.bold, { fontSize: fontSize.body, color: checked ? '#fff' : colors.ink3 }]}>
+                {viewOnly ? 'Close' : 'Accept and continue'}
               </Text>
             </Pressable>
-            <Text style={[fonts.semibold, styles.lastUpdated, { color: colors.ink3 }]}>Last updated May 2026</Text>
-
-            <View style={styles.actions}>
-              <Pressable
-                onPress={onClose}
-                style={[styles.readLaterButton, { borderColor: colors.border, backgroundColor: colors.surface2, borderRadius: radius.xl, borderWidth: borderWidth.thin }]}
-              >
-                <Text style={[fonts.semibold, { fontSize: fontSize.body, color: colors.ink2 }]}>Read later</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  if (!checked) return;
-                  onAccept();
-                }}
-                disabled={!checked}
-                style={[styles.acceptButton, { backgroundColor: checked ? colors.gold : colors.surfaceSunken, borderRadius: radius.xl }]}
-              >
-                <Text style={[fonts.bold, { fontSize: fontSize.body, color: checked ? '#fff' : colors.ink3 }]}>
-                  {viewOnly ? 'Close' : 'Accept and continue'}
-                </Text>
-              </Pressable>
-            </View>
           </View>
-        </Pressable>
+        </View>
       </Pressable>
-    </Modal>
+    </Pressable>
   );
 }
 

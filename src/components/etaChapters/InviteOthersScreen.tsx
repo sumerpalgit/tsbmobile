@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Clipboard from '@react-native-clipboard/clipboard';
 import Toast from 'react-native-toast-message';
@@ -29,17 +29,39 @@ const SEARCH_DEBOUNCE_MS = 350;
  * client-constructed URL with no server-issued token, "Revoke link" makes no API call at all, and
  * "Link expiry" is never sent anywhere — this replicates that exact non-functional-but-present
  * facade rather than inventing new backend web doesn't have. */
-export function InviteOthersScreen({
-  visible,
-  chapterId,
-  chapterName,
-  onClose,
-}: {
+type InviteOthersScreenProps = {
   visible: boolean;
   chapterId: string | null;
   chapterName: string;
   onClose: () => void;
-}) {
+};
+
+/** Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one —
+ * `Modal` renders in a separate native window on Android, so insets measured against the main
+ * window aren't guaranteed to apply there too (same root cause fixed in `DirectoryFiltersPanel`).
+ * The insets-consuming content is split into `InviteOthersScreenContent` because a component
+ * can't read a `Provider` it renders itself later in the same return — `useSafeAreaInsets()` has
+ * to be called from *inside* the new nested provider's subtree. The `!chapterId` guard stays on
+ * this outer shell (rather than moving inside the content) so the whole component — including the
+ * `Modal` itself — renders nothing without a chapter, matching the original's single early return
+ * that skipped the `Modal` entirely. */
+export function InviteOthersScreen({ visible, chapterId, chapterName, onClose }: InviteOthersScreenProps) {
+  if (!chapterId) return null;
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <SafeAreaProvider>
+        <InviteOthersScreenContent chapterId={chapterId} chapterName={chapterName} onClose={onClose} visible={visible} />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function InviteOthersScreenContent({
+  visible,
+  chapterId,
+  chapterName,
+  onClose,
+}: Omit<InviteOthersScreenProps, 'chapterId'> & { chapterId: string }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<InviteTab>('email');
@@ -94,7 +116,6 @@ export function InviteOthersScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sentUsernames only needs to filter results at search time, not re-trigger the debounce itself.
   }, [memberQuery]);
 
-  if (!chapterId) return null;
   const inviteLink = `${WEB_BASE_URL}/dashboard/my-eta-chapters?invite=${chapterId}`;
 
   const addEmail = () => {
@@ -150,7 +171,7 @@ export function InviteOthersScreen({
   const handleSubmit = tab === 'email' ? handleSendEmail : tab === 'members' ? handleSendMembers : undefined;
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+    <>
       <View style={[styles.screen, { backgroundColor: colors.pageBg }]}>
         <LinearGradient colors={[colors.hero1, colors.hero2]} style={[styles.header, { paddingTop: insets.top + 12 }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
           <View style={styles.headerRow}>
@@ -359,7 +380,7 @@ export function InviteOthersScreen({
           )}
         </ScrollView>
 
-        <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin }]}>
+        <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: borderWidth.thin, paddingBottom: 16 + insets.bottom }]}>
           <Text style={[fonts.regular, styles.footerText, { color: colors.ink3 }]}>
             Invitees see chapter <Text style={[fonts.bold, { color: colors.ink2 }]}>{chapterName}</Text>
           </Text>
@@ -386,7 +407,7 @@ export function InviteOthersScreen({
         onConfirm={confirmRevoke}
         onCancel={() => setRevokeConfirmOpen(false)}
       />
-    </Modal>
+    </>
   );
 }
 

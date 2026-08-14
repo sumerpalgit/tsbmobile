@@ -38,6 +38,7 @@ export function FileUploadButton({
   acceptedTypes = [types.pdf, types.images],
   placeholder = 'Tap to upload',
   loading = false,
+  maxSizeBytes,
 }: {
   value: PickedFile | null;
   onChange: (file: PickedFile | null) => void;
@@ -47,6 +48,11 @@ export function FileUploadButton({
    * picking, see `uploadDocument` in `src/api/profile.ts`) — distinct from `busy`, which only
    * covers the OS picker itself. */
   loading?: boolean;
+  /** Rejects a picked file over this size with a toast instead of calling `onChange` — the
+   * server enforces its own real limit regardless (e.g. `/upload/document`'s 10MB cap), this is
+   * purely for immediate feedback instead of waiting on a round-trip 4xx. Omit for no client-side
+   * limit. */
+  maxSizeBytes?: number;
 }) {
   const { colors, fonts, fontSize } = useTheme();
   const [busy, setBusy] = useState(false);
@@ -60,6 +66,10 @@ export function FileUploadButton({
     setBusy(true);
     try {
       const [picked] = await pick({ type: acceptedTypes });
+      if (maxSizeBytes != null && picked.size != null && picked.size > maxSizeBytes) {
+        Toast.show({ type: 'error', text1: 'File too large', text2: `Max size is ${Math.round(maxSizeBytes / (1024 * 1024))}MB.` });
+        return;
+      }
       // Some content providers (Google Photos, cloud-backed docs, etc.) hand back a `content://`
       // uri that RN's `fetch` can't reliably read straight through — it throws "Network request
       // failed" with no HTTP response at all, since the read never leaves the device. Copying to

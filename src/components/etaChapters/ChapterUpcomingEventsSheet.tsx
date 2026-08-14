@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { BookOpen, Calendar, GraduationCap, MapPin, Users, Video, X } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
@@ -56,8 +56,36 @@ const HOST_COLORS = ['#0f766e', '#6d28d9', '#b45309', '#1a7a48', '#0369a1', '#7a
 
 /** Matches web's `EventsSidePanel` (`my-eta-chapters/page.tsx:2286`) — a right-side desktop panel
  * on web, ported here as a bottom sheet (mobile-appropriate for the same content, same real data
- * and filtering logic) rather than a full-screen right-hand drawer. */
+ * and filtering logic) rather than a full-screen right-hand drawer.
+ *
+ * Nests its own `SafeAreaProvider` inside the `Modal` rather than trusting the app-root one —
+ * `Modal` renders in a separate native window on Android, so insets measured against the main
+ * window aren't guaranteed to apply there too (same root cause fixed for
+ * `DirectoryFiltersPanel.tsx`). The insets-consuming content is split into
+ * `ChapterUpcomingEventsSheetContent` because a component can't read a `Provider` it renders
+ * itself later in the same return — `useSafeAreaInsets()` has to be called from *inside* the new
+ * nested provider's subtree. */
 export function ChapterUpcomingEventsSheet({
+  visible,
+  chapterId,
+  chapterName,
+  onClose,
+}: {
+  visible: boolean;
+  chapterId: string | null;
+  chapterName: string;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
+      <SafeAreaProvider>
+        <ChapterUpcomingEventsSheetContent visible={visible} chapterId={chapterId} chapterName={chapterName} onClose={onClose} />
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
+
+function ChapterUpcomingEventsSheetContent({
   visible,
   chapterId,
   chapterName,
@@ -105,148 +133,146 @@ export function ChapterUpcomingEventsSheet({
   const displayed = (activeTab === 'upcoming' ? upcoming : past).filter(e => activeCat === 'all' || getEventCategory(e) === activeCat);
 
   return (
-    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable onPress={e => e.stopPropagation()} style={[styles.sheet, { backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl }]}>
-          <LinearGradient colors={[colors.hero1, colors.hero2]} style={styles.header} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-            <View style={styles.headerRow}>
-              <View style={styles.headerTextWrap}>
-                <View style={styles.eyebrowRow}>
-                  <View style={[styles.eyebrowLine, { backgroundColor: colors.gold }]} />
-                  <Text style={[fonts.bold, styles.eyebrow, { color: colors.goldLight }]}>ETA {chapterName} · Events</Text>
-                </View>
-                <Text style={[fonts.display, styles.title, { color: '#fff' }]}>Upcoming Events</Text>
-                <Text style={[fonts.regular, styles.headerSub, { color: 'rgba(255,255,255,0.6)' }]}>
-                  Meetups, panels, workshops, and webinars hosted by your chapter.
-                </Text>
+    <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable onPress={e => e.stopPropagation()} style={[styles.sheet, { backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl }]}>
+        <LinearGradient colors={[colors.hero1, colors.hero2]} style={styles.header} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <View style={styles.headerRow}>
+            <View style={styles.headerTextWrap}>
+              <View style={styles.eyebrowRow}>
+                <View style={[styles.eyebrowLine, { backgroundColor: colors.gold }]} />
+                <Text style={[fonts.bold, styles.eyebrow, { color: colors.goldLight }]}>ETA {chapterName} · Events</Text>
               </View>
-              <Pressable onPress={onClose} accessibilityLabel="Close" style={styles.closeButton}>
-                <X size={13} color="rgba(255,255,255,0.85)" strokeWidth={1.8} />
-              </Pressable>
+              <Text style={[fonts.display, styles.title, { color: '#fff' }]}>Upcoming Events</Text>
+              <Text style={[fonts.regular, styles.headerSub, { color: 'rgba(255,255,255,0.6)' }]}>
+                Meetups, panels, workshops, and webinars hosted by your chapter.
+              </Text>
             </View>
-          </LinearGradient>
-
-          <View style={[styles.tabs, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
-            {(
-              [
-                ['upcoming', 'Upcoming', upcoming.length],
-                ['past', 'Past', past.length],
-              ] as const
-            ).map(([tab, label, count]) => {
-              const active = activeTab === tab;
-              return (
-                <Pressable
-                  key={tab}
-                  onPress={() => setActiveTab(tab)}
-                  style={[styles.tabButton, { borderBottomColor: active ? colors.gold : 'transparent' }]}
-                >
-                  <Text style={[fonts.semibold, styles.tabLabel, { color: active ? colors.ink : colors.ink3 }]}>{label}</Text>
-                  <View style={[styles.tabCount, { backgroundColor: active ? colors.gold : colors.surfaceSunken, borderRadius: radius.xxl }]}>
-                    <Text style={[fonts.bold, styles.tabCountText, { color: active ? '#fff' : colors.ink2 }]}>{count}</Text>
-                  </View>
-                </Pressable>
-              );
-            })}
+            <Pressable onPress={onClose} accessibilityLabel="Close" style={styles.closeButton}>
+              <X size={13} color="rgba(255,255,255,0.85)" strokeWidth={1.8} />
+            </Pressable>
           </View>
+        </LinearGradient>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={[styles.catRow, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}
-            contentContainerStyle={styles.catRowContent}
-          >
-            {CATS.map(c => {
-              const active = activeCat === c;
-              const label = c === 'all' ? 'All' : CATEGORY_META[c].label;
-              return (
-                <Pressable
-                  key={c}
-                  onPress={() => setActiveCat(c)}
-                  style={[
-                    styles.catChip,
-                    { backgroundColor: active ? colors.navy : colors.surface2, borderColor: active ? colors.navy : colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xxl },
-                  ]}
-                >
-                  <Text style={[active ? fonts.semibold : fonts.regular, styles.catChipText, { color: active ? '#fff' : colors.ink2 }]}>{label}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }} showsVerticalScrollIndicator={false}>
-            {loading ? null : displayed.length === 0 ? (
-              <View style={styles.emptyState}>
-                <View style={[styles.emptyIcon, { backgroundColor: colors.surfaceSunken, borderRadius: radius.lg }]}>
-                  <Calendar size={22} color={colors.ink3} strokeWidth={1.6} />
+        <View style={[styles.tabs, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
+          {(
+            [
+              ['upcoming', 'Upcoming', upcoming.length],
+              ['past', 'Past', past.length],
+            ] as const
+          ).map(([tab, label, count]) => {
+            const active = activeTab === tab;
+            return (
+              <Pressable
+                key={tab}
+                onPress={() => setActiveTab(tab)}
+                style={[styles.tabButton, { borderBottomColor: active ? colors.gold : 'transparent' }]}
+              >
+                <Text style={[fonts.semibold, styles.tabLabel, { color: active ? colors.ink : colors.ink3 }]}>{label}</Text>
+                <View style={[styles.tabCount, { backgroundColor: active ? colors.gold : colors.surfaceSunken, borderRadius: radius.xxl }]}>
+                  <Text style={[fonts.bold, styles.tabCountText, { color: active ? '#fff' : colors.ink2 }]}>{count}</Text>
                 </View>
-                <Text style={[fonts.bold, styles.emptyTitle, { color: colors.ink }]}>No events match</Text>
-                <Text style={[fonts.regular, styles.emptyBody, { color: colors.ink3 }]}>
-                  Try a different filter or check back soon — chapter leaders post new events weekly.
-                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={[styles.catRow, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}
+          contentContainerStyle={styles.catRowContent}
+        >
+          {CATS.map(c => {
+            const active = activeCat === c;
+            const label = c === 'all' ? 'All' : CATEGORY_META[c].label;
+            return (
+              <Pressable
+                key={c}
+                onPress={() => setActiveCat(c)}
+                style={[
+                  styles.catChip,
+                  { backgroundColor: active ? colors.navy : colors.surface2, borderColor: active ? colors.navy : colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xxl },
+                ]}
+              >
+                <Text style={[active ? fonts.semibold : fonts.regular, styles.catChipText, { color: active ? '#fff' : colors.ink2 }]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }} showsVerticalScrollIndicator={false}>
+          {loading ? null : displayed.length === 0 ? (
+            <View style={styles.emptyState}>
+              <View style={[styles.emptyIcon, { backgroundColor: colors.surfaceSunken, borderRadius: radius.lg }]}>
+                <Calendar size={22} color={colors.ink3} strokeWidth={1.6} />
               </View>
-            ) : (
-              displayed.map((event, idx) => {
-                const cat = getEventCategory(event);
-                const meta = CATEGORY_META[cat];
-                const Icon = meta.icon;
-                const hostColor = HOST_COLORS[idx % HOST_COLORS.length];
-                return (
-                  <View
-                    key={event.id}
-                    style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xl }]}
-                  >
-                    <View style={[styles.eventAccent, { backgroundColor: meta.color }]} />
-                    <View style={styles.eventTop}>
-                      <View style={[styles.eventIconWell, { backgroundColor: meta.bg, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg }]}>
-                        <Icon size={16} color={meta.color} strokeWidth={1.6} />
-                      </View>
-                      <View style={styles.eventTextWrap}>
-                        <View style={[styles.catLabel, { backgroundColor: meta.bg, borderRadius: radius.xxl }]}>
-                          <Text style={[fonts.bold, styles.catLabelText, { color: meta.color }]}>{meta.label.toUpperCase()}</Text>
-                        </View>
-                        <Text style={[fonts.semibold, styles.eventTitle, { color: colors.ink }]} numberOfLines={2}>
-                          {event.title ?? 'Untitled event'}
-                        </Text>
-                        {!!event.startDate && (
-                          <View style={styles.eventMetaRow}>
-                            <Calendar size={11} color={colors.ink3} strokeWidth={1.6} />
-                            <Text style={[fonts.semibold, styles.eventMetaText, { color: colors.ink }]}>{formatEventDate(event.startDate)}</Text>
-                          </View>
-                        )}
-                        {!!event.location && (
-                          <View style={styles.eventMetaRow}>
-                            <MapPin size={11} color={colors.ink3} strokeWidth={1.6} />
-                            <Text style={[fonts.regular, styles.eventMetaText, { color: colors.ink3 }]}>{event.location}</Text>
-                          </View>
-                        )}
-                      </View>
+              <Text style={[fonts.bold, styles.emptyTitle, { color: colors.ink }]}>No events match</Text>
+              <Text style={[fonts.regular, styles.emptyBody, { color: colors.ink3 }]}>
+                Try a different filter or check back soon — chapter leaders post new events weekly.
+              </Text>
+            </View>
+          ) : (
+            displayed.map((event, idx) => {
+              const cat = getEventCategory(event);
+              const meta = CATEGORY_META[cat];
+              const Icon = meta.icon;
+              const hostColor = HOST_COLORS[idx % HOST_COLORS.length];
+              return (
+                <View
+                  key={event.id}
+                  style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.xl }]}
+                >
+                  <View style={[styles.eventAccent, { backgroundColor: meta.color }]} />
+                  <View style={styles.eventTop}>
+                    <View style={[styles.eventIconWell, { backgroundColor: meta.bg, borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.lg }]}>
+                      <Icon size={16} color={meta.color} strokeWidth={1.6} />
                     </View>
-
-                    {!!event.description && (
-                      <Text style={[fonts.regular, styles.eventDescription, { color: colors.ink2 }]} numberOfLines={2}>
-                        {event.description}
+                    <View style={styles.eventTextWrap}>
+                      <View style={[styles.catLabel, { backgroundColor: meta.bg, borderRadius: radius.xxl }]}>
+                        <Text style={[fonts.bold, styles.catLabelText, { color: meta.color }]}>{meta.label.toUpperCase()}</Text>
+                      </View>
+                      <Text style={[fonts.semibold, styles.eventTitle, { color: colors.ink }]} numberOfLines={2}>
+                        {event.title ?? 'Untitled event'}
                       </Text>
-                    )}
-
-                    <View style={[styles.eventFooter, { borderTopColor: colors.border, borderTopWidth: borderWidth.thin, backgroundColor: colors.surface2 }]}>
-                      <View style={[styles.hostAvatar, { backgroundColor: hostColor }]}>
-                        <Text style={[fonts.bold, styles.hostInitials]}>{getHostInitials(event.title)}</Text>
-                      </View>
-                      <View style={styles.hostTextWrap}>
-                        <Text style={[fonts.bold, styles.hostLabel, { color: colors.ink3 }]}>HOSTED BY</Text>
-                        <Text style={[fonts.semibold, styles.hostName, { color: colors.ink }]} numberOfLines={1}>
-                          {event.title || 'Chapter'}
-                        </Text>
-                      </View>
+                      {!!event.startDate && (
+                        <View style={styles.eventMetaRow}>
+                          <Calendar size={11} color={colors.ink3} strokeWidth={1.6} />
+                          <Text style={[fonts.semibold, styles.eventMetaText, { color: colors.ink }]}>{formatEventDate(event.startDate)}</Text>
+                        </View>
+                      )}
+                      {!!event.location && (
+                        <View style={styles.eventMetaRow}>
+                          <MapPin size={11} color={colors.ink3} strokeWidth={1.6} />
+                          <Text style={[fonts.regular, styles.eventMetaText, { color: colors.ink3 }]}>{event.location}</Text>
+                        </View>
+                      )}
                     </View>
                   </View>
-                );
-              })
-            )}
-          </ScrollView>
-        </Pressable>
+
+                  {!!event.description && (
+                    <Text style={[fonts.regular, styles.eventDescription, { color: colors.ink2 }]} numberOfLines={2}>
+                      {event.description}
+                    </Text>
+                  )}
+
+                  <View style={[styles.eventFooter, { borderTopColor: colors.border, borderTopWidth: borderWidth.thin, backgroundColor: colors.surface2 }]}>
+                    <View style={[styles.hostAvatar, { backgroundColor: hostColor }]}>
+                      <Text style={[fonts.bold, styles.hostInitials]}>{getHostInitials(event.title)}</Text>
+                    </View>
+                    <View style={styles.hostTextWrap}>
+                      <Text style={[fonts.bold, styles.hostLabel, { color: colors.ink3 }]}>HOSTED BY</Text>
+                      <Text style={[fonts.semibold, styles.hostName, { color: colors.ink }]} numberOfLines={1}>
+                        {event.title || 'Chapter'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
       </Pressable>
-    </Modal>
+    </Pressable>
   );
 }
 
