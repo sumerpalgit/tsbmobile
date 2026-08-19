@@ -150,4 +150,12 @@ export type AppStackParamList = {
   SettingsPrivacy: undefined;
   SettingsBilling: undefined;
   SettingsSupport: undefined;
+  /** Create Dual Profile — reached from Profile's menu list (`ProfileMenuList.tsx`'s `'dual'`
+   * row), same "pushed, covers the bottom bar, owns its own header" treatment as
+   * `AdManagement`/`SettingsHome` above, not a `Modal` — see those screens' doc comments for the
+   * real `useSafeAreaInsets()`-inside-`Modal` Android bug this convention avoids. One screen
+   * owning a local step-state-machine wizard (mirrors `CreateEvent`'s
+   * screen-owns-lifecycle/wizard-owns-steps split), not one route per step — see the plan at
+   * `delightful-seeking-snowglobe.md`. */
+  CreateDualProfile: undefined;
 };

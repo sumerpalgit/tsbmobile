@@ -1,7 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
-import { ProfileScreen, CreateEventScreen, EventDetailScreen, MemberProfileScreen, AdManagementScreen, AdCampaignDetailScreen, AdInsightsScreen, AdCampaignEditScreen, CreateAdCampaignScreen, ContributeResourceScreen, PromptLibraryScreen, SettingsHomeScreen, SettingsAccountScreen, SettingsProfileScreen, SettingsMatchingScreen, SettingsNotificationsScreen, SettingsPrivacyScreen, SettingsBillingScreen, SettingsSupportScreen } from '../screens';
+import { ProfileScreen, CreateEventScreen, EventDetailScreen, MemberProfileScreen, AdManagementScreen, AdCampaignDetailScreen, AdInsightsScreen, AdCampaignEditScreen, CreateAdCampaignScreen, ContributeResourceScreen, PromptLibraryScreen, SettingsHomeScreen, SettingsAccountScreen, SettingsProfileScreen, SettingsMatchingScreen, SettingsNotificationsScreen, SettingsPrivacyScreen, SettingsBillingScreen, SettingsSupportScreen, CreateDualProfileScreen } from '../screens';
 import DrawerNavigator from './DrawerNavigator';
 import { AppStackParamList } from './types';
 
@@ -45,6 +45,7 @@ function AppNavigator() {
       <Stack.Screen name="SettingsPrivacy" component={SettingsPrivacyScreen} />
       <Stack.Screen name="SettingsBilling" component={SettingsBillingScreen} />
       <Stack.Screen name="SettingsSupport" component={SettingsSupportScreen} />
+      <Stack.Screen name="CreateDualProfile" component={CreateDualProfileScreen} />
     </Stack.Navigator>
   );
 }

@@ -1,6 +1,6 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { X } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Search, X } from 'lucide-react-native';
 import { useTheme } from '../../../theme';
 import { ScrollViewWithScrollbar } from './ScrollViewWithScrollbar';
 
@@ -17,6 +17,8 @@ export function ChipMultiSelect({
   suggestionsLabel = 'Suggestions',
   emptyHint = 'Tap a suggestion below to add your first one.',
   loading = false,
+  searchable = false,
+  searchPlaceholder = 'Search…',
 }: {
   label: string;
   required?: boolean;
@@ -29,9 +31,24 @@ export function ChipMultiSelect({
    * empty `options` list mid-fetch would show the same "All suggestions added." as a
    * genuinely exhausted list. */
   loading?: boolean;
+  /** Adds a live-filtering search input above the suggestions list — opt-in so existing call
+   * sites (onboarding's own "Suggested Interests") keep their current, simpler layout unless
+   * they explicitly ask for this. Matches real web's `InterestDropdown` search behavior
+   * (`webSrc/components/onboarding/InterestDropdown.tsx`'s `CommandInput`), adapted to filter
+   * this same inline suggestions box instead of opening a separate popover/sheet: mobile's own
+   * `getInterestSuggestions` (`src/api/interests.ts`) already flattens the full role-scoped
+   * catalog into `options` (not web's random-15-item subset), so this box already shows
+   * everything worth searching — a live filter on it gets to the same "quickly find an interest"
+   * outcome web's dropdown does, without a second UI mechanism alongside this one. */
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }) {
   const { colors, fonts } = useTheme();
+  const [query, setQuery] = useState('');
   const suggestions = options.filter(o => !selected.includes(o));
+  const trimmedQuery = query.trim().toLowerCase();
+  const filteredSuggestions =
+    searchable && trimmedQuery ? suggestions.filter(o => o.toLowerCase().includes(trimmedQuery)) : suggestions;
 
   return (
     <View style={{ gap: 10 }}>
@@ -62,10 +79,24 @@ export function ChipMultiSelect({
       )}
 
       <View style={[styles.suggestionsBox, { backgroundColor: colors.obSurface2, borderColor: colors.borderSoft }]}>
+        {searchable && (
+          <View style={[styles.searchField, { backgroundColor: colors.surface, borderColor: colors.obLine2 }]}>
+            <Search size={13} color={colors.obInk3} strokeWidth={1.8} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={searchPlaceholder}
+              placeholderTextColor={colors.obInk3}
+              style={[fonts.regular, styles.searchInput, { color: colors.obInk }]}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+        )}
         <View style={styles.headerRow}>
           <Text style={[fonts.semibold, styles.suggestionsLabel, { color: colors.obInk2 }]}>{suggestionsLabel}</Text>
-          {suggestions.length > 0 && (
-            <Text style={[fonts.regular, styles.count, { color: colors.obInk3 }]}>{suggestions.length} more</Text>
+          {filteredSuggestions.length > 0 && (
+            <Text style={[fonts.regular, styles.count, { color: colors.obInk3 }]}>{filteredSuggestions.length} more</Text>
           )}
         </View>
         {/* Capped at the design's own 198px, scrollable instead of growing forever once a real
@@ -73,8 +104,8 @@ export function ChipMultiSelect({
             hand-built scrollbar (track/thumb/arrow buttons) matching the design's desktop
             scrollbar, since RN has no native equivalent of that. */}
         <ScrollViewWithScrollbar maxHeight={198} contentContainerStyle={styles.chipRow}>
-          {suggestions.length > 0 ? (
-            suggestions.map(item => (
+          {filteredSuggestions.length > 0 ? (
+            filteredSuggestions.map(item => (
               <Pressable
                 key={item}
                 onPress={() => onToggle(item)}
@@ -86,7 +117,7 @@ export function ChipMultiSelect({
             ))
           ) : (
             <Text style={[fonts.regular, styles.allAdded, { color: colors.obInk3 }]}>
-              {loading ? 'Loading suggestions…' : 'All suggestions added.'}
+              {loading ? 'Loading suggestions…' : trimmedQuery ? `No matches for "${query.trim()}".` : 'All suggestions added.'}
             </Text>
           )}
         </ScrollViewWithScrollbar>
@@ -138,6 +169,20 @@ const styles = StyleSheet.create({
   plusIcon: {
     fontSize: 13,
     lineHeight: 13,
+  },
+  searchField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 40,
+    paddingHorizontal: 11,
+    borderRadius: 11,
+    borderWidth: 1,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 12.5,
   },
   emptyHint: {
     padding: 12,

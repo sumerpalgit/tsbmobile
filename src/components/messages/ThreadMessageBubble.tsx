@@ -218,7 +218,11 @@ function IncomingBubble({
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const parsed = parseMessageContent(message.message);
   const isDeleted = parsed.type === 'deleted';
-  const isCopyable = !isDeleted && !!getCopyableText(parsed);
+  // Gated on `onMessageActions` too, not just content eligibility — chapter chat
+  // (`EtaChaptersScreen.tsx`) renders this same component with no actions handler wired (no
+  // edit/delete endpoints exist for group messages), so without this the three-dot button and
+  // long-press both showed up there but did nothing when tapped.
+  const isCopyable = !isDeleted && !!getCopyableText(parsed) && !!onMessageActions;
   const bubble = (
     <SwipeToReply onReply={isDeleted ? undefined : onSwipeReply}>
       <Pressable
@@ -286,7 +290,8 @@ function OutgoingBubble({
   // (an uncaptioned image, say) — Delete has no content-type restriction, so it's still on offer.
   // `isMessageDeletable` also excludes a still-sending optimistic message, so a pending
   // uncaptioned attachment correctly stays non-actionable rather than opening an empty sheet.
-  const isActionable = !isDeleted && (!!getCopyableText(parsed) || isMessageDeletable(message));
+  // Also gated on `onMessageActions` — see the matching comment in `IncomingBubble` above.
+  const isActionable = !isDeleted && (!!getCopyableText(parsed) || isMessageDeletable(message)) && !!onMessageActions;
   const bubble = (
     <SwipeToReply onReply={isDeleted ? undefined : onSwipeReply}>
       <Pressable

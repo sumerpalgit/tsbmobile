@@ -51,6 +51,16 @@ export const SETTINGS_ENDPOINTS = {
   SUPPORT_TICKET: '/settings/support-ticket',
 } as const;
 
+/** "Create Dual Profile" — matches `webSrc/app/dashboard/create-dual-profile/page.tsx`'s real
+ * `/api/dual-profile/*` calls (see the plan at `delightful-seeking-snowglobe.md`). `CREATE`/
+ * `DELETE` both return a fresh JWT the caller must persist — see `src/api/dual-profile.ts`. */
+export const DUAL_PROFILE_ENDPOINTS = {
+  CREATE: '/dual-profile/create',
+  DUAL_CHECK: '/dual-profile/dual-check',
+  DELETE: '/dual-profile/delete',
+  SWITCH: '/dual-profile/switch',
+} as const;
+
 export const FEED_ENDPOINTS = {
   LIST: '/feed',
   SEARCH: '/feed/search',

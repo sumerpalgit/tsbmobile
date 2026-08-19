@@ -49,6 +49,8 @@ export function Step4Fields({
   uploads,
   onUploadChange,
   uploadingKey,
+  showProgress = true,
+  rangeErrors,
 }: {
   role: string;
   fieldValues: Record<string, string>;
@@ -75,6 +77,15 @@ export function Step4Fields({
   /** Key currently mid-upload (network call in flight after pick), or null — shows a
    * loading state on that upload's button, mirroring web's `uploadingField`. */
   uploadingKey: string | null;
+  /** Onboarding's own "Step 2 of 2 · Business Details" sub-progress header — `false` for reuse
+   * sites (e.g. Create Dual Profile's Business Details step) whose own mockup has no such
+   * element, so it doesn't render chrome the reused site's real design doesn't call for. */
+  showProgress?: boolean;
+  /** Per-slider "X range is required" text (matches real web's `UnifiedRoleForm` validation) —
+   * opt-in and keyed the same as `FINANCIAL_RANGES`/`rangeValues` above. Onboarding's own call
+   * site doesn't pass this (it shows one generic banner instead, via `isStep4Complete`), so this
+   * defaults to no errors and changes nothing there. */
+  rangeErrors?: Partial<Record<'rev' | 'ebitda' | 'ev', string>>;
 }) {
   const { colors, fonts } = useTheme();
   const config = ROLE_CONFIG[role];
@@ -85,17 +96,18 @@ export function Step4Fields({
 
   return (
     <View style={{ gap: 18 }}>
-      {/* Sub-progress — 2 of 2, both segments filled since this is the last Business Details step */}
-      <View style={{ gap: 7 }}>
-        <View style={styles.progressRow}>
-          <Text style={[fonts.semibold, styles.progressLabel, { color: colors.obInk3 }]}>Step 2 of 2 · Business Details</Text>
-          <Text style={[fonts.semibold, styles.progressLabel, { color: colors.obGold }]}>100% complete</Text>
+      {showProgress && (
+        <View style={{ gap: 7 }}>
+          <View style={styles.progressRow}>
+            <Text style={[fonts.semibold, styles.progressLabel, { color: colors.obInk3 }]}>Step 2 of 2 · Business Details</Text>
+            <Text style={[fonts.semibold, styles.progressLabel, { color: colors.obGold }]}>100% complete</Text>
+          </View>
+          <View style={styles.progressBarRow}>
+            <View style={[styles.progressSegment, { backgroundColor: colors.obGold }]} />
+            <View style={[styles.progressSegment, { backgroundColor: colors.obGold }]} />
+          </View>
         </View>
-        <View style={styles.progressBarRow}>
-          <View style={[styles.progressSegment, { backgroundColor: colors.obGold }]} />
-          <View style={[styles.progressSegment, { backgroundColor: colors.obGold }]} />
-        </View>
-      </View>
+      )}
 
       {config.sections.map((section, i) => (
         <Fragment key={section.title}>
@@ -188,6 +200,7 @@ export function Step4Fields({
                 lo={rangeValues[r.key][0]}
                 hi={rangeValues[r.key][1]}
                 onChange={rangeHandlers[r.key]}
+                error={rangeErrors?.[r.key]}
               />
             ))}
           </View>

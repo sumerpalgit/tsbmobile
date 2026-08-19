@@ -35,7 +35,7 @@ export const ROLE_TYPE_MAP: Record<string, string> = {
 
 const subCategoryOpts = (values: string[]) => values.map(v => ({ value: v, label: v }));
 
-const OTHER_SPECIFY_SUB = 'Other (please specify)';
+export const OTHER_SPECIFY_SUB = 'Other (please specify)';
 
 /** Per-role Sub Category options — mirrors webSrc's `SUB_CATEGORIES` map in
  * `complete-profile/page.tsx` exactly, keyed to this screen's own role labels (`ROLES`

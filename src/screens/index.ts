@@ -24,6 +24,7 @@ export { default as SettingsNotificationsScreen } from './SettingsNotificationsS
 export { default as SettingsPrivacyScreen } from './SettingsPrivacyScreen';
 export { default as SettingsBillingScreen } from './SettingsBillingScreen';
 export { default as SettingsSupportScreen } from './SettingsSupportScreen';
+export { default as CreateDualProfileScreen } from './CreateDualProfileScreen';
 export {
   PlaceholderScreen,
   createPlaceholderScreen,

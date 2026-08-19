@@ -16,10 +16,10 @@ import { ConfirmDialog } from '../components/events/ConfirmDialog';
 import { AppStackParamList } from '../navigation/types';
 
 /**
- * Profile — the identity card + menu list from `Profile.html`. Ad Management is real
- * (`AdManagementScreen`, see the plan at `delightful-seeking-snowglobe.md`); Create Dual Profile
- * and Settings are still separate future phases, so those 2 rows (+ View Profile, which has no
- * built destination on the mockup either) stay toast-only.
+ * Profile — the identity card + menu list from `Profile.html`. Ad Management and Settings are
+ * real; Create Dual Profile currently opens a placeholder screen (Phase 1 of the plan at
+ * `delightful-seeking-snowglobe.md` only wires the route, the real wizard lands in a later
+ * phase). View Profile has no built destination on the mockup either, so it stays toast-only.
  *
  * Mounted in two different navigator contexts (`src/navigation/types.ts`): as the Profile bottom
  * tab (nested inside `DrawerNavigator`, which suppresses its own shared `TopBar` for this tab —
@@ -67,6 +67,7 @@ function ProfileScreen() {
           onItemPress={(key, title) => {
             if (key === 'ads') return navigation.navigate('AdManagement');
             if (key === 'settings') return navigation.navigate('SettingsHome');
+            if (key === 'dual') return navigation.navigate('CreateDualProfile');
             showToast(`${title} — coming soon`);
           }}
         />

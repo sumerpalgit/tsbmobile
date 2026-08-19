@@ -36,6 +36,7 @@ export function DualRangeSlider({
   lo,
   hi,
   onChange,
+  error,
 }: {
   label: string;
   required?: boolean;
@@ -46,6 +47,10 @@ export function DualRangeSlider({
   lo: number;
   hi: number;
   onChange: (lo: number, hi: number) => void;
+  /** Red text below the slider, matching real web's `UnifiedRoleForm` (e.g. "Revenue range is
+   * required" when untouched) — opt-in, so call sites that don't validate per-field (onboarding's
+   * own Step 4 shows one generic banner instead) are unaffected. */
+  error?: string;
 }) {
   const { colors, fonts } = useTheme();
   const [trackWidth, setTrackWidth] = useState(0);
@@ -167,6 +172,8 @@ export function DualRangeSlider({
           {unit}
         </Text>
       </View>
+
+      {!!error && <Text style={[fonts.regular, styles.errorText, { color: colors.obRequired }]}>{error}</Text>}
     </View>
   );
 }
@@ -220,5 +227,8 @@ const styles = StyleSheet.create({
   },
   boundsText: {
     fontSize: 10,
+  },
+  errorText: {
+    fontSize: 11,
   },
 });
