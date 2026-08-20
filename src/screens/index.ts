@@ -8,6 +8,7 @@ export { default as MessagesScreen } from './MessagesScreen';
 export { default as CreateEventScreen } from './CreateEventScreen';
 export { default as EventDetailScreen } from './EventDetailScreen';
 export { default as MemberProfileScreen } from './MemberProfileScreen';
+export { default as ViewProfileScreen } from './ViewProfileScreen';
 export { default as MyResourcesScreen } from './MyResourcesScreen';
 export { default as AdManagementScreen } from './AdManagementScreen';
 export { default as AdCampaignDetailScreen } from './AdCampaignDetailScreen';

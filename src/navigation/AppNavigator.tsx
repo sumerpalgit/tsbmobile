@@ -1,7 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
-import { ProfileScreen, CreateEventScreen, EventDetailScreen, MemberProfileScreen, AdManagementScreen, AdCampaignDetailScreen, AdInsightsScreen, AdCampaignEditScreen, CreateAdCampaignScreen, ContributeResourceScreen, PromptLibraryScreen, SettingsHomeScreen, SettingsAccountScreen, SettingsProfileScreen, SettingsMatchingScreen, SettingsNotificationsScreen, SettingsPrivacyScreen, SettingsBillingScreen, SettingsSupportScreen, CreateDualProfileScreen } from '../screens';
+import { ProfileScreen, CreateEventScreen, EventDetailScreen, MemberProfileScreen, ViewProfileScreen, AdManagementScreen, AdCampaignDetailScreen, AdInsightsScreen, AdCampaignEditScreen, CreateAdCampaignScreen, ContributeResourceScreen, PromptLibraryScreen, SettingsHomeScreen, SettingsAccountScreen, SettingsProfileScreen, SettingsMatchingScreen, SettingsNotificationsScreen, SettingsPrivacyScreen, SettingsBillingScreen, SettingsSupportScreen, CreateDualProfileScreen } from '../screens';
 import DrawerNavigator from './DrawerNavigator';
 import { AppStackParamList } from './types';
 
@@ -30,6 +30,7 @@ function AppNavigator() {
       <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
       <Stack.Screen name="EventDetail" component={EventDetailScreen} />
       <Stack.Screen name="MemberProfile" component={MemberProfileScreen} />
+      <Stack.Screen name="ViewProfile" component={ViewProfileScreen} />
       <Stack.Screen name="AdManagement" component={AdManagementScreen} />
       <Stack.Screen name="AdCampaignDetail" component={AdCampaignDetailScreen} />
       <Stack.Screen name="AdInsights" component={AdInsightsScreen} />

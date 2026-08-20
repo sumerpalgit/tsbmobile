@@ -110,6 +110,13 @@ export type AppStackParamList = {
    * syncing the two back together (so the list reflects a toggle made here) is a separate,
    * later task, not part of this navigation fix. */
   MemberProfile: { profile: Profile; initialSaved: boolean };
+  /** Profile menu's "View Profile" ("See how others view you") — Phase 1 of the plan at
+   * `delightful-seeking-snowglobe.md`. Deliberately not the same route as `MemberProfile` above:
+   * that one's params (`profile`/`initialSaved`) come from a Directory search result via route
+   * params, while this one is always the signed-in user's own profile, fetched by the screen
+   * itself from `useMe()` — no params needed. Renders the same `MemberProfileView` component in
+   * its `isOwnProfile` mode. */
+  ViewProfile: undefined;
   /** Ad Management — reached from Profile's menu list (`ProfileMenuList.tsx`), same "pushed,
    * covers the bottom bar, owns its own header" treatment as `CreateEvent`/`EventDetail` above,
    * not the mockup's own internal overlay/view-switching (`adOpen`/`adView` state) — matches this

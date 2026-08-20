@@ -11,6 +11,13 @@ export type User = {
   username: string;
   profileImg: string;
   coverImg: string;
+  /** Same `/profile/me` response web's `my-profile` page reads `followers`/`followings`/
+   * `created_at` off of (`UserProfile.followers?: number` etc, `webSrc/app/dashboard/
+   * my-profile/page.tsx:124-126`) — real backend fields, not fabricated. Mobile just hadn't wired
+   * them up before (`ViewProfileScreen.tsx`'s stat strip). */
+  followers?: number;
+  followings?: number;
+  created_at?: string;
   /** Full DB profile record — shape varies by roleType, kept loose like the web client. */
   profile?: unknown;
 };
@@ -30,6 +37,9 @@ function mapProfileToUser(payload: any): User | null {
     username: payload.username ?? dbProfile.username ?? '',
     profileImg: payload.profileImg ?? payload.profile_img ?? dbProfile.profile_img ?? '',
     coverImg: payload.coverImg ?? payload.cover_img ?? dbProfile.cover_img ?? '',
+    followers: Number(payload.followers ?? dbProfile.followers ?? 0),
+    followings: Number(payload.followings ?? dbProfile.followings ?? 0),
+    created_at: payload.created_at ?? dbProfile.created_at ?? undefined,
     profile: dbProfile,
   };
 }

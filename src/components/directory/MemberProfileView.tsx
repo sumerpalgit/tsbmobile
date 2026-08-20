@@ -3,7 +3,7 @@ import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'r
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Toast from 'react-native-toast-message';
-import { ArrowLeft, Bookmark, ExternalLink, MapPin, MessageSquare, Share2 } from 'lucide-react-native';
+import { ArrowLeft, Bookmark, ExternalLink, MapPin, MessageSquare, Share2, Star } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { avatarColor } from '../../types/messages';
 import { normalizeLinkedInUrl } from '../../types/directory';
@@ -22,7 +22,19 @@ import type { Profile } from '../../types/directory';
  * screen (`MemberProfileScreen.tsx`, registered in `AppNavigator.tsx`) so "View Profile"
  * genuinely navigates (native push transition, back gesture) instead of opening a sheet — same
  * `useSafeAreaInsets()`-inside-`Modal` unreliability class of issue `EventDetailView.tsx`
- * documents, and matching real web's own `router.push('/dashboard/profiles/:username')`. */
+ * documents, and matching real web's own `router.push('/dashboard/profiles/:username')`.
+ *
+ * The star-rating row (`avg_rating`/`total_reviews`, "New" fallback when there are zero reviews)
+ * is ported directly from `MemberCard.tsx`'s identical pattern — real backend fields, never
+ * carried into this view before now.
+ *
+ * Own-profile viewing ("View Profile" in the Profile menu) does NOT reuse this component — the
+ * real mockup screen for that (`vpOpen` overlay, decoded source) turned out to have a materially
+ * different layout (cover-with-online-dot, a Followers/Following/Member Since stat strip, a
+ * 3-button action row, a 6-tab bar) that doesn't belong on this lightweight *other-member* view
+ * at all, so it's a dedicated build in `ViewProfileScreen.tsx` instead — see the plan at
+ * `delightful-seeking-snowglobe.md`. An earlier version of this file added an `isOwnProfile` mode
+ * here before that mockup screen had actually been checked closely; reverted once it was. */
 export function MemberProfileView({
   profile,
   saved,
@@ -40,6 +52,7 @@ export function MemberProfileView({
   const insets = useSafeAreaInsets();
 
   const locationLine = [profile.city, profile.state_code].filter(Boolean).join(', ');
+  const hasRating = (profile.total_reviews ?? 0) > 0;
   const facts: { k: string; v: string }[] = [];
   if (profile.role_type) facts.push({ k: 'Role', v: profile.role_type });
   if (profile.sub_category) facts.push({ k: 'Sub role', v: profile.sub_category });
@@ -102,12 +115,31 @@ export function MemberProfileView({
                   {profile.sub_category}
                 </Text>
               )}
-              {!!locationLine && (
-                <View style={styles.heroLocRow}>
-                  <MapPin size={11} color="rgba(255,255,255,0.6)" strokeWidth={1.6} />
-                  <Text style={styles.heroLoc}>{locationLine}</Text>
-                </View>
-              )}
+              <View style={styles.heroLocRow}>
+                {!!locationLine && (
+                  <View style={styles.heroLocGroup}>
+                    <MapPin size={11} color="rgba(255,255,255,0.6)" strokeWidth={1.6} />
+                    <Text style={styles.heroLoc}>{locationLine}</Text>
+                  </View>
+                )}
+                {hasRating ? (
+                  <View style={styles.heroRatingGroup}>
+                    {!!locationLine && <View style={styles.heroDot} />}
+                    <Star size={11} color={colors.gold} fill={colors.gold} strokeWidth={1.1} />
+                    <Text style={styles.heroRatingValue}>{(profile.avg_rating ?? 0).toFixed(1)}</Text>
+                    <Text style={styles.heroRatingCount}>({profile.total_reviews})</Text>
+                  </View>
+                ) : (
+                  // Matches `MemberCard.tsx`'s own "New" fallback exactly — real backend data
+                  // (`total_reviews === 0`), not a fabricated joined-date field.
+                  <View style={styles.heroRatingGroup}>
+                    {!!locationLine && <View style={styles.heroDot} />}
+                    <View style={[styles.heroNewBadge, { backgroundColor: colors.goldLight }]}>
+                      <Text style={styles.heroNewBadgeText}>New</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
           {!!profile.role_type && (
@@ -255,12 +287,48 @@ const styles = StyleSheet.create({
   heroLocRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    flexWrap: 'wrap',
+    gap: 8,
     marginTop: 5,
+  },
+  heroLocGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   heroLoc: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.6)',
+  },
+  heroRatingGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  heroDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  heroRatingValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  heroRatingCount: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  heroNewBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  heroNewBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#182E43',
   },
   heroBadgeRow: {
     flexDirection: 'row',

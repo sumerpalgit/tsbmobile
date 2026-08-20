@@ -15,10 +15,9 @@ type MenuItem = {
 };
 
 /** Matches `Profile.html`'s `menuDefs` (~line 2091) exactly — titles, subtitles, badge, and tile
- * treatment. Ad Management is real (`AdManagementScreen`, see the plan at
- * `delightful-seeking-snowglobe.md`); Create Dual Profile/Settings are still separate future
- * phases, and View Profile has no built destination in the mockup either (falls through to the
- * same generic toast there) — those 3 stay toast-only, see `ProfileScreen`'s `onItemPress`. */
+ * treatment. All 4 items are real now: Ad Management, Create Dual Profile, and Settings from
+ * earlier work; View Profile (`ViewProfileScreen`) is Phase 1 of the plan at
+ * `delightful-seeking-snowglobe.md`, see `ProfileScreen`'s `onItemPress`. */
 const MENU_ITEMS: MenuItem[] = [
   { key: 'view', title: 'View Profile', subtitle: 'See how others view you', Icon: UserRound },
   { key: 'ads', title: 'Ad Management', subtitle: 'Manage your active listings', Icon: Megaphone },
