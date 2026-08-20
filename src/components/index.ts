@@ -1,4 +1,5 @@
 export { Avatar } from './Avatar';
+export { BottomSheet } from './BottomSheet';
 export { Button } from './Button';
 export { FileUploadButton } from './FileUploadButton';
 export type { PickedFile } from './FileUploadButton';

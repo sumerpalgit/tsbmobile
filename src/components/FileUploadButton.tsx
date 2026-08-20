@@ -31,6 +31,12 @@ export type PickedFile = {
  * Single-file only for now (`allowMultiSelection` isn't exposed) — every upload field in the
  * design (CIM, pitch deck, resume, etc.) is one file at a time; add it if a future use case needs
  * multiple.
+ *
+ * `variant="dropzone"` (2026-08-20, added for View Profile's Current Organization credentials
+ * deck) matches web's `CurrentOrganizationCard` field exactly — not just a color swap: web's
+ * dropzone has no remove affordance at all, only replace (clicking a filled dropzone always
+ * re-opens the file picker), unlike the default `'compact'` variant's tap-to-clear. Every existing
+ * call site is unaffected since `variant` defaults to `'compact'`.
  */
 export function FileUploadButton({
   value,
@@ -39,6 +45,8 @@ export function FileUploadButton({
   placeholder = 'Tap to upload',
   loading = false,
   maxSizeBytes,
+  variant = 'compact',
+  uploadedCaption,
 }: {
   value: PickedFile | null;
   onChange: (file: PickedFile | null) => void;
@@ -53,12 +61,22 @@ export function FileUploadButton({
    * purely for immediate feedback instead of waiting on a round-trip 4xx. Omit for no client-side
    * limit. */
   maxSizeBytes?: number;
+  /** `'compact'` (default) is the original single-row control every existing call site uses —
+   * tapping a filled value clears it. `'dropzone'` matches web's `CurrentOrganizationCard`
+   * credentials-deck field exactly: a taller vertical box, a green success state instead of gold,
+   * and — the actual functional difference, not just color — tapping a filled value re-opens the
+   * picker to REPLACE it, since web's dropzone has no remove affordance at all, only replace. */
+  variant?: 'compact' | 'dropzone';
+  /** Second line shown under the filename in `'dropzone'` success state (web's "Click to
+   * replace"). Ignored in `'compact'` variant. */
+  uploadedCaption?: string;
 }) {
   const { colors, fonts, fontSize } = useTheme();
   const [busy, setBusy] = useState(false);
+  const isDropzone = variant === 'dropzone';
 
   const handlePress = async () => {
-    if (value) {
+    if (value && !isDropzone) {
       onChange(null);
       return;
     }
@@ -93,6 +111,47 @@ export function FileUploadButton({
       setBusy(false);
     }
   };
+
+  if (isDropzone) {
+    const success = !!value && !loading;
+    return (
+      <Pressable
+        onPress={handlePress}
+        disabled={busy || loading}
+        style={({ pressed }) => [
+          styles.dropzone,
+          success
+            ? { backgroundColor: '#F0FDF4', borderColor: '#16A34A' }
+            : { backgroundColor: colors.surfaceSunken, borderColor: colors.border },
+          (busy || loading) && { opacity: 0.8 },
+          !busy && !loading && pressed && { opacity: 0.7 },
+        ]}
+      >
+        {loading ? (
+          <>
+            <ActivityIndicator size="small" color={colors.gold} />
+            <Text style={[fonts.medium, styles.dropzoneLine, { color: colors.ink2, fontSize: fontSize.body }]}>Uploading…</Text>
+          </>
+        ) : success ? (
+          <>
+            <Check size={26} color="#16A34A" strokeWidth={1.8} />
+            <Text style={[fonts.semibold, styles.dropzoneLine, { color: '#16A34A', fontSize: fontSize.body }]} numberOfLines={1}>
+              {value!.name}
+            </Text>
+            {!!uploadedCaption && (
+              <Text style={[fonts.regular, styles.dropzoneCaption, { color: colors.ink3 }]}>{uploadedCaption}</Text>
+            )}
+          </>
+        ) : (
+          <>
+            <Upload size={26} color={colors.ink3} strokeWidth={1.6} />
+            <Text style={[fonts.medium, styles.dropzoneLine, { color: colors.ink2, fontSize: fontSize.body }]}>Click to upload or drag and drop</Text>
+            {!!placeholder && <Text style={[fonts.regular, styles.dropzoneCaption, { color: colors.ink3 }]}>{placeholder}</Text>}
+          </>
+        )}
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
@@ -134,6 +193,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 13,
     borderWidth: 1,
+  },
+  dropzone: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+  },
+  dropzoneLine: {
+    textAlign: 'center',
+  },
+  dropzoneCaption: {
+    fontSize: 11.5,
+    textAlign: 'center',
   },
   text: {
     flexShrink: 1,

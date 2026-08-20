@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ import { ME_QUERY_KEY } from '../api/queryKeys';
 import { normalizeProfile } from '../api/directory';
 import { normalizeLinkedInUrl } from '../types/directory';
 import { switchDualProfile } from '../api/dual-profile';
+import { ViewProfileOverviewTab } from '../components/profile/ViewProfileOverviewTab';
 import type { AppStackParamList } from '../navigation/types';
 
 const TABS = [
@@ -38,10 +40,11 @@ type TabKey = (typeof TABS)[number]['key'];
  * "Screen owns data" split, same as `ProfileScreen.tsx` — `useMe()` → `normalizeProfile
  * (user.profile)`, no new API call.
  *
- * Only the Overview tab has real content this phase; the other 5 (Role Thesis last of all — see
- * the plan's Phase 8 note on why, it's the one tab whose content is entirely role-dependent)
- * switch the active tab visually but show a "coming soon" placeholder body, matching every other
- * partially-built feature's stub convention in this app.
+ * Only the Overview tab has real content (`ViewProfileOverviewTab.tsx`, Phase 2 — About + an
+ * editable Current Organization form so far, more sections coming); the other 5 (Role Thesis last
+ * of all — see the plan's Phase 8 note on why, it's the one tab whose content is entirely
+ * role-dependent) switch the active tab visually but show a "coming soon" placeholder body,
+ * matching every other partially-built feature's stub convention in this app.
  *
  * Followers/Following/Member Since — corrected 2026-08-20: these ARE real backend fields (web's
  * `my-profile` page reads `profile.followers`/`profile.followings`/`profile.created_at` off the
@@ -54,6 +57,16 @@ type TabKey = (typeof TABS)[number]['key'];
  * Profile" → `CreateDualProfile` wizard when `profile.dual_id` is unset, "Switch Profile" →
  * `switchDualProfile()` (already-built API wrapper, previously unused) when it's set. "Edit
  * Profile" is temporarily disabled (dimmed, no-op) — see its own inline TODO.
+ *
+ * Outer scroll is `KeyboardAwareScrollView` (2026-08-20 fix, same library/config
+ * `OnboardingScreen.tsx`/the Dual Profile wizard already use — `enableOnAndroid`,
+ * `keyboardOpeningTime={0}`), not a plain `ScrollView` — Phase 2's Overview tab added real
+ * text-input fields (Current Organization's form) that need auto-scroll above the keyboard.
+ * `extraScrollHeight={80}` (bumped from an initial `20`, which left the focused field's bottom
+ * edge still partly covered — this screen's fields sit lower in a taller scroll content than
+ * onboarding's own `20` was tuned for). `contentContainerStyle` stays a plain object here, not an
+ * array — an array is what silently broke this exact library's own padding logic in the Dual
+ * Profile wizard's keyboard saga, see that file's doc comment for the full root cause.
  *
  * One mockup element is still deliberately NOT copied — it's fabricated in the mockup itself, not
  * real data:
@@ -120,7 +133,13 @@ function ViewProfileScreen() {
         <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>View Profile</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
+      <KeyboardAwareScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        enableOnAndroid
+        extraScrollHeight={80}
+        keyboardOpeningTime={0}
+      >
         <View style={{ backgroundColor: colors.surface }}>
           <LinearGradient colors={[colors.hero1, colors.hero2, colors.goldDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1.2 }} style={styles.cover}>
             <View style={[styles.avatarWrap, { borderColor: colors.surface }]}>
@@ -264,32 +283,13 @@ function ViewProfileScreen() {
         </View>
 
         {activeTab === 'overview' ? (
-          <View style={styles.body}>
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[fonts.display, styles.cardTitle, { color: colors.ink }]}>About</Text>
-              <Text style={[fonts.regular, styles.cardBody, { color: profile.bio ? colors.ink2 : colors.ink3 }, !profile.bio && styles.italic]}>
-                {profile.bio || 'Add a bio from Edit Profile so others know a bit about you.'}
-              </Text>
-            </View>
-
-            {(!!profile.designation || !!profile.organization) && (
-              <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[fonts.display, styles.cardTitle, { color: colors.ink }]}>Current Organization</Text>
-                {!!profile.designation && (
-                  <Text style={[fonts.semibold, styles.orgLine, { color: colors.ink }]}>{profile.designation}</Text>
-                )}
-                {!!profile.organization && (
-                  <Text style={[fonts.regular, styles.orgLine, { color: colors.ink2 }]}>{profile.organization}</Text>
-                )}
-              </View>
-            )}
-          </View>
+          <ViewProfileOverviewTab profile={profile} onViewAllTestimonials={() => setActiveTab('testimonial')} />
         ) : (
           <View style={styles.comingSoon}>
             <Text style={[fonts.semibold, { color: colors.ink3 }]}>More is coming here in a future update.</Text>
           </View>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </View>
   );
 }
@@ -386,12 +386,6 @@ const styles = StyleSheet.create({
   tabBar: { paddingHorizontal: 10 },
   tab: { height: 46, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
   tabLabel: { fontSize: 13 },
-  body: { padding: 16, gap: 13, paddingBottom: 28 },
-  card: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 14 },
-  cardTitle: { fontSize: 16 },
-  cardBody: { fontSize: 12.5, lineHeight: 19, marginTop: 7 },
-  italic: { fontStyle: 'italic' },
-  orgLine: { fontSize: 13, marginTop: 6, lineHeight: 18 },
   comingSoon: { paddingVertical: 60, alignItems: 'center', paddingHorizontal: 30 },
 });
 

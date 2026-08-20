@@ -42,3 +42,15 @@ export async function getInterestSuggestions(roleType: string, subCategory: stri
 export function saveInterests(labels: string[]) {
   return apiClient.post(INTERESTS_ENDPOINTS.SAVE, { interest_labels: labels }).then(res => res.data);
 }
+
+/** `GET /interests/my` — matches web's `fetchMyInterests()`: the response can be a plain
+ * `string[]` or a list of `{label}`/`{name}` objects depending on backend version, so unwrap
+ * defensively rather than assuming one shape. Powers View Profile's Overview tab (Phase 2). */
+export async function fetchMyInterests(): Promise<string[]> {
+  const data = await apiClient.get(INTERESTS_ENDPOINTS.MY).then(res => res.data).catch(() => null);
+  const list: unknown[] = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : Array.isArray(data?.interests) ? data.interests : [];
+  return list
+    .map(item => (typeof item === 'string' ? item : (item as Record<string, unknown>)?.label ?? (item as Record<string, unknown>)?.name ?? ''))
+    .map(String)
+    .filter(Boolean);
+}

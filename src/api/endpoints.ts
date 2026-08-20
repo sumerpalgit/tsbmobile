@@ -109,6 +109,10 @@ export const UPLOAD_ENDPOINTS = {
 export const INTERESTS_ENDPOINTS = {
   LIST: '/interests',
   SAVE: '/interests/save',
+  /** `GET /interests/my` — the signed-in user's own saved interests, used by View Profile's
+   * Overview tab (Phase 2). Matches `webSrc/app/dashboard/my-profile/page.tsx`'s
+   * `fetchMyInterests()`. */
+  MY: '/interests/my',
 } as const;
 
 export const LOOKUP_ENDPOINTS = {
@@ -177,4 +181,42 @@ export const RESOURCE_ENDPOINTS = {
   CREATE: '/resource/create',
   DOWNLOAD: '/resource/download',
   VIEW: '/resource/view',
+} as const;
+
+/** View Profile's Overview tab (Phase 2) — matches `webSrc/app/dashboard/my-profile/page.tsx`'s
+ * "details" tab exactly (`GET`/`PUT` current-organization at line 2539-2774,
+ * `GET /profile/suggested-connections` at line 1133-1210). A distinct record from
+ * `PROFILE_ENDPOINTS.UPDATE`'s onboarding-role fields (`designation`/`organization`) — this is
+ * its own editable card with its own backend resource. */
+export const PROFILE_OVERVIEW_ENDPOINTS = {
+  CURRENT_ORGANIZATION: '/profile/current-organization',
+  SUGGESTED_CONNECTIONS: '/profile/suggested-connections',
+} as const;
+
+/** `GET .../my` lists the signed-in user's own entries; `POST .../add` creates one; ids
+ * interpolated at the call site for `PUT`/`DELETE ${BASE}/:id`, same convention as
+ * `AI_ENDPOINTS`. Matches `webSrc/app/dashboard/my-profile/page.tsx:2231-2536`
+ * (`/api/work-experience/*`). */
+export const WORK_EXPERIENCE_ENDPOINTS = {
+  MY: '/work-experience/my',
+  ADD: '/work-experience/add',
+  BASE: '/work-experience',
+} as const;
+
+/** Same CRUD shape as `WORK_EXPERIENCE_ENDPOINTS`. Matches
+ * `webSrc/app/dashboard/my-profile/page.tsx:717-1123` (`/api/education/*`). */
+export const EDUCATION_ENDPOINTS = {
+  MY: '/education/my',
+  ADD: '/education/add',
+  BASE: '/education',
+} as const;
+
+/** `GET /testimonial/:username` — matches `webSrc/actions/my-profile.ts`'s `fetchTestimonials`,
+ * called with the signed-in user's OWN username (`fetchTestimonials(profile.username)` at
+ * `my-profile/page.tsx:4796`) — testimonials received about them, not written by them. Username
+ * interpolated at the call site, same convention as `PROFILE_ENDPOINTS.BY_USERNAME`. Powers View
+ * Profile's Overview "Latest Testimonial" preview (Phase 2) — real data, contradicting an earlier,
+ * wrong memory note that this had no backend at all. */
+export const TESTIMONIAL_ENDPOINTS = {
+  BY_USERNAME: '/testimonial',
 } as const;
