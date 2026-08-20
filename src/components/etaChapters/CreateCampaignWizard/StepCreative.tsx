@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { types } from '@react-native-documents/picker';
 import Toast from 'react-native-toast-message';
@@ -27,14 +27,23 @@ export function StepCreative({
   onChange,
   errors,
   clearError,
+  onFieldFocus,
 }: {
   draft: CampaignDraft;
   onChange: (patch: Partial<CampaignDraft>) => void;
   errors: Record<string, string>;
   clearError: (key: string) => void;
+  /** Wired to the wizard's scroll-to-focused-field fix — see `CreateCampaignWizard.tsx`'s own
+   * doc comment on `handleFieldFocus` for why (this step's fields were the ones reported hidden
+   * behind the keyboard). */
+  onFieldFocus: (ref: React.RefObject<TextInput | null>) => void;
 }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const ctaLabel = draft.ctaLabel || 'Learn More';
+  const headlineRef = useRef<TextInput>(null);
+  const bodyRef = useRef<TextInput>(null);
+  const ctaRef = useRef<TextInput>(null);
+  const destUrlRef = useRef<TextInput>(null);
 
   return (
     <View style={styles.gap}>
@@ -56,6 +65,8 @@ export function StepCreative({
 
       <Field label="Headline" required error={errors.headline}>
         <TextInput
+          ref={headlineRef}
+          onFocus={() => onFieldFocus(headlineRef)}
           value={draft.headline}
           onChangeText={t => {
             onChange({ headline: t.slice(0, HEADLINE_MAX) });
@@ -70,6 +81,8 @@ export function StepCreative({
 
       <Field label="Body copy" hint="One or two short sentences describing your offer.">
         <TextInput
+          ref={bodyRef}
+          onFocus={() => onFieldFocus(bodyRef)}
           value={draft.body}
           onChangeText={t => onChange({ body: t.slice(0, BODY_MAX) })}
           multiline
@@ -81,6 +94,8 @@ export function StepCreative({
 
       <Field label="Call-to-action label">
         <TextInput
+          ref={ctaRef}
+          onFocus={() => onFieldFocus(ctaRef)}
           value={draft.ctaLabel}
           onChangeText={t => onChange({ ctaLabel: t.slice(0, 24) })}
           placeholder="Learn More"
@@ -142,6 +157,8 @@ export function StepCreative({
 
       <Field label="Destination URL" required error={errors.destUrl}>
         <TextInput
+          ref={destUrlRef}
+          onFocus={() => onFieldFocus(destUrlRef)}
           value={draft.destUrl}
           onChangeText={t => {
             onChange({ destUrl: t });

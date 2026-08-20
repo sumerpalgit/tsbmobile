@@ -65,6 +65,15 @@ export const FEED_ENDPOINTS = {
   LIST: '/feed',
   SEARCH: '/feed/search',
   SINGLE: '/feed/single',
+  /** `GET /feed/user/:username` — matches `webSrc/actions/my-profile.ts`'s `fetchUserFeed`.
+   * Username interpolated at the call site. Powers View Profile's Posts tab (Phase 3). */
+  USER: '/feed/user',
+  /** `DELETE /feed/delete/:feedId` — matches `webSrc/hooks/useFeedActions.ts`'s `deleteFeedItem`.
+   * Feed id interpolated at the call site. */
+  DELETE: '/feed/delete',
+  /** `POST /feed/report/:feedId` — matches `webSrc/.../mini-cards/MiniCardMenu.tsx`'s
+   * `submitReport`, body `{ reason }`. Feed id interpolated at the call site. */
+  REPORT: '/feed/report',
 } as const;
 
 export const LOCATION_ENDPOINTS = {
@@ -181,6 +190,11 @@ export const RESOURCE_ENDPOINTS = {
   CREATE: '/resource/create',
   DOWNLOAD: '/resource/download',
   VIEW: '/resource/view',
+  /** `DELETE /resource/delete/:resourceId` — matches web's `ResourcesSection.tsx`'s own-resource
+   * delete (gated by its `showDeleteButton` prop, always `true` on `my-profile`). Powers View
+   * Profile's Resources tab (Phase 5) "My Contributions" delete action. Id interpolated at the
+   * call site, same convention as every other id-scoped endpoint in this file. */
+  DELETE: '/resource/delete',
 } as const;
 
 /** View Profile's Overview tab (Phase 2) — matches `webSrc/app/dashboard/my-profile/page.tsx`'s
@@ -219,4 +233,31 @@ export const EDUCATION_ENDPOINTS = {
  * wrong memory note that this had no backend at all. */
 export const TESTIMONIAL_ENDPOINTS = {
   BY_USERNAME: '/testimonial',
+  /** `POST /testimonial/request` — matches `webSrc/actions/my-profile.ts`'s `requestTestimonial`,
+   * body `{ user_ids, message }`. Powers View Profile's Testimonial tab (Phase 4) "Request
+   * Testimonial" flow. */
+  REQUEST: '/testimonial/request',
+} as const;
+
+/** `GET /follow/:username/followers?page=&limit=` (Phase 4) / `GET /follow/:username/followings
+ * ?page=&limit=` (Phase 6) — matches `webSrc/actions/my-profile.ts`'s `fetchFollowers`/
+ * `fetchFollowings` exactly, real siblings under the same base. No FOLLOW endpoint group existed
+ * anywhere in this app before Phase 4 — confirmed via direct research (only a notification
+ * *preference* boolean referenced "follow" previously, not a real relationship). Username +
+ * `/followers` or `/followings` suffix interpolated at the call site. */
+export const FOLLOW_ENDPOINTS = {
+  BASE: '/follow',
+} as const;
+
+/** `GET /profile/analytics/summary` — matches `webSrc/actions/my-profile.ts`'s
+ * `fetchAnalyticsSummary`. Confirmed real, wired backend (proper loading/error handling on web,
+ * not a stub) despite web's own tab LABEL reading "Analytics" — its internal tab key/component
+ * name is `complete-profile`/`CompleteProfileTab`: a profile-completion ring + section breakdown
+ * with 4 extra "Match Score Facts" stat numbers bolted on, not an engagement/reach dashboard.
+ * Powers View Profile's Analytics tab (Phase 7). A distinct endpoint from
+ * `PROFILE_ENDPOINTS.COMPLETION` (`/profile/completion`, already used by Overview's own Profile
+ * Insights ring, Phase 2) — web itself has two separate completion mechanisms, this isn't a
+ * mobile-side duplication. */
+export const ANALYTICS_ENDPOINTS = {
+  SUMMARY: '/profile/analytics/summary',
 } as const;

@@ -284,25 +284,26 @@ function SettingsProfileScreen() {
             ]}
           >
             <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>{isProfileDirty ? 'Unsaved changes' : 'All changes saved'}</Text>
-            <View style={{ flex: 1 }} />
-            <Pressable
-              onPress={handleDiscardProfile}
-              disabled={!isProfileDirty}
-              style={({ pressed }) => [
-                styles.smallButton,
-                { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: borderWidth.thin, opacity: isProfileDirty ? 1 : 0.4 },
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={[fonts.semibold, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>Discard</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleSaveProfile}
-              disabled={!isProfileDirty || savingProfile}
-              style={({ pressed }) => [styles.saveButton, { backgroundColor: '#182E43', borderRadius: radius.lg, opacity: isProfileDirty ? 1 : 0.4 }, pressed && styles.pressed]}
-            >
-              {savingProfile ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[fonts.bold, { fontSize: fontSize.small + 1, color: '#fff' }]}>Save changes</Text>}
-            </Pressable>
+            <View style={styles.saveBarButtonRow}>
+              <Pressable
+                onPress={handleDiscardProfile}
+                disabled={!isProfileDirty}
+                style={({ pressed }) => [
+                  styles.smallButton,
+                  { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: borderWidth.thin, opacity: isProfileDirty ? 1 : 0.4 },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={[fonts.semibold, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>Discard</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSaveProfile}
+                disabled={!isProfileDirty || savingProfile}
+                style={({ pressed }) => [styles.saveButton, { backgroundColor: '#182E43', borderRadius: radius.lg, opacity: isProfileDirty ? 1 : 0.4 }, pressed && styles.pressed]}
+              >
+                {savingProfile ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[fonts.bold, { fontSize: fontSize.small + 1, color: '#fff' }]}>Save changes</Text>}
+              </Pressable>
+            </View>
           </View>
         </SettingsSectionCard>
 
@@ -330,25 +331,26 @@ function SettingsProfileScreen() {
             ]}
           >
             <Text style={[fonts.regular, { fontSize: fontSize.caption, color: colors.ink3 }]}>{isVisibilityDirty ? 'Unsaved changes' : 'All changes saved'}</Text>
-            <View style={{ flex: 1 }} />
-            <Pressable
-              onPress={() => setVisibility(savedVisibility)}
-              disabled={!isVisibilityDirty}
-              style={({ pressed }) => [
-                styles.smallButton,
-                { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: borderWidth.thin, opacity: isVisibilityDirty ? 1 : 0.4 },
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={[fonts.semibold, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>Discard</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleSaveVisibility}
-              disabled={!isVisibilityDirty || savingVisibility}
-              style={({ pressed }) => [styles.saveButton, { backgroundColor: '#182E43', borderRadius: radius.lg, opacity: isVisibilityDirty ? 1 : 0.4 }, pressed && styles.pressed]}
-            >
-              {savingVisibility ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[fonts.bold, { fontSize: fontSize.small + 1, color: '#fff' }]}>Save changes</Text>}
-            </Pressable>
+            <View style={styles.saveBarButtonRow}>
+              <Pressable
+                onPress={() => setVisibility(savedVisibility)}
+                disabled={!isVisibilityDirty}
+                style={({ pressed }) => [
+                  styles.smallButton,
+                  { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: borderWidth.thin, opacity: isVisibilityDirty ? 1 : 0.4 },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={[fonts.semibold, { fontSize: fontSize.small + 1, color: colors.ink2 }]}>Discard</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSaveVisibility}
+                disabled={!isVisibilityDirty || savingVisibility}
+                style={({ pressed }) => [styles.saveButton, { backgroundColor: '#182E43', borderRadius: radius.lg, opacity: isVisibilityDirty ? 1 : 0.4 }, pressed && styles.pressed]}
+              >
+                {savingVisibility ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[fonts.bold, { fontSize: fontSize.small + 1, color: '#fff' }]}>Save changes</Text>}
+              </Pressable>
+            </View>
           </View>
         </SettingsSectionCard>
       </ScrollView>
@@ -440,15 +442,21 @@ const styles = StyleSheet.create({
   },
   // Bleeds out to the card's own edges (cancels `SettingsSectionCard`'s 16px `padding`) instead
   // of sitting as an inset chip — same fix as `SettingsAccountScreen.tsx`'s identical save bar.
+  // Stacked (text row, then button row) rather than one row with a flex spacer — the single-row
+  // layout let "All changes saved" + Discard + Save changes fight for the same line, and on
+  // narrower devices lost that fight by pushing Save changes past the card's own edge.
   saveBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 10,
     marginTop: 16,
     marginHorizontal: -16,
     marginBottom: -16,
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  saveBarButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   smallButton: {
     height: 38,
@@ -457,6 +465,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveButton: {
+    flex: 1,
     height: 38,
     paddingHorizontal: 16,
     alignItems: 'center',

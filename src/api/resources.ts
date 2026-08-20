@@ -123,3 +123,9 @@ export function trackDownload(id: number): Promise<{ fileUrl?: string; downloadC
 export function trackView(id: number): Promise<{ viewCount?: number; skipped?: boolean }> {
   return apiClient.post(`${RESOURCE_ENDPOINTS.VIEW}/${id}`).then(res => res.data);
 }
+
+/** `DELETE /resource/delete/:id` — matches web's `ResourcesSection.tsx` own-resource delete
+ * call. Powers View Profile's Resources tab (Phase 5) "My Contributions" delete action. */
+export function deleteResource(id: number) {
+  return apiClient.delete(`${RESOURCE_ENDPOINTS.DELETE}/${id}`).then(res => res.data);
+}

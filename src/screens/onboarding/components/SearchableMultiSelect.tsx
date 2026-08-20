@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronDown, Search, X } from 'lucide-react-native';
 import { useTheme } from '../../../theme';
@@ -134,11 +134,46 @@ function SearchableMultiSelectSheet({
 }) {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const insets = useSafeAreaInsets();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  /** Same fix as `BottomSheet.tsx`'s own keyboard handling — this sheet's search `TextInput`
+   * has `autoFocus`, so the keyboard is already opening the instant the sheet mounts. Without
+   * this, the sheet (anchored `justifyContent: 'flex-end'` in the backdrop) had nothing pushing
+   * it up, so its bottom portion — including the search field and any "No results match" empty
+   * state — ended up sitting behind the keyboard instead of above it. */
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', e => setKeyboardHeight(e.endCoordinates?.height ?? 0));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const isEmpty = filteredGroups.length === 0 && !loading;
 
   return (
     <View style={[styles.backdrop, { backgroundColor: 'rgba(12,21,32,0.5)' }]}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      <View style={[styles.sheet, { backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl }]}>
+      <View
+        style={[
+          styles.sheet,
+          { backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl },
+          // `marginBottom` is the ONLY property this pushes around on keyboard show/hide —
+          // `minHeight`/`maxHeight` stay static (see the `sheet` style's own comment on why this
+          // one-property-at-a-time approach matters). On Android, this app's own
+          // `windowSoftInputMode="adjustResize"` already resizes the Modal's native window when
+          // the keyboard opens/closes; an earlier attempt also made the sheet's own `minHeight`/
+          // `maxHeight` reactive to `keyboardHeight`, so TWO properties (margin + height bounds)
+          // were changing on the same frame the native window was ALSO resizing — three resize
+          // mechanisms racing each other, which is exactly the documented cause of the
+          // flicker/transparent-flash bug already root-caused elsewhere in this app
+          // (`CreateChapterScreen.tsx`/`ContributeResourceSheet.tsx`'s own doc comments). Matching
+          // `BottomSheet.tsx`'s simpler, already-proven-flicker-free pattern instead: only
+          // `marginBottom` moves.
+          { marginBottom: keyboardHeight },
+        ]}
+      >
         <View style={[styles.header, { borderBottomColor: colors.border, borderBottomWidth: borderWidth.thin }]}>
           <Text style={[fonts.display, styles.title, { color: colors.ink, flex: 1 }]}>{label}</Text>
           <Pressable
@@ -166,10 +201,13 @@ function SearchableMultiSelectSheet({
 
         <ScrollView
           style={styles.list}
-          contentContainerStyle={{ paddingBottom: 16 + insets.bottom }}
+          contentContainerStyle={[
+            { paddingBottom: 16 + insets.bottom },
+            isEmpty && styles.listContentEmpty,
+          ]}
           keyboardShouldPersistTaps="handled"
         >
-          {filteredGroups.length === 0 && !loading && (
+          {isEmpty && (
             <Text style={[fonts.regular, styles.emptyText, { color: colors.ink3 }]}>
               {hasGroups ? `No results match "${query}".` : 'No options available.'}
             </Text>
@@ -238,8 +276,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
+  // Static, NOT reactive to keyboard height — see the call site's own comment on `marginBottom`
+  // for why only one property should move on keyboard show/hide. `minHeight` keeps the sheet a
+  // stable size regardless of result count (a zero-result search would otherwise leave almost
+  // nothing to render, collapsing the sheet down to just the header/search field). Kept a bit
+  // smaller than the original 55%/85% attempt specifically so it plus a typical keyboard height
+  // rarely pushes the sheet's top off-screen — not a mathematically exact bound like the reactive
+  // version was, but avoiding the coupled-resize flicker matters more than that edge case.
   sheet: {
-    maxHeight: '85%',
+    minHeight: '45%',
+    maxHeight: '80%',
   },
   header: {
     flexDirection: 'row',
@@ -258,6 +304,7 @@ const styles = StyleSheet.create({
   },
   searchWrap: {
     paddingHorizontal: 16,
+    paddingTop: 14,
     paddingBottom: 10,
   },
   searchField: {
@@ -274,7 +321,16 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
   },
   list: {
+    flex: 1,
     paddingHorizontal: 16,
+  },
+  // Only applied for the genuine "no results" empty state (see `isEmpty` at the call site) — a
+  // populated list, even a short one (e.g. a single match), stays top-aligned and scrolls
+  // exactly as before. Centering a real, if short, results list would look wrong (a single
+  // result floating mid-sheet) — this was the actual first attempt's bug.
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   groupLabel: {
     fontSize: 10,

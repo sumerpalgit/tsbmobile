@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Dimensions, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { Megaphone, X } from 'lucide-react-native';
@@ -46,9 +46,56 @@ export function CreateCampaignWizard({ onClose }: { onClose: () => void }) {
   const [advancing, setAdvancing] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
+  const activeFieldRef = useRef<TextInput | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const patch = (p: Partial<CampaignDraft>) => setDraft(prev => ({ ...prev, ...p }));
   const clearError = (key: string) => setErrors(prev => (prev[key] ? { ...prev, [key]: '' } : prev));
+
+  /** Same fix as `CreateEventWizard.tsx`'s own scroll-to-focused-field mechanism (see that file's
+   * doc comment for the full root-cause writeup — `react-native-keyboard-aware-scroll-view`'s
+   * auto-detection doesn't reliably fire, and `ScrollView`'s own legacy
+   * `scrollResponderScrollNativeHandleToKeyboard` silently no-ops). Uses `measureInWindow` on the
+   * focused `TextInput`'s own ref (not a synthetic-event `target` guess) to get its absolute
+   * on-screen position, compares that to the keyboard's top edge, and scrolls by exactly the
+   * difference — doesn't depend on `KeyboardAvoidingView` resizing anything, so it works
+   * regardless of platform/`adjustResize` quirks. Currently only wired up for Step 3 (`Creative`,
+   * the step this was reported broken on) via `StepCreative`'s `onFieldFocus` prop — other steps'
+   * inputs don't call it, so `activeFieldRef` just stays null there and this listener is a no-op
+   * for them, same as before this fix (no behavior change for steps that weren't reported broken).
+   *
+   * `keyboardHeight` state (not a static over-provisioned `paddingBottom`) gives the scroll room
+   * to scroll INTO — a `ScrollView` can only scroll up to `contentHeight - viewportHeight`, so a
+   * field at the natural end of a step's content has nowhere further to scroll once the keyboard
+   * covers it. A static large padding "worked" but left a permanent gap at the bottom once the
+   * keyboard closed (caught via screenshot) — sizing it to the actual keyboard height and clearing
+   * it on `keyboardDidHide` collapses that gap back to nothing once the keyboard is gone. */
+  const handleFieldFocus = (ref: React.RefObject<TextInput | null>) => {
+    activeFieldRef.current = ref.current;
+  };
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', e => {
+      setKeyboardHeight(e.endCoordinates.height);
+      const field = activeFieldRef.current;
+      if (!field) return;
+      field.measureInWindow((_x, y, _w, height) => {
+        const keyboardTop = Dimensions.get('window').height - e.endCoordinates.height;
+        const buffer = 16;
+        const fieldBottom = y + height;
+        if (fieldBottom > keyboardTop - buffer) {
+          scrollRef.current?.scrollTo({ y: scrollYRef.current + (fieldBottom - (keyboardTop - buffer)), animated: true });
+        }
+      });
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   /** Per-field, matching web's real `validateStep` (`CreateCampaignModal.tsx:303`) — an
    * `errors` record keyed by field name, not a single first-failure string, so every invalid
@@ -97,6 +144,8 @@ export function CreateCampaignWizard({ onClose }: { onClose: () => void }) {
     setTimeout(() => {
       setStep(s => s + 1);
       setAdvancing(false);
+      scrollYRef.current = 0;
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
     }, 220);
   };
 
@@ -184,10 +233,19 @@ export function CreateCampaignWizard({ onClose }: { onClose: () => void }) {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={[styles.body, { paddingBottom: 24 + keyboardHeight }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        onScroll={e => {
+          scrollYRef.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+      >
         {step === 1 && <StepBrand draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
         {step === 2 && <StepPlacement draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
-        {step === 3 && <StepCreative draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
+        {step === 3 && <StepCreative draft={draft} onChange={patch} errors={errors} clearError={clearError} onFieldFocus={handleFieldFocus} />}
         {step === 4 && <StepTargeting draft={draft} onChange={patch} />}
         {step === 5 && <StepSchedule draft={draft} onChange={patch} errors={errors} clearError={clearError} />}
         {step === 6 && <StepReview draft={draft} />}
@@ -210,6 +268,8 @@ export function CreateCampaignWizard({ onClose }: { onClose: () => void }) {
             onPress={() => {
               setSubmitError(null);
               setStep(s => s - 1);
+              scrollYRef.current = 0;
+              scrollRef.current?.scrollTo({ y: 0, animated: false });
             }}
             disabled={advancing || submitting}
             style={({ pressed }) => [
@@ -304,6 +364,10 @@ const styles = StyleSheet.create({
   },
   body: {
     padding: 16,
+    // Base bottom padding only — the extra room needed to scroll a field clear of the keyboard is
+    // added dynamically via `keyboardHeight` at the call site (see `CreateCampaignWizard`'s own
+    // doc comment on why: a static over-provisioned value here left a permanent gap once the
+    // keyboard closed).
     paddingBottom: 24,
   },
   submitErrorBanner: {

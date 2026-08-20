@@ -78,6 +78,30 @@ export async function fetchFeed(page: number, limit: number): Promise<FeedPage> 
   return parseFeedResponse(result, limit);
 }
 
+/** Matches webSrc's `fetchUserFeed` (`actions/my-profile.ts`): `GET /api/feed/user/:username?
+ * page=&limit=`, same envelope shape as `fetchFeed`. Powers View Profile's Posts tab (Phase 3) —
+ * web's own "search posts" box on this tab filters client-side over the already-fetched page, not
+ * a query param this endpoint accepts, so no search param is sent here either. */
+export async function fetchUserFeed(username: string, page: number, limit: number): Promise<FeedPage> {
+  const result = await apiClient
+    .get(`${FEED_ENDPOINTS.USER}/${username}`, { params: { page, limit } })
+    .then(res => res.data);
+
+  return parseFeedResponse(result, limit);
+}
+
+/** Matches `webSrc/hooks/useFeedActions.ts`'s `deleteFeedItem` — `DELETE /feed/delete/:feedId`.
+ * Powers the Posts tab's own-post 3-dot menu (View Profile only shows this for the signed-in
+ * user's own posts, so no ownership check is needed client-side). */
+export function deleteFeedItem(feedId: string) {
+  return apiClient.delete(`${FEED_ENDPOINTS.DELETE}/${feedId}`).then(res => res.data);
+}
+
+/** Matches `MiniCardMenu.tsx`'s `submitReport` — `POST /feed/report/:feedId`, body `{ reason }`. */
+export function reportFeedItem(feedId: string, reason: string) {
+  return apiClient.post(`${FEED_ENDPOINTS.REPORT}/${feedId}`, { reason }).then(res => res.data);
+}
+
 /** `FilterPanel`'s `postTypes` values (`ask`, `investor`, ...) → backend `feed_type` strings —
  * mirrors webSrc's own `FEED_TYPE_MAP` (`app/dashboard/page.tsx`), just named for our UI's value
  * set instead of web's label set. */

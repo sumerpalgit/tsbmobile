@@ -116,7 +116,7 @@ function SettingsNotificationsScreen() {
                 disabled={!isDirty}
                 style={({ pressed }) => [
                   styles.discardButton,
-                  { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: borderWidth.thin, opacity: isDirty ? 1 : 0.4 },
+                  { borderColor: colors.border, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: borderWidth.thin, opacity: isDirty ? 1 : 0.4 },
                   pressed && styles.pressed,
                 ]}
               >
@@ -125,7 +125,7 @@ function SettingsNotificationsScreen() {
               <Pressable
                 onPress={handleSave}
                 disabled={!isDirty || saving}
-                style={({ pressed }) => [styles.saveButton, { backgroundColor: '#182E43', borderRadius: radius.xl, opacity: isDirty ? 1 : 0.4 }, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.saveButton, { backgroundColor: '#182E43', borderRadius: radius.lg, opacity: isDirty ? 1 : 0.4 }, pressed && styles.pressed]}
               >
                 {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[fonts.bold, styles.saveButtonText, { color: '#fff' }]}>Save changes</Text>}
               </Pressable>
@@ -189,17 +189,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 15,
   },
+  // Stacked (text row, then button row) rather than one row sharing space with `justifyContent:
+  // 'space-between'` — same fix as `SettingsProfileScreen.tsx`'s identical save bar: the
+  // single-row layout let "All changes saved" + Discard + Save changes fight for the same line,
+  // and on narrower devices lost that fight by pushing Save changes past the card's own edge.
   footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   footerText: {
     fontSize: 11,
-    flexShrink: 1,
   },
   footerButtonRow: {
     flexDirection: 'row',
@@ -207,14 +207,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   discardButton: {
-    height: 36,
-    paddingHorizontal: 15,
+    height: 38,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveButton: {
-    height: 36,
-    paddingHorizontal: 15,
+    flex: 1,
+    height: 38,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },

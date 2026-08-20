@@ -15,6 +15,11 @@ import { normalizeProfile } from '../api/directory';
 import { normalizeLinkedInUrl } from '../types/directory';
 import { switchDualProfile } from '../api/dual-profile';
 import { ViewProfileOverviewTab } from '../components/profile/ViewProfileOverviewTab';
+import { ViewProfilePostsTab } from '../components/profile/ViewProfilePostsTab';
+import { ViewProfileTestimonialTab } from '../components/profile/ViewProfileTestimonialTab';
+import { ViewProfileResourcesTab } from '../components/profile/ViewProfileResourcesTab';
+import { FollowListSheet } from '../components/profile/FollowListSheet';
+import { ViewProfileAnalyticsTab } from '../components/profile/ViewProfileAnalyticsTab';
 import type { AppStackParamList } from '../navigation/types';
 
 const TABS = [
@@ -40,11 +45,20 @@ type TabKey = (typeof TABS)[number]['key'];
  * "Screen owns data" split, same as `ProfileScreen.tsx` — `useMe()` → `normalizeProfile
  * (user.profile)`, no new API call.
  *
- * Only the Overview tab has real content (`ViewProfileOverviewTab.tsx`, Phase 2 — About + an
- * editable Current Organization form so far, more sections coming); the other 5 (Role Thesis last
- * of all — see the plan's Phase 8 note on why, it's the one tab whose content is entirely
- * role-dependent) switch the active tab visually but show a "coming soon" placeholder body,
- * matching every other partially-built feature's stub convention in this app.
+ * Overview (`ViewProfileOverviewTab.tsx`, Phase 2, all 7 sections), Posts
+ * (`ViewProfilePostsTab.tsx`, Phase 3, read-only feed), Testimonial
+ * (`ViewProfileTestimonialTab.tsx`, Phase 4, list + request flow), Resources
+ * (`ViewProfileResourcesTab.tsx`, Phase 5, Contributed/Saved + real delete), and Analytics
+ * (`ViewProfileAnalyticsTab.tsx`, Phase 7, completion ring + real stat facts — despite the tab
+ * LABEL, web's own equivalent is a profile-completion widget, not an engagement dashboard) have
+ * real content; only Role Thesis (saved last deliberately — see the plan's Phase 8 note on why,
+ * it's the one tab whose content is entirely role-dependent) still shows a "coming soon"
+ * placeholder body, matching every other partially-built feature's stub convention in this app.
+ * Posts is a `FlatList`, not the `KeyboardAwareScrollView` every other tab renders inside — see
+ * the render branch below for why (nesting a `FlatList` inside a `ScrollView` breaks
+ * virtualization). Testimonial, Resources, and Analytics all stay inside the
+ * `KeyboardAwareScrollView` like Overview — none of them have paginated data, so none need
+ * `FlatList`/virtualization.
  *
  * Followers/Following/Member Since — corrected 2026-08-20: these ARE real backend fields (web's
  * `my-profile` page reads `profile.followers`/`profile.followings`/`profile.created_at` off the
@@ -52,6 +66,11 @@ type TabKey = (typeof TABS)[number]['key'];
  * it only checked Directory's slimmer `Profile` type. Now wired via `User.followers`/`followings`/
  * `created_at` (`src/api/profile.ts`'s `mapProfileToUser`), read straight from `useMe()` — not
  * `normalizeProfile`'s `Profile`, which is Directory-scoped and still doesn't carry these fields.
+ * Followers/Following cells are tappable (Phase 6) — open `FollowListSheet`
+ * (`src/components/profile/FollowListSheet.tsx`), a read-only list (no mockup design exists for
+ * this at all, no follow/unfollow button since web's own real toggle isn't used inside this
+ * specific list either, see that file's own doc comment). Member Since stays static — no real
+ * "member since" detail view exists to open.
  *
  * Action row's 3rd button mirrors web's own conditional (`my-profile/page.tsx:5038-5059`): "Dual
  * Profile" → `CreateDualProfile` wizard when `profile.dual_id` is unset, "Switch Profile" →
@@ -83,6 +102,7 @@ function ViewProfileScreen() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [switching, setSwitching] = useState(false);
+  const [followListMode, setFollowListMode] = useState<'followers' | 'following' | null>(null);
 
   const profile = user?.profile ? normalizeProfile(user.profile) : null;
 
@@ -124,22 +144,7 @@ function ViewProfileScreen() {
     }
   };
 
-  return (
-    <View style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => navigation.goBack()} accessibilityLabel="Back" style={styles.headerButton}>
-          <ChevronLeft size={22} color={colors.ink} strokeWidth={1.8} />
-        </Pressable>
-        <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>View Profile</Text>
-      </View>
-
-      <KeyboardAwareScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
-        enableOnAndroid
-        extraScrollHeight={80}
-        keyboardOpeningTime={0}
-      >
+  const identityBlock = (
         <View style={{ backgroundColor: colors.surface }}>
           <LinearGradient colors={[colors.hero1, colors.hero2, colors.goldDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1.2 }} style={styles.cover}>
             <View style={[styles.avatarWrap, { borderColor: colors.surface }]}>
@@ -205,17 +210,19 @@ function ViewProfileScreen() {
 
             <View style={[styles.statStrip, { borderColor: colors.border, backgroundColor: colors.surface2 }]}>
               {[
-                { label: 'Followers', value: String(user.followers ?? 0) },
-                { label: 'Following', value: String(user.followings ?? 0) },
-                { label: 'Member Since', value: memberSince ? String(memberSince) : '—' },
+                { label: 'Followers', value: String(user.followers ?? 0), onPress: () => setFollowListMode('followers') },
+                { label: 'Following', value: String(user.followings ?? 0), onPress: () => setFollowListMode('following') },
+                { label: 'Member Since', value: memberSince ? String(memberSince) : '—', onPress: undefined },
               ].map((s, i) => (
-                <View
+                <Pressable
                   key={s.label}
+                  onPress={s.onPress}
+                  disabled={!s.onPress}
                   style={[styles.statCell, i < 2 && { borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: colors.border }]}
                 >
                   <Text style={[fonts.display, styles.statValue, { color: colors.ink }]}>{s.value}</Text>
                   <Text style={[fonts.bold, styles.statLabel, { color: colors.ink3 }]}>{s.label.toUpperCase()}</Text>
-                </View>
+                </Pressable>
               ))}
             </View>
 
@@ -281,15 +288,59 @@ function ViewProfileScreen() {
             </ScrollView>
           </View>
         </View>
+  );
 
-        {activeTab === 'overview' ? (
-          <ViewProfileOverviewTab profile={profile} onViewAllTestimonials={() => setActiveTab('testimonial')} />
-        ) : (
-          <View style={styles.comingSoon}>
-            <Text style={[fonts.semibold, { color: colors.ink3 }]}>More is coming here in a future update.</Text>
-          </View>
-        )}
-      </KeyboardAwareScrollView>
+  return (
+    <View style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <Pressable onPress={() => navigation.goBack()} accessibilityLabel="Back" style={styles.headerButton}>
+          <ChevronLeft size={22} color={colors.ink} strokeWidth={1.8} />
+        </Pressable>
+        <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>View Profile</Text>
+      </View>
+
+      {activeTab === 'posts' ? (
+        // Posts is a `FlatList` (paginated feed), not the `ScrollView`/`KeyboardAwareScrollView`
+        // every other tab renders inside — nesting a `FlatList` inside a `ScrollView` breaks
+        // virtualization, so it replaces the scroll container entirely for this tab instead,
+        // taking `identityBlock` as its own `ListHeaderComponent`.
+        <ViewProfilePostsTab username={profile.username} listHeaderComponent={identityBlock} />
+      ) : (
+        <KeyboardAwareScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+          enableOnAndroid
+          extraScrollHeight={80}
+          keyboardOpeningTime={0}
+        >
+          {identityBlock}
+
+          {activeTab === 'overview' ? (
+            <ViewProfileOverviewTab
+              profile={profile}
+              onViewAllTestimonials={() => setActiveTab('testimonial')}
+              onOpenAnalytics={() => setActiveTab('analytics')}
+            />
+          ) : activeTab === 'testimonial' ? (
+            <ViewProfileTestimonialTab username={profile.username} />
+          ) : activeTab === 'resources' ? (
+            <ViewProfileResourcesTab />
+          ) : activeTab === 'analytics' ? (
+            <ViewProfileAnalyticsTab />
+          ) : (
+            <View style={styles.comingSoon}>
+              <Text style={[fonts.semibold, { color: colors.ink3 }]}>More is coming here in a future update.</Text>
+            </View>
+          )}
+        </KeyboardAwareScrollView>
+      )}
+
+      <FollowListSheet
+        visible={!!followListMode}
+        mode={followListMode ?? 'followers'}
+        username={profile.username}
+        onClose={() => setFollowListMode(null)}
+      />
     </View>
   );
 }

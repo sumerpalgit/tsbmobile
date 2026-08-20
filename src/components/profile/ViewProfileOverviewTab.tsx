@@ -122,10 +122,13 @@ function educationDateRange(e: EducationEntry): string {
  *
  * Profile Insights — NOT an analytics donut: it's real web's existing `CompleteYourProfileCard`/
  * profile-completion widget (`useProfileCompletion()`, mobile already built this for the Home
- * feed banner) drawn as the mockup's small ring instead of that card's full progress bar. Web
- * navigates to a separate `complete-profile` tab on tap that mobile has no equivalent for yet —
- * left non-interactive for now (matches the "Edit Profile — temporarily disabled" pattern
- * elsewhere on this screen) rather than guessing a destination.
+ * feed banner) drawn as the mockup's small ring instead of that card's full progress bar.
+ * **Now tappable (Phase 7)**: web navigates to a separate `complete-profile` tab on tap — that's
+ * exactly what View Profile's own Analytics tab turned out to be (confirmed via direct research:
+ * its internal component IS `CompleteProfileTab`, "Analytics" is just its display label), so this
+ * card now has a real destination via `onOpenAnalytics`, closing the TODO left when Phase 2 first
+ * built this non-interactive for lack of one. The mockup's own state model independently confirms
+ * this same intent (`vpToastInsights: () => this.vpGoTab('analytics')`).
  *
  * Latest Testimonial — real data, NOT the fabrication an earlier memory note wrongly claimed.
  * `fetchMyTestimonials(profile.username)` (`src/api/testimonials.ts`, `GET /testimonial/:username`)
@@ -137,7 +140,15 @@ function educationDateRange(e: EducationEntry): string {
  * than a route that doesn't exist yet. Hidden entirely when there are zero testimonials, same as
  * web's own `if (data.length === 0) return null`.
  */
-export function ViewProfileOverviewTab({ profile, onViewAllTestimonials }: { profile: Profile; onViewAllTestimonials: () => void }) {
+export function ViewProfileOverviewTab({
+  profile,
+  onViewAllTestimonials,
+  onOpenAnalytics,
+}: {
+  profile: Profile;
+  onViewAllTestimonials: () => void;
+  onOpenAnalytics: () => void;
+}) {
   const { colors, fonts } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
 
@@ -548,7 +559,10 @@ export function ViewProfileOverviewTab({ profile, onViewAllTestimonials }: { pro
       )}
 
       {!!completion && (
-        <View style={[styles.card, styles.insightsCard, { backgroundColor: colors.surface, borderColor: colors.indigo }]}>
+        <Pressable
+          onPress={onOpenAnalytics}
+          style={({ pressed }) => [styles.card, styles.insightsCard, { backgroundColor: colors.surface, borderColor: colors.indigo }, pressed && styles.pressed]}
+        >
           <View style={styles.insightsRing}>
             <Svg width={40} height={40}>
               <Circle cx={20} cy={20} r={18} stroke={colors.border} strokeWidth={4} fill="none" />
@@ -572,7 +586,7 @@ export function ViewProfileOverviewTab({ profile, onViewAllTestimonials }: { pro
             <Text style={[fonts.regular, styles.insightsSubtitle, { color: colors.ink3 }]}>Improve match accuracy &amp; inbound deal flow</Text>
           </View>
           <ChevronRight size={16} color={colors.ink3} strokeWidth={1.8} />
-        </View>
+        </Pressable>
       )}
 
       {testimonials.length > 0 && (() => {
@@ -671,6 +685,7 @@ export function ViewProfileOverviewTab({ profile, onViewAllTestimonials }: { pro
 const styles = StyleSheet.create({
   container: { padding: 16, gap: 13, paddingBottom: 28 },
   card: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 14 },
+  pressed: { opacity: 0.7 },
   cardTitle: { fontSize: 16 },
   cardBody: { fontSize: 12.5, lineHeight: 19, marginTop: 7 },
   italic: { fontStyle: 'italic' },

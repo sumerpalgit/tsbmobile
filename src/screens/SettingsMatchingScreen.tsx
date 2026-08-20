@@ -427,9 +427,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -437,7 +434,6 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 10.5,
     lineHeight: 14,
-    width: 104,
   },
   footerButtonRow: {
     flexDirection: 'row',
@@ -451,6 +447,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveButton: {
+    flex: 1,
     height: 42,
     paddingHorizontal: 15,
     alignItems: 'center',

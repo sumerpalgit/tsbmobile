@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Bookmark, Briefcase, CheckSquare, Download, Eye, FileText, LayoutTemplate, Wrench } from 'lucide-react-native';
+import { Bookmark, Briefcase, CheckSquare, Download, Eye, FileText, LayoutTemplate, Trash2, Wrench } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { Avatar } from '../Avatar';
 import { isHotResource } from '../../types/resources';
@@ -38,12 +38,17 @@ export function ResourceCard({
   onOpen,
   onToggleSave,
   onDownload,
+  onDelete,
 }: {
   item: ResourceItem;
   saved: boolean;
   onOpen: () => void;
   onToggleSave: () => void;
   onDownload: () => void;
+  /** Only View Profile's Resources tab (Phase 5) passes this — matches web's `showDeleteButton`
+   * prop on `ResourcesSection`, shown only for the signed-in user's OWN contributed resources.
+   * `MyResourcesScreen`'s own usage never passes it, so its cards render unchanged. */
+  onDelete?: () => void;
 }) {
   const { colors, fonts, radius, borderWidth } = useTheme();
   const { Icon, fg, bg } = typeConfig(item.content_type, colors);
@@ -72,6 +77,19 @@ export function ResourceCard({
             <View style={[styles.typeBadge, { backgroundColor: bg, borderRadius: radius.sm }]}>
               <Text style={[fonts.bold, styles.typeBadgeText, { color: fg }]}>{item.content_type}</Text>
             </View>
+            {onDelete && (
+              <Pressable
+                onPress={e => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                accessibilityLabel="Delete resource"
+                hitSlop={6}
+                style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+              >
+                <Trash2 size={14} color={colors.danger} strokeWidth={1.8} />
+              </Pressable>
+            )}
           </View>
           {!!item.description && (
             <Text style={[fonts.regular, styles.description, { color: colors.ink3 }]}>{item.description}</Text>
