@@ -4,7 +4,6 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { User, Target, BarChart2, FileText, Star, MessageCircle, Upload } from 'lucide-react-native';
 import { useTheme } from '../../../../theme';
-import { useMessageMutations } from '../../../../hooks/useMessageMutations';
 import type { AppStackParamList } from '../../../../navigation/types';
 import type { Profile } from '../../../../types/directory';
 import {
@@ -17,6 +16,7 @@ import {
 import { RoleThesisCompleteness } from '../RoleThesisCompleteness';
 import { RoleThesisSectionCard } from '../RoleThesisSectionCard';
 import { SimilarProfilesRow } from '../SimilarProfilesRow';
+import { RowsGrid, PillField, PillValue, PillGroup, ChipGroup, MoneyStatsBox, StatTile, formatMoneyRange, formatDealValue } from '../ThesisReadPrimitives';
 import { SellerProfileSheet } from './SellerProfileSheet';
 import { DealCoverageSheet } from './DealCoverageSheet';
 import { DealFlowSheet } from './DealFlowSheet';
@@ -24,7 +24,6 @@ import { EngagementSheet } from './EngagementSheet';
 import { TrackRecordSheet } from './TrackRecordSheet';
 
 type SheetKey = 'seller' | 'coverage' | 'flow' | 'engagement' | 'track' | null;
-type ChipTone = 'ok' | 'blue' | 'danger';
 
 /**
  * Intermediary role's Role Thesis tab — Phase 8, first role built (per explicit instruction: one
@@ -43,14 +42,12 @@ type ChipTone = 'ok' | 'blue' | 'danger';
 export function IntermediaryThesisTab({ profile }: { profile: Profile }) {
   const { colors, fonts } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
-  const { startConversation } = useMessageMutations();
   const [loading, setLoading] = useState(true);
   const [thesis, setThesis] = useState<IntermediaryThesis | null>(null);
   const [completion, setCompletion] = useState<RoleThesisCompletion | null>(null);
   const [similar, setSimilar] = useState<Profile[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(true);
   const [openSheet, setOpenSheet] = useState<SheetKey>(null);
-  const [messaging, setMessaging] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchIntermediaryThesis(), fetchIntermediaryThesisCompletion()])
@@ -90,20 +87,17 @@ export function IntermediaryThesisTab({ profile }: { profile: Profile }) {
     refreshCompletion();
   };
 
-  const handleMessage = async () => {
-    if (messaging) return;
-    setMessaging(true);
-    try {
-      const conversationId = await startConversation({ username: profile.username, name: profile.name, profileImg: profile.profile_img });
-      navigation.navigate('Drawer', {
-        screen: 'Tabs',
-        params: { screen: 'Messages', params: { openConversation: { id: conversationId, name: profile.name, profileImg: profile.profile_img ?? null, participantId: conversationId, unreadCount: 0 } } },
-      });
-    } catch {
-      // startConversation's own mutation already surfaces a toast on failure.
-    } finally {
-      setMessaging(false);
-    }
+  /** Matches web's real "Send message" button exactly (`thesis-shared.tsx:512/534`) — plain
+   * navigation to the Messages tab, `onClick={() => router.push('/dashboard/messages')}`. NOT a
+   * "start a conversation with this profile" flow — this CTA lives on View Profile, the SIGNED-IN
+   * user's own profile, so "this profile" is always the viewer themselves; an earlier pass built
+   * it as a `startConversation` call anyway (copying Directory's genuinely different "message
+   * another member" pattern, and going beyond even the mockup's own `vpToastMessage` stub for this
+   * button), which silently failed messaging yourself with no visible error (matching web's own
+   * lack of error UI for that mutation) — confirmed via the same bug surfacing on Searcher's
+   * identical CTA, fixed there first. */
+  const handleMessage = () => {
+    navigation.navigate('Drawer', { screen: 'Tabs', params: { screen: 'Messages' } });
   };
 
   const handleViewSimilar = (p: Profile) => {
@@ -301,7 +295,7 @@ export function IntermediaryThesisTab({ profile }: { profile: Profile }) {
           Their <Text style={{ color: colors.goldLight }}>deal focus</Text>, <Text style={{ color: colors.goldLight }}>transaction experience</Text> and{' '}
           <Text style={{ color: colors.goldLight }}>network fit</Text> are all strong signals. Connect to request their resume and discuss fit.
         </Text>
-        <Pressable onPress={handleMessage} disabled={messaging} style={[styles.ctaButton, { opacity: messaging ? 0.6 : 1 }]}>
+        <Pressable onPress={handleMessage} style={styles.ctaButton}>
           <MessageCircle size={14} color="#fff" strokeWidth={1.6} />
           <Text style={[fonts.bold, styles.ctaButtonText]}>Send message</Text>
         </Pressable>
@@ -314,169 +308,6 @@ export function IntermediaryThesisTab({ profile }: { profile: Profile }) {
       <DealFlowSheet visible={openSheet === 'flow'} thesis={thesis} onClose={() => setOpenSheet(null)} onSaved={handleSaved} />
       <EngagementSheet visible={openSheet === 'engagement'} thesis={thesis} onClose={() => setOpenSheet(null)} onSaved={handleSaved} />
       <TrackRecordSheet visible={openSheet === 'track'} thesis={thesis} onClose={() => setOpenSheet(null)} onSaved={handleSaved} />
-    </View>
-  );
-}
-
-/** Matches web's real `fmtMoney` (`thesis-shared.tsx:46-51`) exactly — Deal Coverage & Fit's own
- * money-range formatter, distinct from Track Record's `fmtDealValue` below (web genuinely uses
- * two different formatters across these two cards, not a mobile-side duplication). */
-function formatMoney(value: string): string {
-  const n = value ? Number(value) : 0;
-  if (!n) return '—';
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(0)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n}`;
-}
-
-/** `null` (not a "Not set" string) when both ends are empty — matches web's own `metrics[].value`
- * being `null` in that case, which its grid then renders as unstyled placeholder text; kept as a
- * distinct type here so the mobile grid can apply the same two different text styles web does. */
-function formatMoneyRange(min: string, max: string): string | null {
-  if (!min && !max) return null;
-  return `${formatMoney(min)} – ${formatMoney(max)}`;
-}
-
-/** Matches web's real `fmtDealValue` (`SellerThesisTab.tsx:773-780`), Track Record & Credibility's
- * own formatter for "Total deal value facilitated" — adds a billions tier and a
- * `toLocaleString()` fallback under $1,000 that `formatMoney` above doesn't have. */
-function formatDealValue(value: string): string {
-  const n = Number(value);
-  if (!value || Number.isNaN(n)) return '—';
-  if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(0)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toLocaleString()}`;
-}
-
-function RowsGrid({ rows }: { rows: { label: string; value: string; full?: boolean }[] }) {
-  const { colors, fonts } = useTheme();
-  return (
-    <View style={rowsGridStyles.grid}>
-      {rows.map(row => (
-        <View key={row.label} style={[rowsGridStyles.cell, row.full && rowsGridStyles.cellFull]}>
-          <Text style={[fonts.bold, rowsGridStyles.label, { color: colors.ink3 }]}>{row.label}</Text>
-          <Text style={[fonts.regular, rowsGridStyles.value, { color: colors.ink }]}>{row.value}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-/** Label + pill(s) block for Deal Flow & Mandates — per explicit user direction, this one card's
- * VALUE presentation follows web's real pill rendering (`SellerThesisTab.tsx:590-614`) instead of
- * the mockup's plain rows text, while the card chrome around it (icon/badge/CTA) stays this app's
- * own `RoleThesisSectionCard`. `SubLabel`-equivalent styling (10px/700/uppercase/ink3). */
-function PillField({ label, children }: { label: string; children: React.ReactNode }) {
-  const { colors, fonts } = useTheme();
-  return (
-    <View style={pillFieldStyles.field}>
-      <Text style={[fonts.bold, pillFieldStyles.label, { color: colors.ink3 }]}>{label}</Text>
-      {children}
-    </View>
-  );
-}
-
-/** Single-select pill — matches web's Type of Deal Flow/Target Timeline read-mode rendering
- * exactly (rounded-full, px12/py5, 12px medium text), falling back to a plain "-" when unset. */
-/** `emptyStyle` matches a real web inconsistency (`SellerThesisTab.tsx`): most empty single/multi
- * fields fall back to plain "-" text, but a few (Deal Stage Involvement, Transition Support
- * Offered, Preferred Buyer) fall back to an empty gray pill (`SkeletonPill`,
- * `thesis-shared.tsx:101-103`) instead — replicated exactly rather than normalized to one
- * behavior, per explicit user direction pointing at a real web screenshot. Rendered as a static
- * gray pill, not `animate-pulse` — web's own shimmer there is really a reused loading skeleton, and
- * this state isn't loading (data already resolved, the field is just empty). */
-function PillValue({ value, bg, color, emptyStyle = 'dash' }: { value: string; bg: string; color: string; emptyStyle?: 'dash' | 'pill' }) {
-  const { colors, fonts } = useTheme();
-  if (!value) {
-    return emptyStyle === 'pill' ? (
-      <View style={[pillFieldStyles.emptyPill, { backgroundColor: colors.homeCardBorder }]} />
-    ) : (
-      <Text style={[fonts.regular, pillFieldStyles.empty, { color: colors.ink3 }]}>-</Text>
-    );
-  }
-  return (
-    <View style={[pillFieldStyles.pill, { backgroundColor: bg, alignSelf: 'flex-start' }]}>
-      <Text style={[fonts.medium, pillFieldStyles.pillText, { color }]}>{value}</Text>
-    </View>
-  );
-}
-
-/** Multi-select pill wall — matches web's Reason for Transacting/Types of Transition read-mode
- * rendering exactly, same pill style as `PillValue` wrapped in a row. See `PillValue`'s own doc
- * comment for `emptyStyle`. */
-function PillGroup({ items, bg, color, emptyStyle = 'dash' }: { items: string[]; bg: string; color: string; emptyStyle?: 'dash' | 'pill' }) {
-  const { colors, fonts } = useTheme();
-  if (items.length === 0) {
-    return emptyStyle === 'pill' ? (
-      <View style={[pillFieldStyles.emptyPill, { backgroundColor: colors.homeCardBorder }]} />
-    ) : (
-      <Text style={[fonts.regular, pillFieldStyles.empty, { color: colors.ink3 }]}>-</Text>
-    );
-  }
-  return (
-    <View style={pillFieldStyles.pillRow}>
-      {items.map(item => (
-        <View key={item} style={[pillFieldStyles.pill, { backgroundColor: bg }]}>
-          <Text style={[fonts.medium, pillFieldStyles.pillText, { color }]}>{item}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function ChipGroup({ label, items, tone }: { label: string; items: string[]; tone: ChipTone }) {
-  const { colors, fonts } = useTheme();
-  if (items.length === 0) return null;
-  const toneColors =
-    tone === 'ok'
-      ? { color: colors.success, bg: colors.successSurface }
-      : tone === 'blue'
-        ? { color: colors.indigo, bg: colors.indigoSurface }
-        : { color: colors.danger, bg: colors.dangerSurface };
-  return (
-    <View style={chipGroupStyles.group}>
-      <Text style={[fonts.bold, chipGroupStyles.label, { color: colors.ink3 }]}>{label}</Text>
-      <View style={chipGroupStyles.row}>
-        {items.map(item => (
-          <View key={item} style={[chipGroupStyles.chip, { backgroundColor: toneColors.bg }]}>
-            <Text style={[fonts.semibold, chipGroupStyles.chipText, { color: toneColors.color }]}>{item}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-/** Matches the mockup's own money-stats box exactly (decoded
- * `profilelast_decoded_role.html:2542-2554`) — a bordered box, stats stacked as rows (label+sub
- * left, value right, divider between rows), NOT web's 3-column grid. UI follows the mockup; only
- * the VALUE text itself (`formatMoney`/`formatMoneyRange` above) was corrected to match web's real
- * formatting algorithm — those are two separate concerns, and changing one doesn't mean the other
- * should move off the mockup. */
-function MoneyStatsBox({ stats }: { stats: { label: string; sub: string; value: string }[] }) {
-  const { colors, fonts } = useTheme();
-  return (
-    <View style={[moneyStatsStyles.box, { borderColor: colors.homeCardBorder }]}>
-      {stats.map((stat, i) => (
-        <View key={stat.label} style={[moneyStatsStyles.row, i < stats.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderSoft }]}>
-          <View style={moneyStatsStyles.text}>
-            <Text style={[fonts.bold, moneyStatsStyles.label, { color: colors.ink2 }]}>{stat.label}</Text>
-            <Text style={[fonts.regular, moneyStatsStyles.sub, { color: colors.ink3 }]}>{stat.sub}</Text>
-          </View>
-          <Text style={[fonts.bold, moneyStatsStyles.value, { color: colors.ink }]}>{stat.value}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function StatTile({ value, label }: { value: string; label: string }) {
-  const { colors, fonts } = useTheme();
-  return (
-    <View style={[statTileStyles.tile, { backgroundColor: colors.hero1 }]}>
-      <Text style={[fonts.display, statTileStyles.value]}>{value}</Text>
-      <Text style={statTileStyles.label}>{label}</Text>
     </View>
   );
 }
@@ -506,45 +337,4 @@ const styles = StyleSheet.create({
   ctaBody: { fontSize: 11.5, lineHeight: 18, color: 'rgba(255,255,255,0.62)', marginTop: 7, textAlign: 'center' },
   ctaButton: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, paddingHorizontal: 20, marginTop: 13, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', backgroundColor: 'rgba(255,255,255,0.08)' },
   ctaButtonText: { fontSize: 13, color: '#fff' },
-});
-
-const rowsGridStyles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 11, padding: 14, paddingTop: 12 },
-  cell: { width: '46%', flexGrow: 1, gap: 3 },
-  cellFull: { width: '100%' },
-  label: { fontSize: 10.5, letterSpacing: 0.5, textTransform: 'uppercase' },
-  value: { fontSize: 12.5, marginTop: 1 },
-});
-
-const pillFieldStyles = StyleSheet.create({
-  field: { gap: 8 },
-  label: { fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase' },
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  pill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999 },
-  pillText: { fontSize: 12 },
-  empty: { fontSize: 13 },
-  emptyPill: { width: 88, height: 28, borderRadius: 999, alignSelf: 'flex-start' },
-});
-
-const chipGroupStyles = StyleSheet.create({
-  group: { gap: 6 },
-  label: { fontSize: 10.5, letterSpacing: 0.4, textTransform: 'uppercase' },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  chipText: { fontSize: 11 },
-});
-
-const moneyStatsStyles = StyleSheet.create({
-  box: { marginHorizontal: 14, marginTop: 10, borderWidth: 1, borderRadius: 12, paddingHorizontal: 13 },
-  row: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, paddingVertical: 11 },
-  text: { minWidth: 0 },
-  label: { fontSize: 10.5, letterSpacing: 0.3, textTransform: 'uppercase' },
-  sub: { fontSize: 10.5, marginTop: 2 },
-  value: { fontSize: 13.5, flexShrink: 0 },
-});
-
-const statTileStyles = StyleSheet.create({
-  tile: { flex: 1, minWidth: 0, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 12, alignItems: 'center' },
-  value: { fontSize: 19, color: '#fff' },
-  label: { fontSize: 9.5, color: 'rgba(255,255,255,0.6)', marginTop: 3, textAlign: 'center' },
 });

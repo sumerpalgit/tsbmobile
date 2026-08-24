@@ -21,6 +21,12 @@ export const AUTH_ENDPOINTS = {
    * Intermediary one — replicated here on purpose (confirmed with the user) rather than "fixed",
    * so mobile-saved data lands in the same place web's own Intermediary users' data already does. */
   SELLER: '/auth/seller',
+  /** `PUT /api/auth/searcher` — matches web's `updateSearcherProfile`
+   * (`webSrc/actions/my-profile.ts:423-429`). Unlike `SELLER` above, Searcher's own READ side
+   * doesn't use a dedicated GET at all — web reads Searcher data off the general `roleProfile`
+   * (`GET /profile/me`), only saving through this endpoint. See `api/roleThesis.ts`'s
+   * `normalizeSearcherThesis` doc comment. */
+  SEARCHER: '/auth/searcher',
 } as const;
 
 export const PROFILE_ENDPOINTS = {
@@ -278,5 +284,7 @@ export const ANALYTICS_ENDPOINTS = {
  * interpolated at the call site same as `TESTIMONIAL_ENDPOINTS.BY_USERNAME`. */
 export const ROLE_THESIS_ENDPOINTS = {
   SELLER_COMPLETION: '/profile/seller-thesis/completion',
+  /** Matches web's `fetchSearchThesisCompletion` (`my-profile.ts:419-421`). */
+  SEARCH_THESIS_COMPLETION: '/profile/search-thesis/completion',
   SIMILAR: '/profile',
 } as const;

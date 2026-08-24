@@ -122,7 +122,10 @@ export function SellerProfileSheet({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 12 },
+  // `alignItems: 'flex-end'` — when the two labels above these inputs wrap to a different number
+  // of lines, this keeps both TextInputs aligned on the same row (bottom-anchored) instead of the
+  // shorter-label column's input sitting higher than the other's.
+  row: { flexDirection: 'row', gap: 12, alignItems: 'flex-end' },
   flexField: { flex: 1, minWidth: 0 },
   input: { height: 44, paddingHorizontal: 13, borderWidth: 1, borderRadius: 12, fontSize: 13 },
 });

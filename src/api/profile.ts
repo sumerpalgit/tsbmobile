@@ -20,12 +20,20 @@ export type User = {
   created_at?: string;
   /** Full DB profile record — shape varies by roleType, kept loose like the web client. */
   profile?: unknown;
+  /** `GET /profile/me`'s SEPARATE `roleProfile` object (`webSrc/actions/my-profile.ts:46-48`:
+   * `requestBackend<{ profile?: any; roleProfile?: any }>(...)`) — role-specific fields (e.g.
+   * Searcher's `searchType`/`searchFirmName`/etc.) live HERE, not on `profile` above. Missed on
+   * Role Thesis's first pass at Searcher (it read `user.profile` for this, which only carries the
+   * general profile — some fields on the Search Identity card happened to also exist there, which
+   * is why it wasn't obviously all-empty, but others genuinely don't and silently showed nothing
+   * despite the real data existing, one API call away, in this separate object). */
+  roleProfile?: unknown;
 };
 
 /** Mirrors webSrc's `mapProfileToUser`: the backend has returned the profile under
  * `profile`, `data.profile`, `data` and `user` depending on the endpoint, so unwrap
  * defensively rather than assuming one shape. */
-function mapProfileToUser(payload: any): User | null {
+function mapProfileToUser(payload: any, roleProfile: unknown): User | null {
   if (!payload) return null;
 
   const dbProfile = payload.profile && typeof payload.profile === 'object' ? payload.profile : payload;
@@ -41,13 +49,15 @@ function mapProfileToUser(payload: any): User | null {
     followings: Number(payload.followings ?? dbProfile.followings ?? 0),
     created_at: payload.created_at ?? dbProfile.created_at ?? undefined,
     profile: dbProfile,
+    roleProfile,
   };
 }
 
 export async function getMe(): Promise<User | null> {
   const result = await apiClient.get(PROFILE_ENDPOINTS.ME).then(res => res.data);
   const payload = result?.profile ?? result?.data?.profile ?? result?.data ?? result?.user ?? null;
-  return mapProfileToUser(payload);
+  const roleProfile = result?.roleProfile ?? result?.data?.roleProfile ?? null;
+  return mapProfileToUser(payload, roleProfile);
 }
 
 export type ProfileCompletion = {

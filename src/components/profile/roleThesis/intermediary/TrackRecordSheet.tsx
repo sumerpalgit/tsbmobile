@@ -122,7 +122,7 @@ export function TrackRecordSheet({
       onSave={handleSave}
     >
       <View style={styles.row}>
-        <ThesisField label="Deals closed" style={styles.flexField}>
+        <ThesisField label="Deals closed" style={styles.flexField} labelLines={2}>
           <TextInput
             value={deals}
             onChangeText={setDeals}
@@ -133,7 +133,7 @@ export function TrackRecordSheet({
           />
           <Text style={[fonts.regular, styles.hint, { color: colors.ink3 }]}>Total completed transactions</Text>
         </ThesisField>
-        <ThesisField label="Total deal value facilitated" style={styles.flexField}>
+        <ThesisField label="Total deal value facilitated" style={styles.flexField} labelLines={2}>
           <View style={[styles.dollarBox, { backgroundColor: colors.authField, borderColor: colors.authFieldBorder }]}>
             <Text style={[styles.dollar, { color: colors.ink3 }]}>$</Text>
             <TextInput

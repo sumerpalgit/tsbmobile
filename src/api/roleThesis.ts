@@ -171,3 +171,132 @@ export async function fetchSimilarRoleProfiles(profileId: string, role: string):
         .filter(p => p.username)
     : [];
 }
+
+/**
+ * Searcher role — a real architectural difference from Intermediary, not an oversight: web's
+ * `SearcherThesisTab.tsx` has NO dedicated GET call at all (`fetchSearcherProfileSafe` exists in
+ * `actions/my-profile.ts` but is confirmed unused by this component) — it reads straight off the
+ * `roleProfile` prop, which is a SEPARATE object from `profile` in the same `GET /profile/me`
+ * response (`webSrc/actions/my-profile.ts:46-48`: `{ profile?: any; roleProfile?: any }`). Mobile's
+ * `useMe()` surfaces this as `User.roleProfile` (`src/api/profile.ts`) — role fields like
+ * `searchType` live only there, NOT on `User.profile` (an earlier pass read `.profile` for this,
+ * which silently dropped several real fields). So there's no `fetchSearcherThesis()` here —
+ * callers normalize directly from that already-in-hand `roleProfile` via `normalizeSearcherThesis`.
+ * Only SAVING goes through a dedicated endpoint (`PUT /auth/searcher`).
+ */
+export type SearcherThesis = {
+  searchType: string;
+  searchFirmName: string;
+  searchFirmWebsite: string;
+  incorporatedYear: string;
+  yearsOfExperience: string;
+  searchThesis: string;
+  searchThesisDocumentUrl: string;
+  industries: string[];
+  excludedIndustries: string[];
+  geographies: string[];
+  targetDealSizeMin: string;
+  targetDealSizeMax: string;
+  targetRevenueMin: string;
+  targetRevenueMax: string;
+  targetEbitdaMin: string;
+  targetEbitdaMax: string;
+  ownershipPreference: string;
+  equityAmountRaised: string;
+  equityTargetTotal: string;
+  equityNotRaised: boolean;
+  equityCapitalType: string;
+  externalCapitalRequirements: string;
+  investorTypePreferences: string[];
+  debtAmountMin: string;
+  debtAmountMax: string;
+  debtLoanTypes: string[];
+  stageOfSearch: string;
+  timeCommitment: string;
+  hasPriorAcquisition: boolean | null;
+  hasAdvisoryBoard: boolean | null;
+  hasCommitteeDiscussed: boolean | null;
+  hasPriorSearchExperience: boolean | null;
+  operationalFocus: string;
+};
+
+/** Matches web's real inline mapping verbatim (`SearcherThesisTab.tsx:1035-1077` — there's no
+ * standalone `parseApiResponse` function for this role, unlike Seller's), including its two
+ * three-deep fallbacks (`searchType` also checks `role_at_organization`, `yearsOfExperience` also
+ * checks `total_years_experience` — the backend reuses generic profile fields when the
+ * searcher-specific one is absent) and `geographies`' extra shape-normalization (each entry may be
+ * a plain string OR an object with `countryName`/`label`). */
+function normalizeSearcherThesis(raw: unknown): SearcherThesis {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const str = (...vals: unknown[]) => String(vals.find(v => v != null && v !== '') ?? '');
+  const bool = (...vals: unknown[]) => {
+    const v = vals.find(x => x != null);
+    return v == null ? false : Boolean(v);
+  };
+  const triBool = (...vals: unknown[]) => {
+    const v = vals.find(x => x != null);
+    return v == null ? null : Boolean(v);
+  };
+  const arr = (...vals: unknown[]): string[] => (vals.find(v => Array.isArray(v)) as string[] | undefined) ?? [];
+  const geographies = (arr(r.geographies, r.geography_focus) as unknown[]).map(g =>
+    typeof g === 'string' ? g : String((g as Record<string, unknown> | null)?.countryName ?? (g as Record<string, unknown> | null)?.label ?? ''),
+  ).filter(Boolean);
+
+  return {
+    searchType: str(r.searchType, r.search_type, r.role_at_organization),
+    searchFirmName: str(r.searchFirmName, r.search_firm_name),
+    searchFirmWebsite: str(r.searchFirmWebsite, r.search_firm_website),
+    incorporatedYear: str(r.incorporatedYear, r.incorporated_year),
+    yearsOfExperience: str(r.yearsOfExperience, r.years_of_experience, r.total_years_experience),
+    searchThesis: str(r.searchThesis, r.search_thesis),
+    searchThesisDocumentUrl: str(r.searchThesisDocumentUrl, r.search_thesis_document_url),
+    industries: arr(r.industries, r.industry_preferences),
+    excludedIndustries: arr(r.excludedIndustries, r.excluded_industries),
+    geographies,
+    targetDealSizeMin: str(r.targetDealSizeMin, r.target_deal_size_min),
+    targetDealSizeMax: str(r.targetDealSizeMax, r.target_deal_size_max),
+    targetRevenueMin: str(r.targetRevenueMin, r.target_revenue_min),
+    targetRevenueMax: str(r.targetRevenueMax, r.target_revenue_max),
+    targetEbitdaMin: str(r.targetEbitdaMin, r.target_ebitda_min),
+    targetEbitdaMax: str(r.targetEbitdaMax, r.target_ebitda_max),
+    ownershipPreference: str(r.ownershipPreference, r.ownership_preference),
+    equityAmountRaised: str(r.equityAmountRaised, r.equity_amount_raised),
+    equityTargetTotal: str(r.equityTargetTotal, r.equity_target_total),
+    equityNotRaised: bool(r.equityNotRaised, r.equity_not_raised),
+    equityCapitalType: str(r.equityCapitalType, r.equity_capital_type),
+    externalCapitalRequirements: str(r.externalCapitalRequirements, r.external_capital_requirements),
+    investorTypePreferences: arr(r.investorTypePreferences, r.investor_type_preferences),
+    debtAmountMin: str(r.debtAmountMin, r.debt_amount_min),
+    debtAmountMax: str(r.debtAmountMax, r.debt_amount_max),
+    debtLoanTypes: arr(r.debtLoanTypes, r.debt_loan_types),
+    stageOfSearch: str(r.stageOfSearch, r.stage_of_search),
+    timeCommitment: str(r.timeCommitment, r.time_commitment),
+    hasPriorAcquisition: triBool(r.hasPriorAcquisition, r.has_prior_acquisition),
+    hasAdvisoryBoard: triBool(r.hasAdvisoryBoard, r.has_advisory_board),
+    hasCommitteeDiscussed: triBool(r.hasCommitteeDiscussed, r.has_committee_discussed),
+    hasPriorSearchExperience: triBool(r.hasPriorSearchExperience, r.has_prior_search_experience),
+    operationalFocus: str(r.operationalFocus, r.operational_focus),
+  };
+}
+
+/** Reads straight off the `roleProfile` object already in hand (`useMe()`'s `User.roleProfile`) —
+ * see this section's own top doc comment for why there's no separate GET call, and why this is
+ * NOT `User.profile`. */
+export function getSearcherThesis(roleProfile: unknown): SearcherThesis {
+  return normalizeSearcherThesis(roleProfile);
+}
+
+/** `PUT /auth/searcher`, body `{ formData: payload }` — matches web's `updateSearcherProfile`.
+ * Unlike Intermediary's `updateIntermediaryThesis`, there's no field-remapping quirk here — each
+ * card sends only the camelCase keys it owns, unmassaged. */
+export async function updateSearcherThesis(payload: Partial<SearcherThesis>): Promise<void> {
+  await apiClient.put(AUTH_ENDPOINTS.SEARCHER, { formData: payload });
+}
+
+/** `GET /profile/search-thesis/completion` — matches web's `fetchSearchThesisCompletion`. Same
+ * `RoleThesisCompletion` shape/normalizer as Intermediary's completion (`SEARCHER` and `SELLER`
+ * completion endpoints return the same `{ completion_percentage, sections }` envelope). */
+export async function fetchSearcherThesisCompletion(): Promise<RoleThesisCompletion> {
+  const data = await apiClient.get(ROLE_THESIS_ENDPOINTS.SEARCH_THESIS_COMPLETION).then(res => res.data).catch(() => null);
+  return normalizeCompletion((data as Record<string, unknown> | null)?.data ?? data);
+}

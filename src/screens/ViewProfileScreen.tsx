@@ -33,6 +33,21 @@ const TABS = [
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 
+/** Role Thesis tab's own label per role — matches web's real `getRoleTabName()`
+ * (`my-profile/page.tsx:3877-3889`) exactly: the tab name is NOT just the role name (only
+ * Intermediary's happens to read the same either way). Keyed lowercase, matching
+ * `ViewProfileRoleThesisTab.tsx`'s own case-insensitive dispatch. */
+const ROLE_TAB_LABELS: Record<string, string> = {
+  investor: 'Investment Thesis',
+  searcher: 'Search Thesis',
+  lender: 'Lending Criteria',
+  operator: 'Operational Thesis',
+  advisor: 'Advisory Focus',
+  seller: 'Business Overview',
+  intermediary: 'Intermediary',
+  student: 'Student Profile',
+};
+
 /**
  * View Profile — Phase 1 of the plan at `delightful-seeking-snowglobe.md` ("See how others view
  * you"). Matches the decoded mockup's `vpOpen` overlay directly (`standalone/TSB ProfileLast.html`
@@ -120,7 +135,7 @@ function ViewProfileScreen() {
   const hasRating = (profile.total_reviews ?? 0) > 0;
   const filledStars = Math.round(profile.avg_rating ?? 0);
   const initials = profile.name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
-  const roleTabLabel = profile.role_type ? profile.role_type : 'Role Thesis';
+  const roleTabLabel = profile.role_type ? (ROLE_TAB_LABELS[profile.role_type.trim().toLowerCase()] ?? profile.role_type) : 'Role Thesis';
   const memberSince = user.created_at ? new Date(user.created_at).getFullYear() : null;
 
   const handleLinkedIn = () => {
@@ -330,7 +345,7 @@ function ViewProfileScreen() {
           ) : activeTab === 'analytics' ? (
             <ViewProfileAnalyticsTab />
           ) : activeTab === 'roleThesis' ? (
-            <ViewProfileRoleThesisTab profile={profile} />
+            <ViewProfileRoleThesisTab profile={profile} roleProfile={user.roleProfile} userId={user.id} />
           ) : (
             <View style={styles.comingSoon}>
               <Text style={[fonts.semibold, { color: colors.ink3 }]}>More is coming here in a future update.</Text>

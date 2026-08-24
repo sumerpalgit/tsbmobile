@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Plus, Star } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { fetchMyTestimonials, Testimonial } from '../../api/testimonials';
@@ -84,11 +84,7 @@ export function ViewProfileTestimonialTab({ username }: { username: string }) {
   ];
 
   if (loading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="small" color={colors.ink3} />
-      </View>
-    );
+    return <TestimonialSkeleton />;
   }
 
   return (
@@ -212,9 +208,84 @@ export function ViewProfileTestimonialTab({ username }: { username: string }) {
   );
 }
 
+/** Same opacity-pulse shimmer as `ResourceCardSkeleton.tsx`/Role Thesis' own skeletons — replaces
+ * this tab's original plain `ActivityIndicator`, matching this project's established
+ * "skeleton over spinner" loading convention. */
+function Shimmer({ width, height, radius = 6 }: { width: number | `${number}%`; height: number; radius?: number }) {
+  const { colors } = useTheme();
+  const opacity = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.5, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity]);
+
+  return <Animated.View style={[{ width, height, borderRadius: radius, backgroundColor: colors.surfaceSunken }, { opacity }]} />;
+}
+
+/** Mirrors this tab's own real shape (summary card + filter chips + testimonial cards) rather
+ * than a generic spinner — one shimmer card per real `TestimonialCard` (avatar + name/subtitle
+ * lines + body lines + footer line), matching that component's actual layout. */
+function TestimonialSkeleton() {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.container}>
+      <View style={[skeletonStyles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={skeletonStyles.summaryTopRow}>
+          <View style={skeletonStyles.avgBlock}>
+            <Shimmer width={54} height={30} radius={6} />
+            <Shimmer width={70} height={11} />
+          </View>
+          <View style={skeletonStyles.distBlock}>
+            {[0, 1, 2, 3, 4].map(i => (
+              <Shimmer key={i} width="100%" height={7} radius={3} />
+            ))}
+          </View>
+        </View>
+        <View style={[skeletonStyles.factsRow, { borderTopColor: colors.border }]}>
+          <Shimmer width="60%" height={11} />
+          <Shimmer width="45%" height={11} />
+        </View>
+      </View>
+
+      <View style={styles.chipRow}>
+        {[0, 1, 2].map(i => (
+          <Shimmer key={i} width={80} height={34} radius={10} />
+        ))}
+      </View>
+
+      <View style={styles.list}>
+        {[0, 1].map(i => (
+          <View key={i} style={[skeletonStyles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={skeletonStyles.cardHeader}>
+              <Shimmer width={38} height={38} radius={19} />
+              <View style={skeletonStyles.cardHeaderText}>
+                <Shimmer width="50%" height={13} />
+                <View style={skeletonStyles.cardHeaderLine}>
+                  <Shimmer width="35%" height={11} />
+                </View>
+              </View>
+            </View>
+            <View style={skeletonStyles.cardBody}>
+              <Shimmer width="100%" height={11} />
+              <Shimmer width="90%" height={11} />
+              <Shimmer width="60%" height={11} />
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28, gap: 14 },
-  loading: { paddingVertical: 60, alignItems: 'center' },
   summaryCard: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 15 },
   summaryTopRow: { flexDirection: 'row', gap: 16 },
   avgBlock: { alignItems: 'center', justifyContent: 'center', gap: 3, minWidth: 80 },
@@ -243,4 +314,17 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 13.5, textAlign: 'center' },
   emptySubtitle: { fontSize: 12, textAlign: 'center', marginTop: 4 },
   filterEmptyBox: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 16, alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24, gap: 8 },
+});
+
+const skeletonStyles = StyleSheet.create({
+  summaryCard: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 15 },
+  summaryTopRow: { flexDirection: 'row', gap: 16, alignItems: 'center' },
+  avgBlock: { alignItems: 'center', justifyContent: 'center', gap: 7, minWidth: 80 },
+  distBlock: { flex: 1, gap: 7, justifyContent: 'center' },
+  factsRow: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 13, paddingTop: 11, gap: 8 },
+  card: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 12 },
+  cardHeader: { flexDirection: 'row', gap: 10 },
+  cardHeaderText: { flex: 1, minWidth: 0, gap: 6 },
+  cardHeaderLine: { marginTop: 1 },
+  cardBody: { gap: 6 },
 });
