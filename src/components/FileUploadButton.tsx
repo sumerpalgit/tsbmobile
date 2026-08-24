@@ -37,8 +37,13 @@ export type PickedFile = {
  * dropzone has no remove affordance at all, only replace (clicking a filled dropzone always
  * re-opens the file picker), unlike the default `'compact'` variant's tap-to-clear. Every existing
  * call site is unaffected since `variant` defaults to `'compact'`.
+ *
+ * Memoized — Role Thesis edit sheets with a file upload field (Investor/Lender/Advisor) keep every
+ * field's state in one component, so any unrelated field changing re-renders this too; same
+ * reasoning as `ThesisPillRow`'s own doc comment. Callers must pass a stable `onChange` (wrap in
+ * `useCallback`) for this to actually take effect — a fresh inline arrow each render defeats it.
  */
-export function FileUploadButton({
+export const FileUploadButton = React.memo(function FileUploadButtonImpl({
   value,
   onChange,
   acceptedTypes = [types.pdf, types.images],
@@ -181,7 +186,7 @@ export function FileUploadButton({
       </Text>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   button: {

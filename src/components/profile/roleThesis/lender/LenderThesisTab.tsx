@@ -150,23 +150,26 @@ export function LenderThesisTab({ profile }: { profile: Profile }) {
   const processComplete = !!(thesis.whenGetInvolved.length || thesis.typicalApprovalTimeline || thesis.dueDiligenceRequired !== null || thesis.ddRequirements.length);
   const trackComplete = !!(thesis.yearsOfLendingExperience || thesis.numberOfDealsFunded || thesis.totalCapitalDeployed || thesis.valueAddDifferentiation.length);
 
-  const completionSections = [
-    { label: 'Financing Overview', complete: financingComplete },
-    { label: 'Lending Criteria', complete: criteriaComplete },
-    { label: 'Deal Terms & Structure', complete: termsComplete },
-    { label: 'Process & Execution', complete: processComplete },
-    { label: 'Track Record & Value Add', complete: trackComplete },
-  ];
-  const doneCount = completionSections.filter(s => s.complete).length;
+  // The TOP completeness bar is a genuinely separate data source from each card's own badge —
+  // confirmed by reading web's real `ProfileCompleteness` (`thesis-shared.tsx:290-314`) directly:
+  // it renders `completion?.sections` from the SERVER verbatim (label + complete flag), completely
+  // independent of each card's own client-side `hasData` expression above. Web itself can and does
+  // show these two disagreeing — this is NOT fed from `financingComplete` etc., matching Investor's
+  // original (correct) pattern rather than Searcher's later one (which fed the same client array
+  // into both, a real deviation from web's actual behavior, since corrected there too).
+  const topBarSections = completion?.sections.length ? completion.sections.map(s => ({ label: s.label, complete: s.complete })) : [];
+  const doneCount = topBarSections.filter(s => s.complete).length;
 
   return (
     <View style={styles.container}>
-      <RoleThesisCompleteness
-        percentage={completion?.percentage ?? Math.round((doneCount / completionSections.length) * 100)}
-        doneCount={doneCount}
-        totalCount={completionSections.length}
-        sections={completionSections}
-      />
+      {topBarSections.length > 0 && (
+        <RoleThesisCompleteness
+          percentage={completion?.percentage ?? 0}
+          doneCount={doneCount}
+          totalCount={topBarSections.length}
+          sections={topBarSections}
+        />
+      )}
 
       <RoleThesisSectionCard
         label="Financing Overview"

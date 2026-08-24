@@ -642,3 +642,129 @@ export async function fetchLenderThesisCompletion(): Promise<RoleThesisCompletio
   const data = await apiClient.get(ROLE_THESIS_ENDPOINTS.LENDING_THESIS_COMPLETION).then(res => res.data).catch(() => null);
   return normalizeCompletion((data as Record<string, unknown> | null)?.data ?? data);
 }
+
+/**
+ * Advisor role — a dedicated GET, like Intermediary/Investor/Lender (unlike Searcher). All 5 cards
+ * show a status badge + "Complete this section" CTA (`RoleThesisSectionCard`'s default
+ * `showStatus=true`), matching Lender/Searcher/Intermediary — web's `CardShell` receives explicit
+ * `complete`/`incomplete` for every Advisor card, confirmed not the Investor `alwaysShowEdit`
+ * pattern. Per-card `complete` is computed 100% client-side (see each `hasData` formula quoted at
+ * its call site in `AdvisorThesisTab.tsx`), matching the project-wide convention.
+ *
+ * Field mapping matches web's real `parseAdvisorResponse` (`AdvisorThesisTab.tsx:106-137`)
+ * verbatim — a much simpler read/write asymmetry than Lender's: every field is a plain two-way
+ * `snake_case ?? camelCase` fallback (no dual-write-to-two-keys quirks, no string↔int lookup-table
+ * transcoding), EXCEPT `geographies`, which — uniquely among Advisor's fields — needs the same
+ * "each entry may be a plain string OR an object with `countryName`/`label`" normalization already
+ * seen on Searcher's own `geographies` field. `updateAdvisorThesis` sends plain camelCase keys
+ * as-is (matching web's own `handleSave`, which has NO `buildApiPayload`-equivalent remapping step
+ * at all — confirmed by reading it directly) — only numeric string→number conversion is needed.
+ */
+export type AdvisorThesis = {
+  profileId: string;
+  advisorRole: string;
+  yearsExperience: string;
+  coreServices: string[];
+  clientTypes: string[];
+  engagementStages: string[];
+  primaryRepresentation: string;
+  engagementModelTypes: string[];
+  primaryIndustries: string[];
+  geographies: string[];
+  dealSizeMin: string;
+  dealSizeMax: string;
+  projectFeeMin: string;
+  projectFeeMax: string;
+  monthlyRetainerMin: string;
+  monthlyRetainerMax: string;
+  hourlyRateMin: string;
+  hourlyRateMax: string;
+  successDealFee: string;
+  commercialsNote: string;
+  dealsCompleted: string;
+  firmCredentialsUrl: string;
+  credentialsPublic: boolean;
+  differentiationBio: string;
+  keyStrengths: string[];
+  redactedWorkUrl: string;
+  credentialsLinkUrl: string;
+};
+
+function normalizeAdvisorThesis(raw: unknown): AdvisorThesis {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const str = (a: unknown, b: unknown) => String(a ?? b ?? '');
+  const numStr = (a: unknown, b: unknown) => (a != null ? String(a) : b != null ? String(b) : '');
+  const arr = (...vals: unknown[]): string[] => (vals.find(v => Array.isArray(v)) as string[] | undefined) ?? [];
+  const bool = (...vals: unknown[]) => {
+    const v = vals.find(x => x != null);
+    return v == null ? false : Boolean(v);
+  };
+  const geographies = (arr(r.active_service_geographies, r.geographies) as unknown[])
+    .map(g => (typeof g === 'string' ? g : String((g as Record<string, unknown> | null)?.countryName ?? (g as Record<string, unknown> | null)?.label ?? '')))
+    .filter(Boolean);
+
+  return {
+    profileId: str(r.profile_id, r.profileId),
+    advisorRole: str(r.advisor_role, r.advisorRole),
+    yearsExperience: str(r.years_of_relevant_experience, r.yearsExperience),
+    coreServices: arr(r.core_services_offered, r.coreServices),
+    clientTypes: arr(r.typical_clients, r.clientTypes),
+    engagementStages: arr(r.engagement_stages, r.engagementStages),
+    primaryRepresentation: str(r.primary_representation, r.primaryRepresentation),
+    engagementModelTypes: arr(r.engagement_model_types, r.engagementModelTypes),
+    primaryIndustries: arr(r.primary_industries, r.primaryIndustries),
+    geographies,
+    dealSizeMin: numStr(r.deal_size_min, r.dealSizeMin),
+    dealSizeMax: numStr(r.deal_size_max, r.dealSizeMax),
+    projectFeeMin: numStr(r.project_fee_min, r.projectFeeMin),
+    projectFeeMax: numStr(r.project_fee_max, r.projectFeeMax),
+    monthlyRetainerMin: numStr(r.monthly_retainer_min, r.monthlyRetainerMin),
+    monthlyRetainerMax: numStr(r.monthly_retainer_max, r.monthlyRetainerMax),
+    hourlyRateMin: numStr(r.hourly_rate_min, r.hourlyRateMin),
+    hourlyRateMax: numStr(r.hourly_rate_max, r.hourlyRateMax),
+    successDealFee: numStr(r.success_deal_fee, r.successDealFee),
+    commercialsNote: str(r.commercials_note, r.commercialsNote),
+    dealsCompleted: numStr(r.deals_completed, r.dealsCompleted),
+    firmCredentialsUrl: str(r.advisory_firm_deck_url, r.firmCredentialsUrl),
+    credentialsPublic: bool(r.credentials_public, r.credentialsPublic),
+    differentiationBio: str(r.differentiation_bio, r.differentiationBio),
+    keyStrengths: arr(r.key_strengths, r.keyStrengths),
+    redactedWorkUrl: str(r.redacted_work_url, r.redactedWorkUrl),
+    credentialsLinkUrl: str(r.credentials_link_url, r.credentialsLinkUrl),
+  };
+}
+
+/** `GET /auth/advisor` — matches web's `fetchAdvisorProfile`. */
+export async function fetchAdvisorThesis(): Promise<AdvisorThesis> {
+  const data = await apiClient.get(AUTH_ENDPOINTS.ADVISOR).then(res => res.data).catch(() => null);
+  const envelope = data as Record<string, unknown> | null;
+  return normalizeAdvisorThesis(envelope?.data ?? envelope?.advisor ?? envelope);
+}
+
+/** `PUT /auth/advisor`, body `{ formData: payload }` — matches web's `updateAdvisorProfile` exactly.
+ * Unlike Lender, web's own `handleSave` has no remapping step at all: local camelCase field names
+ * ARE the wire keys web sends. Numeric string fields are converted right before the PUT, same as
+ * every other role's convention. */
+export async function updateAdvisorThesis(payload: Partial<AdvisorThesis>): Promise<void> {
+  const p: Record<string, unknown> = { ...payload };
+  const numericFields: (keyof AdvisorThesis)[] = [
+    'dealSizeMin', 'dealSizeMax', 'projectFeeMin', 'projectFeeMax',
+    'monthlyRetainerMin', 'monthlyRetainerMax', 'hourlyRateMin', 'hourlyRateMax',
+    'successDealFee', 'dealsCompleted',
+  ];
+  for (const field of numericFields) {
+    if (payload[field] !== undefined) {
+      const value = payload[field] as string;
+      p[field] = value ? Number(value) : undefined;
+    }
+  }
+  await apiClient.put(AUTH_ENDPOINTS.ADVISOR, { formData: p });
+}
+
+/** `GET /profile/advisor-thesis/completion` — matches web's `fetchAdvisorThesisCompletion`. Fetched
+ * for the top completeness bar only — see `AdvisorThesis`'s own doc comment for why each card's
+ * `complete` prop is computed client-side instead. */
+export async function fetchAdvisorThesisCompletion(): Promise<RoleThesisCompletion> {
+  const data = await apiClient.get(ROLE_THESIS_ENDPOINTS.ADVISOR_THESIS_COMPLETION).then(res => res.data).catch(() => null);
+  return normalizeCompletion((data as Record<string, unknown> | null)?.data ?? data);
+}

@@ -160,13 +160,12 @@ export function SearcherThesisTab({ profile, roleProfile, userId }: { profile: P
   const stageIndex = SEARCH_STAGES.findIndex(s => s.toLowerCase() === normalizedStage);
   const hasSearchThesisData = !!(thesis.searchThesisDocumentUrl || thesis.industries.length || thesis.geographies.length);
 
-  // Each card's own complete/incomplete state is computed directly from the actual thesis data —
+  // Each CARD's own complete/incomplete state is computed directly from the actual thesis data —
   // NOT looked up by array index into `completion.sections` (the previous approach). That indexed
   // lookup assumed the server's section array is ordered exactly [Identity, Thesis, Capital,
   // Progress, Execution] with no way to confirm it, and a mismatch there is indistinguishable from
   // a real bug (confirmed as the cause of Execution Strength showing "Complete this section" on
-  // mobile while web showed the same data as already complete). Only the top completeness bar's
-  // overall `percentage` — a single number, not index-dependent — still comes from the server.
+  // mobile while web showed the same data as already complete).
   const identityComplete = !!(thesis.searchType && thesis.searchFirmName);
   const thesisComplete = hasSearchThesisData;
   const capitalComplete = hasEquity || !!thesis.externalCapitalRequirements || thesis.investorTypePreferences.length > 0;
@@ -178,23 +177,27 @@ export function SearcherThesisTab({ profile, roleProfile, userId }: { profile: P
     thesis.hasPriorSearchExperience != null ||
     !!thesis.operationalFocus;
 
-  const completionSections = [
-    { label: 'Search Identity', complete: identityComplete },
-    { label: 'Search Thesis', complete: thesisComplete },
-    { label: 'Capital & Funding Readiness', complete: capitalComplete },
-    { label: 'Search Progress & Commitment', complete: progressComplete },
-    { label: 'Execution Strength & Deal Readiness', complete: executionComplete },
-  ];
-  const doneCount = completionSections.filter(s => s.complete).length;
+  // The TOP completeness bar is a genuinely separate data source from each card's own badge —
+  // confirmed by reading web's real `ProfileCompleteness` (`thesis-shared.tsx:290-314`) directly:
+  // it renders `completion?.sections` from the SERVER verbatim (label + complete flag), completely
+  // independent of each card's own client-side `isComplete` expression. Web itself can and does
+  // show these two disagreeing. An earlier pass here fed this same client-computed array into BOTH
+  // the top bar AND each card (reasonable at the time, since the fix above was about per-card
+  // reliability) — but that made the top bar diverge from web's real behavior. Restored to reading
+  // straight off the server, matching Investor's original (correct) pattern.
+  const topBarSections = completion?.sections.length ? completion.sections.map(s => ({ label: s.label, complete: s.complete })) : [];
+  const doneCount = topBarSections.filter(s => s.complete).length;
 
   return (
     <View style={styles.container}>
-      <RoleThesisCompleteness
-        percentage={completion?.percentage ?? Math.round((doneCount / completionSections.length) * 100)}
-        doneCount={doneCount}
-        totalCount={completionSections.length}
-        sections={completionSections}
-      />
+      {topBarSections.length > 0 && (
+        <RoleThesisCompleteness
+          percentage={completion?.percentage ?? 0}
+          doneCount={doneCount}
+          totalCount={topBarSections.length}
+          sections={topBarSections}
+        />
+      )}
 
       <RoleThesisSectionCard
         label="Search Identity"
