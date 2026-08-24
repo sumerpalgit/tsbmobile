@@ -32,6 +32,10 @@ export const AUTH_ENDPOINTS = {
    * (unlike `SEARCHER`, which has no GET at all) — no filename/import-swap quirk here though,
    * `InvestmentThesisTab.tsx` is a straight, correctly-named import. */
   INVESTOR: '/auth/investor',
+  /** `GET`/`PUT /api/auth/lender` — matches web's `fetchLenderProfile`/`updateLenderProfile`
+   * (`webSrc/actions/my-profile.ts`). Same dedicated-GET shape as `SELLER`/`INVESTOR` above (unlike
+   * `SEARCHER`), straight correctly-named import (`LenderThesisTab.tsx`), no filename swap. */
+  LENDER: '/auth/lender',
 } as const;
 
 export const PROFILE_ENDPOINTS = {
@@ -293,5 +297,7 @@ export const ROLE_THESIS_ENDPOINTS = {
   SEARCH_THESIS_COMPLETION: '/profile/search-thesis/completion',
   /** Matches web's `fetchInvestmentThesisCompletion` (`my-profile.ts:415-417`). */
   INVESTMENT_THESIS_COMPLETION: '/profile/investment-thesis/completion',
+  /** Matches web's `fetchLendingThesisCompletion` (`GET /profile/lending-thesis/completion`). */
+  LENDING_THESIS_COMPLETION: '/profile/lending-thesis/completion',
   SIMILAR: '/profile',
 } as const;

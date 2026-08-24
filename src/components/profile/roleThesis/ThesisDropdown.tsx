@@ -1,8 +1,16 @@
-import React from 'react';
-import { StyleSheet } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Dimensions, StyleSheet, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import { ChevronDown } from 'lucide-react-native';
 import { useTheme } from '../../../theme';
+
+/** The popup's own preferred `maxHeight` when there's enough room below the field — `handleFocus`
+ * shrinks this per-instance when there isn't (see its own doc comment). */
+const LIST_MAX_HEIGHT = 260;
+/** Floor so a very tight fit still shows a few rows instead of collapsing toward zero height. */
+const LIST_MIN_HEIGHT = 120;
+/** Gap kept between the popup's bottom edge and the screen edge. */
+const SCREEN_MARGIN = 12;
 
 /**
  * Native `<select>`-equivalent dropdown for Role Thesis fields that are genuinely a dropdown on
@@ -15,8 +23,21 @@ import { useTheme } from '../../../theme';
  * visually mismatch View Profile's real theme, same reasoning as `ThesisSearchableChips`'s own
  * doc comment on why it isn't a re-themed `ChipMultiSelect`. Options are plain strings (not
  * label/value pairs) since every Role Thesis field so far only ever needs the string itself.
- */
-export function ThesisDropdown({
+ *
+ * `maxHeight` is measured ourselves rather than left fixed at `LIST_MAX_HEIGHT` — confirmed via the
+ * library's source (`Dropdown/index.tsx`'s `onAutoPosition`) that its own `'auto'` position only
+ * flips the popup upward when there's LESS THAN 100px of space below the field, regardless of the
+ * popup's actual height, so a field with e.g. 150px of room still renders downward and overflows
+ * past the screen edge — confirmed on-device (a bottom-sheet field like "SBA-Backed Financing"
+ * sitting low in the sheet). Forcing `dropdownPosition="top"` instead was tried and reverted: the
+ * library renders that mode's list `inverted` by default (`_renderList`'s `isInverted`), which
+ * visually reverses the option order, and its positioning doesn't tightly hug the field either —
+ * both confirmed on-device as new, worse breakage. Shrinking `maxHeight` to the real available space
+ * keeps the popup always opening downward (unchanged, working behavior) while guaranteeing it can't
+ * run past the screen.
+ *
+ * Memoized — see `ThesisPillRow`'s own doc comment on why. */
+export const ThesisDropdown = React.memo(function ThesisDropdownImpl({
   value,
   placeholder,
   options,
@@ -28,27 +49,39 @@ export function ThesisDropdown({
   onChange: (value: string) => void;
 }) {
   const { colors, fonts } = useTheme();
+  const wrapperRef = useRef<View>(null);
+  const [maxHeight, setMaxHeight] = useState(LIST_MAX_HEIGHT);
+
+  const handleFocus = () => {
+    wrapperRef.current?.measureInWindow((_x, y, _width, height) => {
+      const spaceBelow = Dimensions.get('window').height - (y + height) - SCREEN_MARGIN;
+      setMaxHeight(Math.max(LIST_MIN_HEIGHT, Math.min(LIST_MAX_HEIGHT, spaceBelow)));
+    });
+  };
 
   return (
-    <Dropdown
-      style={[styles.field, { backgroundColor: colors.authField, borderColor: colors.authFieldBorder }]}
-      containerStyle={[styles.list, { backgroundColor: colors.surface, borderColor: colors.authFieldBorder }]}
-      itemContainerStyle={styles.item}
-      activeColor={colors.chip}
-      placeholderStyle={[fonts.regular, styles.text, { color: colors.ink3 }]}
-      selectedTextStyle={[fonts.regular, styles.text, { color: colors.ink }]}
-      itemTextStyle={[fonts.medium, styles.text, { color: colors.ink }]}
-      data={options.map(option => ({ label: option, value: option }))}
-      labelField="label"
-      valueField="value"
-      placeholder={placeholder}
-      value={value || null}
-      onChange={item => onChange(item.value)}
-      renderRightIcon={() => <ChevronDown size={14} color={colors.ink3} strokeWidth={1.6} />}
-      maxHeight={260}
-    />
+    <View ref={wrapperRef}>
+      <Dropdown
+        style={[styles.field, { backgroundColor: colors.authField, borderColor: colors.authFieldBorder }]}
+        containerStyle={[styles.list, { backgroundColor: colors.surface, borderColor: colors.authFieldBorder }]}
+        itemContainerStyle={styles.item}
+        activeColor={colors.chip}
+        placeholderStyle={[fonts.regular, styles.text, { color: colors.ink3 }]}
+        selectedTextStyle={[fonts.regular, styles.text, { color: colors.ink }]}
+        itemTextStyle={[fonts.medium, styles.text, { color: colors.ink }]}
+        data={options.map(option => ({ label: option, value: option }))}
+        labelField="label"
+        valueField="value"
+        placeholder={placeholder}
+        value={value || null}
+        onChange={item => onChange(item.value)}
+        onFocus={handleFocus}
+        renderRightIcon={() => <ChevronDown size={14} color={colors.ink3} strokeWidth={1.6} />}
+        maxHeight={maxHeight}
+      />
+    </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   field: { height: 44, paddingHorizontal: 13, borderRadius: 12, borderWidth: 1 },

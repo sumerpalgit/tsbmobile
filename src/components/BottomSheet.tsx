@@ -25,7 +25,14 @@ export function BottomSheet({
   dismissable?: boolean;
 }) {
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={dismissable ? onClose : undefined}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      hardwareAccelerated
+      onRequestClose={dismissable ? onClose : undefined}
+    >
       <SafeAreaProvider>
         <BottomSheetContent onClose={onClose} dismissable={dismissable}>
           {children}

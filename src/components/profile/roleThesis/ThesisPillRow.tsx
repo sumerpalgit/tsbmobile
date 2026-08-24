@@ -11,8 +11,15 @@ import { useTheme } from '../../../theme';
  * replaces the whole array with `[option]`) and multi-select (caller's `onToggle` adds/removes
  * from the array) callers, matching how the mockup itself reuses the same chip look for both
  * shapes across its 5 edit sheets.
+ *
+ * Memoized — these sheets keep every field's state in one component (e.g.
+ * `LendingCriteriaSheet.tsx` alone has 17 `useState` hooks), so any single field changing
+ * re-renders the whole sheet by default; without this, every OTHER field's pill row (each
+ * potentially a dozen+ `Pressable`s) would re-render on every keystroke elsewhere too, competing
+ * with the JS thread right when the user is also trying to scroll — confirmed as a real
+ * contributor to reported bottom-sheet scroll lag, not a hypothetical one.
  */
-export function ThesisPillRow({
+export const ThesisPillRow = React.memo(function ThesisPillRowImpl({
   options,
   selected,
   onToggle,
@@ -44,7 +51,7 @@ export function ThesisPillRow({
       })}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

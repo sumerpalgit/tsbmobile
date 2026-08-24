@@ -414,3 +414,231 @@ export async function fetchInvestorThesisCompletion(): Promise<RoleThesisComplet
   const data = await apiClient.get(ROLE_THESIS_ENDPOINTS.INVESTMENT_THESIS_COMPLETION).then(res => res.data).catch(() => null);
   return normalizeCompletion((data as Record<string, unknown> | null)?.data ?? data);
 }
+
+/**
+ * Lender role — a dedicated GET, like Intermediary/Investor (unlike Searcher, which has none).
+ * Unlike Investor, Lender's 5 cards DO show a status badge + "Complete this section" CTA
+ * (`RoleThesisSectionCard`'s default `showStatus=true` mode) — web's `CardShell` receives explicit
+ * `complete`/`incomplete` for every one of Lender's cards (`LenderThesisTab.tsx`'s own local
+ * `hasData` per card), matching Intermediary/Searcher's architecture, not Investor's always-edit
+ * one. Per-card `complete` here is computed 100% client-side from `LenderThesis` data (same
+ * `hasData` expressions web itself uses, quoted per-card at each sheet's call site) — NOT from
+ * `fetchLenderThesisCompletion()`'s per-section array, which (like every other role) is fetched for
+ * the top completeness bar only; see Searcher's own completion-architecture doc comment for why
+ * server-index-based per-card lookups were dropped project-wide.
+ *
+ * Field mapping matches web's real `parseRoleProfile` (`LenderThesisTab.tsx:139-200`) verbatim,
+ * including its real dual-write/transcoding quirks — centralized in `updateLenderThesis` below
+ * (mirroring web's own `buildApiPayload`) rather than scattered across each sheet, since nearly
+ * every field here has one: `sbaStatus` writes to `sbaFinancing`+derived `isSbaPreferredLender`;
+ * `industries` writes to THREE parallel keys (`borrowerIndustries`/`industries`/`lendingIndustries`);
+ * `minEquityContribution` is read as `"20%"` but sent back as a bare int; `typicalLoanDuration`
+ * ("5 years") and `typicalApprovalTimeline` ("4-6 weeks") are both string↔int transcoded via fixed
+ * lookup tables; `repaymentTypes` is a multi-select UI but only its first value is ever persisted
+ * (`amortizationType = repaymentTypes[0]`); `collateralRequirements`/`ddRequirements` each dual-write
+ * to a second aliased key server-side.
+ */
+export type LenderThesis = {
+  profileId: string;
+  typeOfFinancing: string[];
+  financingProducts: string[];
+  dealStagePreference: string[];
+  sbaStatus: string;
+  typicalLoanSizeMin: string;
+  typicalLoanSizeMax: string;
+  lendingCriteriaDocumentUrl: string;
+  industries: string[];
+  excludedIndustries: string[];
+  geographies: string[];
+  targetRevenueMin: string;
+  targetRevenueMax: string;
+  targetEbitdaMin: string;
+  targetEbitdaMax: string;
+  targetDealSizeMin: string;
+  targetDealSizeMax: string;
+  minEquityContribution: string;
+  interestRateMin: string;
+  interestRateMax: string;
+  typicalLoanDuration: string;
+  repaymentTypes: string[];
+  collateralRequirements: string[];
+  whenGetInvolved: string[];
+  typicalApprovalTimeline: string;
+  dueDiligenceRequired: boolean | null;
+  ddRequirements: string[];
+  yearsOfLendingExperience: string;
+  numberOfDealsFunded: string;
+  totalCapitalDeployed: string;
+  valueAddDifferentiation: string[];
+};
+
+/** Matches web's real `WEEKS_TO_TIMELINE`/`TIMELINE_TO_WEEKS` (`LenderThesisTab.tsx:129-137`)
+ * verbatim — both directions needed since reads convert weeks→label and saves convert label→weeks. */
+const WEEKS_TO_TIMELINE: Record<number, string> = {
+  2: '1-2 weeks',
+  4: '2-4 weeks',
+  6: '4-6 weeks',
+  8: '6-8 weeks',
+  12: '8-12 weeks',
+  26: '3-6 months',
+  30: '6+ months',
+};
+const TIMELINE_TO_WEEKS: Record<string, number> = {
+  '1-2 weeks': 2,
+  '2-4 weeks': 4,
+  '4-6 weeks': 6,
+  '6-8 weeks': 8,
+  '8-12 weeks': 12,
+  '3-6 months': 26,
+  '6+ months': 30,
+};
+
+function normalizeLenderThesis(raw: unknown): LenderThesis {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const str = (a: unknown, b: unknown) => String(a ?? b ?? '');
+  const numStr = (a: unknown, b: unknown) => (a != null ? String(a) : b != null ? String(b) : '');
+  const arr = (...vals: unknown[]): string[] => (vals.find(v => Array.isArray(v)) as string[] | undefined) ?? [];
+
+  const equityNum = r.minEquityContribution ?? r.min_equity_contribution;
+  const minEquityContribution = equityNum != null ? `${equityNum}%` : '';
+
+  const durationMin = r.loanDurationMin ?? r.loan_duration_min;
+  const typicalLoanDuration = durationMin != null ? `${durationMin} ${durationMin === 1 ? 'year' : 'years'}` : '';
+
+  const weeksRaw = r.timelineToCloseWeeks ?? r.timeline_to_close_weeks;
+  const typicalApprovalTimeline =
+    weeksRaw != null ? WEEKS_TO_TIMELINE[weeksRaw as number] ?? `${weeksRaw} weeks` : '';
+
+  const collateralRequirements = [
+    ...new Set([...arr(r.financialGuarantees, r.financial_guarantees), ...arr(r.collateralRequirements, r.collateral_requirements)]),
+  ];
+  const ddRequirements = [
+    ...new Set([...arr(r.documentsRequired, r.documents_required), ...arr(r.dueDiligenceRequirements, r.due_diligence_requirements)]),
+  ];
+
+  const amortizationType = r.amortizationType ?? r.amortization_type;
+  const isSbaPreferred = r.is_sba_preferred_lender ?? r.isSbaPreferredLender;
+  const sbaStatus = str(
+    (Array.isArray(r.sba_financing_status) ? (r.sba_financing_status as unknown[])[0] : undefined) ?? r.sbaFinancingStatus,
+    isSbaPreferred === true ? 'Yes. SBA-approved lender' : isSbaPreferred === false ? 'No. Non-SBA lending only' : undefined,
+  );
+
+  const dueDiligenceRequired = r.dueDiligenceRequired ?? r.due_diligence_required;
+
+  return {
+    profileId: str(r.profile_id, r.profileId),
+    typeOfFinancing: arr(r.typesOfFinancing, r.types_of_financing, r.typeOfFinancing),
+    financingProducts: arr(r.financingProducts, r.financing_products),
+    dealStagePreference: arr(r.dealStagePreference, r.deal_stage_preference),
+    sbaStatus,
+    typicalLoanSizeMin: numStr(r.loanSizeMin, r.typical_loan_size_min) || numStr(r.typicalLoanSizeMin, undefined),
+    typicalLoanSizeMax: numStr(r.loanSizeMax, r.typical_loan_size_max) || numStr(r.typicalLoanSizeMax, undefined),
+    lendingCriteriaDocumentUrl: str(r.lendingCriteriaUrl, r.lending_firm_deck_url) || str(r.lendingCriteriaDocumentUrl, ''),
+    industries: arr(r.borrowerIndustries, r.borrower_industries, r.lendingIndustries, r.lending_industries, r.industries),
+    excludedIndustries: arr(r.excludedIndustries, r.excluded_industries),
+    geographies: arr(r.geographies, r.active_lending_geographies),
+    targetRevenueMin: numStr(r.businessRevenueMin, r.business_revenue_min) || numStr(r.targetRevenueMin, undefined),
+    targetRevenueMax: numStr(r.businessRevenueMax, r.business_revenue_max) || numStr(r.targetRevenueMax, undefined),
+    targetEbitdaMin: numStr(r.ebitdaMin, r.minimum_ebitda_min) || numStr(r.targetEbitdaMin, undefined),
+    targetEbitdaMax: numStr(r.ebitdaMax, r.minimum_ebitda_max) || numStr(r.targetEbitdaMax, undefined),
+    targetDealSizeMin: numStr(r.dealSizeMin, r.typical_deal_size_min) || numStr(r.targetDealSizeMin, undefined),
+    targetDealSizeMax: numStr(r.dealSizeMax, r.typical_deal_size_max) || numStr(r.targetDealSizeMax, undefined),
+    minEquityContribution,
+    interestRateMin: numStr(r.interestRateMin, r.interest_rate_min),
+    interestRateMax: numStr(r.interestRateMax, r.interest_rate_max),
+    typicalLoanDuration,
+    repaymentTypes: amortizationType ? [String(amortizationType)] : arr(r.repaymentTypes, undefined),
+    collateralRequirements,
+    whenGetInvolved: arr(r.whenGetInvolved, r.when_get_involved),
+    typicalApprovalTimeline,
+    dueDiligenceRequired: dueDiligenceRequired == null ? (ddRequirements.length > 0 ? true : null) : Boolean(dueDiligenceRequired),
+    ddRequirements,
+    yearsOfLendingExperience: str(r.yearsOfLendingExperience, r.years_of_lending_experience),
+    numberOfDealsFunded: numStr(r.dealsFunded, r.deals_funded) || numStr(r.numberOfDealsFunded, undefined),
+    totalCapitalDeployed: numStr(r.totalVolumeDeployed, r.total_volume_deployed) || numStr(r.totalCapitalDeployed, undefined),
+    valueAddDifferentiation: arr(r.valueAddDifferentiation, r.value_add_differentiation),
+  };
+}
+
+/** `GET /auth/lender` — matches web's `fetchLenderProfile`. */
+export async function fetchLenderThesis(): Promise<LenderThesis> {
+  const data = await apiClient.get(AUTH_ENDPOINTS.LENDER).then(res => res.data).catch(() => null);
+  const envelope = data as Record<string, unknown> | null;
+  return normalizeLenderThesis(envelope?.data ?? envelope?.lender ?? envelope);
+}
+
+/** `PUT /auth/lender`, body `{ formData: payload }` — matches web's `updateLenderProfile` +
+ * `buildApiPayload` (`LenderThesisTab.tsx:202-268`) exactly. Caller passes only the `LenderThesis`
+ * fields for the one card being saved (our canonical camelCase names); this expands each one to its
+ * real wire shape, including every dual-write/transcode quirk documented on `LenderThesis` above. */
+export async function updateLenderThesis(payload: Partial<LenderThesis>): Promise<void> {
+  const p: Record<string, unknown> = {};
+
+  if (payload.typeOfFinancing !== undefined) p.typesOfFinancing = payload.typeOfFinancing;
+  if (payload.financingProducts !== undefined) p.financingProducts = payload.financingProducts;
+  if (payload.dealStagePreference !== undefined) p.dealStagePreference = payload.dealStagePreference;
+  if (payload.sbaStatus !== undefined) {
+    p.sbaFinancing = payload.sbaStatus ? [payload.sbaStatus] : [];
+    p.isSbaPreferredLender = payload.sbaStatus === 'Yes. SBA-approved lender' || payload.sbaStatus === 'Both';
+  }
+  if (payload.typicalLoanSizeMin !== undefined) p.loanSizeMin = payload.typicalLoanSizeMin ? Number(payload.typicalLoanSizeMin) : undefined;
+  if (payload.typicalLoanSizeMax !== undefined) p.loanSizeMax = payload.typicalLoanSizeMax ? Number(payload.typicalLoanSizeMax) : undefined;
+
+  if (payload.lendingCriteriaDocumentUrl !== undefined) p.lendingCriteriaUrl = payload.lendingCriteriaDocumentUrl;
+  if (payload.industries !== undefined) {
+    p.borrowerIndustries = payload.industries;
+    p.industries = payload.industries;
+    p.lendingIndustries = payload.industries;
+  }
+  if (payload.excludedIndustries !== undefined) p.excludedIndustries = payload.excludedIndustries;
+  if (payload.geographies !== undefined) p.geographies = payload.geographies;
+  if (payload.targetRevenueMin !== undefined) p.businessRevenueMin = payload.targetRevenueMin ? Number(payload.targetRevenueMin) : undefined;
+  if (payload.targetRevenueMax !== undefined) p.businessRevenueMax = payload.targetRevenueMax ? Number(payload.targetRevenueMax) : undefined;
+  if (payload.targetEbitdaMin !== undefined) p.businessEbitdaMin = payload.targetEbitdaMin ? Number(payload.targetEbitdaMin) : undefined;
+  if (payload.targetEbitdaMax !== undefined) p.businessEbitdaMax = payload.targetEbitdaMax ? Number(payload.targetEbitdaMax) : undefined;
+  if (payload.targetDealSizeMin !== undefined) p.dealSizeMin = payload.targetDealSizeMin ? Number(payload.targetDealSizeMin) : undefined;
+  if (payload.targetDealSizeMax !== undefined) p.dealSizeMax = payload.targetDealSizeMax ? Number(payload.targetDealSizeMax) : undefined;
+
+  if (payload.minEquityContribution !== undefined) {
+    const parsed = parseInt(payload.minEquityContribution, 10);
+    p.minEquityContribution = payload.minEquityContribution && !Number.isNaN(parsed) ? parsed : null;
+  }
+  if (payload.interestRateMin !== undefined) p.interestRateMin = payload.interestRateMin ? Number(payload.interestRateMin) : undefined;
+  if (payload.interestRateMax !== undefined) p.interestRateMax = payload.interestRateMax ? Number(payload.interestRateMax) : undefined;
+  if (payload.typicalLoanDuration !== undefined) {
+    const parsed = parseInt(payload.typicalLoanDuration, 10);
+    const num = payload.typicalLoanDuration && !Number.isNaN(parsed) ? parsed : null;
+    p.loanDurationMin = num;
+    p.loanDurationMax = num;
+  }
+  if (payload.repaymentTypes !== undefined) p.amortizationType = payload.repaymentTypes?.[0] ?? null;
+  if (payload.collateralRequirements !== undefined) {
+    p.collateralRequirements = payload.collateralRequirements;
+    p.financialGuarantees = payload.collateralRequirements;
+  }
+
+  if (payload.whenGetInvolved !== undefined) p.whenGetInvolved = payload.whenGetInvolved;
+  if (payload.typicalApprovalTimeline !== undefined) {
+    p.timelineToCloseWeeks = payload.typicalApprovalTimeline ? TIMELINE_TO_WEEKS[payload.typicalApprovalTimeline] ?? null : null;
+  }
+  if (payload.dueDiligenceRequired !== undefined) p.dueDiligenceRequired = payload.dueDiligenceRequired;
+  if (payload.ddRequirements !== undefined) {
+    p.documentsRequired = payload.ddRequirements;
+    p.dueDiligenceRequirements = payload.ddRequirements;
+  }
+
+  if (payload.yearsOfLendingExperience !== undefined) p.yearsOfLendingExperience = payload.yearsOfLendingExperience;
+  if (payload.numberOfDealsFunded !== undefined) p.dealsFunded = payload.numberOfDealsFunded ? Number(payload.numberOfDealsFunded) : undefined;
+  if (payload.totalCapitalDeployed !== undefined) p.totalVolumeDeployed = payload.totalCapitalDeployed ? Number(payload.totalCapitalDeployed) : undefined;
+  if (payload.valueAddDifferentiation !== undefined) p.valueAddDifferentiation = payload.valueAddDifferentiation;
+
+  await apiClient.put(AUTH_ENDPOINTS.LENDER, { formData: p });
+}
+
+/** `GET /profile/lending-thesis/completion` — matches web's `fetchLendingThesisCompletion`. Fetched
+ * for the top completeness bar only — see `LenderThesis`'s own doc comment for why each card's
+ * `complete` prop is computed client-side instead. */
+export async function fetchLenderThesisCompletion(): Promise<RoleThesisCompletion> {
+  const data = await apiClient.get(ROLE_THESIS_ENDPOINTS.LENDING_THESIS_COMPLETION).then(res => res.data).catch(() => null);
+  return normalizeCompletion((data as Record<string, unknown> | null)?.data ?? data);
+}

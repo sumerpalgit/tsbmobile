@@ -19,8 +19,13 @@ import { useTheme } from '../../../theme';
  * not an always-visible wall of every option (the real industries/geographies catalog runs to
  * dozens of entries — showing all of them inline at once, as this component did on the first
  * pass, doesn't match web and is a poor UX for a list that size).
+ *
+ * Memoized — see `ThesisPillRow`'s own doc comment on why (a sheet with several of these mounted
+ * side by side, e.g. Lending Criteria's Industry/Avoided/Geography trio, would otherwise all
+ * re-render — including re-filtering their own `options` array — on every keystroke in an unrelated
+ * field in the same sheet).
  */
-export function ThesisSearchableChips({
+export const ThesisSearchableChips = React.memo(function ThesisSearchableChipsImpl({
   selected,
   onToggle,
   options,
@@ -97,7 +102,7 @@ export function ThesisSearchableChips({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },

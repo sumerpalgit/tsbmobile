@@ -88,13 +88,27 @@ export function PillField({
  * rather than normalized to one behavior. Rendered as a static gray pill, not `animate-pulse` —
  * web's own shimmer there is really a reused loading skeleton, and this state isn't loading (data
  * already resolved, the field is just empty). */
-export function PillValue({ value, bg, color, emptyStyle = 'dash' }: { value: string; bg: string; color: string; emptyStyle?: 'dash' | 'pill' }) {
+export function PillValue({
+  value,
+  bg,
+  color,
+  emptyStyle = 'dash',
+  emptyText = '-',
+}: {
+  value: string;
+  bg: string;
+  color: string;
+  emptyStyle?: 'dash' | 'pill';
+  /** Lender's real copy diverges per-field ("Not set" for most, "Not answered" for SBA/DD-required
+   * plain-text fields) — defaults to the existing "-" so Intermediary/Searcher stay unchanged. */
+  emptyText?: string;
+}) {
   const { colors, fonts } = useTheme();
   if (!value) {
     return emptyStyle === 'pill' ? (
       <View style={[pillFieldStyles.emptyPill, { backgroundColor: colors.homeCardBorder }]} />
     ) : (
-      <Text style={[fonts.regular, pillFieldStyles.empty, { color: colors.ink3 }]}>-</Text>
+      <Text style={[fonts.regular, pillFieldStyles.empty, { color: colors.ink3 }]}>{emptyText}</Text>
     );
   }
   return (
@@ -106,13 +120,25 @@ export function PillValue({ value, bg, color, emptyStyle = 'dash' }: { value: st
 
 /** Multi-select pill wall — same pill style as `PillValue` wrapped in a row. See `PillValue`'s own
  * doc comment for `emptyStyle`. */
-export function PillGroup({ items, bg, color, emptyStyle = 'dash' }: { items: string[]; bg: string; color: string; emptyStyle?: 'dash' | 'pill' }) {
+export function PillGroup({
+  items,
+  bg,
+  color,
+  emptyStyle = 'dash',
+  emptyText = '-',
+}: {
+  items: string[];
+  bg: string;
+  color: string;
+  emptyStyle?: 'dash' | 'pill';
+  emptyText?: string;
+}) {
   const { colors, fonts } = useTheme();
   if (items.length === 0) {
     return emptyStyle === 'pill' ? (
       <View style={[pillFieldStyles.emptyPill, { backgroundColor: colors.homeCardBorder }]} />
     ) : (
-      <Text style={[fonts.regular, pillFieldStyles.empty, { color: colors.ink3 }]}>-</Text>
+      <Text style={[fonts.regular, pillFieldStyles.empty, { color: colors.ink3 }]}>{emptyText}</Text>
     );
   }
   return (
