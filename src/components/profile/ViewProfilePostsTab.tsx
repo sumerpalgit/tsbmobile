@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Dimensions, FlatList, Keyboard, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Search } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { SearchBar } from '../SearchBar';
@@ -85,23 +85,72 @@ export function ViewProfilePostsTab({
   const [query, setQuery] = useState('');
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
-  const { items: fetchedItems, engagements, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch } = useUserFeed(username);
+  const { items: fetchedItems, engagements, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch, resetAndRefetch } = useUserFeed(username);
+
+  // Same fix as `CreateEventWizard.tsx`'s scroll-to-focused-field mechanism (see its own doc
+  // comment for the full root-cause writeup), adapted for `FlatList` instead of `ScrollView`
+  // (`scrollToOffset` in place of `scrollTo`) — this list has no `KeyboardAvoidingView`/
+  // auto-scroll of its own, so the search bar (sitting inside `ListHeaderComponent`, below the
+  // identity block) had nothing pushing it above the keyboard when focused.
+  //
+  // Measures `searchBarWrapRef` (the `View` wrapping the whole `SearchBar`), NOT the `TextInput`
+  // itself — first attempt measured the input and its bottom border still ended up clipped by the
+  // keyboard, because the input's own tight bounding box doesn't include `SearchBar`'s pill
+  // padding/border/shadow, which live in its wrapping `View`. Measuring that wrapper instead
+  // gives the real visual height of the bar, border and all.
+  const listRef = useRef<FlatList<FeedItem>>(null);
+  const scrollOffsetRef = useRef(0);
+  const searchInputRef = useRef<TextInput>(null);
+  const searchBarWrapRef = useRef<View>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', e => {
+      const wrap = searchBarWrapRef.current;
+      if (!wrap || !searchInputRef.current?.isFocused()) return;
+      requestAnimationFrame(() => {
+        wrap.measureInWindow((_x, y, _width, height) => {
+          const keyboardTop = Dimensions.get('window').height - (e.endCoordinates?.height ?? 0);
+          const overlap = y + height - keyboardTop;
+          if (overlap > 0) {
+            listRef.current?.scrollToOffset({ offset: scrollOffsetRef.current + overlap + 12, animated: true });
+          }
+        });
+      });
+    });
+    return () => showSub.remove();
+  }, []);
 
   // Covers both "Hide this post" (session-only, no backend call — matches web's own client-side-
   // only `tsb:hidepost` event) and "Delete post" (already persisted server-side by the time this
   // runs) — same local removal either way, just a different trigger.
   const removePost = (id: string) => setRemovedIds(prev => new Set(prev).add(id));
 
-  /** `refetch` comes straight from `useUserFeed`'s underlying `useInfiniteQuery` (spread through
-   * unchanged) — awaited here rather than the fire-and-forget-plus-fixed-timeout pattern
-   * `MyEventsScreen.tsx` uses elsewhere, so the spinner actually tracks the real network call
-   * instead of guessing how long it takes. Locally-hidden/deleted posts (`removedIds`) intentionally
-   * stay hidden through a refresh — a pull-to-refresh re-fetches what the SERVER has, it doesn't
-   * undo a client-side hide or bring back a post that was just deleted. */
+  /** Delete specifically ALSO re-syncs with the server, confirmed by watching web's own network
+   * tab on this exact page: after the `DELETE /feed/delete/:id` call, web fires a real follow-up
+   * `GET` to the feed-list endpoint (not just an engagements refresh — direct on-device
+   * confirmation, since this wasn't traceable from `my-profile/page.tsx`'s own source alone).
+   * `removePost` still runs first for the instant, snappy UI update; `refetch()` runs silently
+   * after (no `refreshing`/spinner state — this isn't the pull-to-refresh gesture, just a quiet
+   * background re-sync, matching web's own behavior). "Hide" stays local-only on purpose — see
+   * `PostCardMenuSheet.tsx`'s own doc comment: web's real Hide has no backend call at all. */
+  const handleDeleted = (id: string) => {
+    removePost(id);
+    refetch();
+  };
+
+  /** Uses `resetAndRefetch`, NOT the plain `refetch` — a plain `refetch()` on an infinite query
+   * re-fetches every currently-loaded page, preserving however deep the user had scrolled, which
+   * isn't what a pull-to-refresh gesture should do. `resetAndRefetch` clears the cached pages
+   * first so this genuinely starts over from page 1. Awaited (in a `try/finally`) rather than the
+   * fire-and-forget-plus-fixed-timeout pattern `MyEventsScreen.tsx` uses elsewhere, so the
+   * spinner actually tracks the real network call instead of guessing how long it takes.
+   * Locally-hidden/deleted posts (`removedIds`) intentionally stay hidden through a refresh — a
+   * pull-to-refresh re-fetches what the SERVER has, it doesn't undo a client-side hide or bring
+   * back a post that was just deleted. */
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await refetch();
+      await resetAndRefetch();
     } finally {
       setRefreshing(false);
     }
@@ -117,12 +166,39 @@ export function ViewProfilePostsTab({
 
   const isSearching = trimmed.length > 0;
 
+  /** Clearing the search box jumps `filtered` straight from a short, filtered array back to the
+   * full loaded list in one synchronous render — on a list with enough posts, `FlatList` mounting
+   * a much bigger batch of rows in that single frame reads as a brief freeze (nothing visibly
+   * responds to the clear for a moment) before the full list finally appears. Masking that one
+   * frame with the same `FeedSkeleton` already used for the initial load/pagination gives instant
+   * visual feedback the instant the box clears, while the heavier full-list render happens behind
+   * it — same technique, just triggered by a different transition. Scoped to specifically the
+   * searching→not-searching transition (not typing in general), since typing itself only narrows
+   * an already-small filtered set, which never has the same jump in row count. */
+  const [clearingSearch, setClearingSearch] = useState(false);
+  const wasSearchingRef = useRef(isSearching);
+  useEffect(() => {
+    if (wasSearchingRef.current && !isSearching) {
+      setClearingSearch(true);
+      const timer = setTimeout(() => setClearingSearch(false), 260);
+      wasSearchingRef.current = isSearching;
+      return () => clearTimeout(timer);
+    }
+    wasSearchingRef.current = isSearching;
+  }, [isSearching]);
+
   return (
     <FlatList<FeedItem>
+      ref={listRef}
       style={{ backgroundColor: colors.pageBg }}
       contentContainerStyle={styles.content}
-      data={filtered}
+      data={clearingSearch ? [] : filtered}
       keyExtractor={item => item.id}
+      keyboardShouldPersistTaps="handled"
+      onScroll={e => {
+        scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+      }}
+      scrollEventThrottle={16}
       // Padded individually per-row (not via the FlatList's own contentContainerStyle) so
       // `listHeaderComponent` — the identity block's full-bleed cover gradient — isn't inset too.
       renderItem={({ item }) => (
@@ -131,7 +207,7 @@ export function ViewProfilePostsTab({
             feedItem={item}
             engagement={engagements[item.id]}
             onHide={() => removePost(item.id)}
-            onDeleted={() => removePost(item.id)}
+            onDeleted={() => handleDeleted(item.id)}
           />
         </View>
       )}
@@ -145,13 +221,18 @@ export function ViewProfilePostsTab({
       ListHeaderComponent={
         <>
           {listHeaderComponent}
-          <View style={styles.searchBarWrap}>
-            <SearchBar value={query} onChangeText={setQuery} placeholder="Search posts by keyword or author…" />
+          <View style={styles.searchBarWrap} ref={searchBarWrapRef}>
+            <SearchBar
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search posts by keyword or author…"
+              inputRef={searchInputRef}
+            />
           </View>
         </>
       }
       ListEmptyComponent={
-        isLoading ? (
+        isLoading || clearingSearch ? (
           <View style={styles.rowPadding}>
             <FeedSkeleton />
           </View>

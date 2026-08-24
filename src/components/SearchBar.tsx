@@ -22,6 +22,8 @@ export function SearchBar({
   onFilterPress,
   filtersActive = false,
   filterCount,
+  inputRef,
+  onFocus,
 }: {
   value: string;
   onChangeText: (text: string) => void;
@@ -29,6 +31,11 @@ export function SearchBar({
   onFilterPress?: () => void;
   filtersActive?: boolean;
   filterCount?: number;
+  /** Both optional — only callers that need to scroll this input clear of the keyboard on focus
+   * pass them (e.g. `ViewProfilePostsTab.tsx`, whose search bar sits inside a `FlatList` with no
+   * other keyboard-avoidance). Every other caller is unaffected. */
+  inputRef?: React.RefObject<TextInput | null>;
+  onFocus?: () => void;
 }) {
   const { colors, fonts, fontSize, radius, borderWidth, spacing, elevation } = useTheme();
 
@@ -50,8 +57,10 @@ export function SearchBar({
       >
         <Icon name="search" size={16} color={colors.ink3} />
         <TextInput
+          ref={inputRef}
           value={value}
           onChangeText={onChangeText}
+          onFocus={onFocus}
           placeholder={placeholder}
           placeholderTextColor={colors.ink3}
           style={[styles.input, { fontSize: fontSize.ui, color: colors.ink }]}

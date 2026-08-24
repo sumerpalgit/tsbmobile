@@ -113,7 +113,7 @@ export function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
         <Text style={[fonts.regular, styles.dateText, { color: colors.ink3 }]}>{dateLabel}</Text>
         <Pressable
           onPress={() => setFeatured(v => !v)}
-          style={[styles.featureButton, { borderColor: colors.border, backgroundColor: featured ? colors.chip : colors.surface }]}
+          style={[styles.featureButton, { borderColor: featured ? colors.border : colors.authFieldBorder, backgroundColor: featured ? colors.chip : colors.authField }]}
         >
           <Star size={12} color={colors.goldDark} fill={featured ? colors.goldDark : 'transparent'} strokeWidth={1.6} />
           <Text style={[fonts.bold, styles.featureButtonText, { color: colors.goldDark }]}>
@@ -153,6 +153,6 @@ const styles = StyleSheet.create({
     paddingTop: 11,
   },
   dateText: { fontSize: 11 },
-  featureButton: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, borderWidth: StyleSheet.hairlineWidth },
+  featureButton: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, borderWidth: 1 },
   featureButtonText: { fontSize: 11 },
 });

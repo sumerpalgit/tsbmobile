@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Check } from 'lucide-react-native';
+import { Check, X } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../../theme';
 import { Avatar } from '../../Avatar';
@@ -30,7 +30,7 @@ export function RequestTestimonialSheet({
   onClose: () => void;
   onSent: () => void;
 }) {
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, radius } = useTheme();
   const [loading, setLoading] = useState(false);
   const [followers, setFollowers] = useState<Follower[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -76,7 +76,17 @@ export function RequestTestimonialSheet({
 
   return (
     <BottomSheet visible={visible} onClose={onClose} dismissable={!sending}>
-      <Text style={[fonts.display, styles.title, { color: colors.ink }]}>Request Testimonial</Text>
+      <View style={styles.headerRow}>
+        <Text style={[fonts.display, styles.title, { color: colors.ink, flex: 1 }]}>Request Testimonial</Text>
+        <Pressable
+          onPress={onClose}
+          disabled={sending}
+          accessibilityLabel="Close"
+          style={[styles.closeButton, { backgroundColor: colors.surfaceSunken, borderRadius: radius.lg }]}
+        >
+          <X size={16} color={colors.ink2} strokeWidth={1.8} />
+        </Pressable>
+      </View>
       <Text style={[fonts.regular, styles.subtitle, { color: colors.ink3 }]}>
         Select connections to send a testimonial request:
       </Text>
@@ -153,8 +163,10 @@ export function RequestTestimonialSheet({
 }
 
 const styles = StyleSheet.create({
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  closeButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   title: { fontSize: 18, letterSpacing: -0.2 },
-  subtitle: { fontSize: 12.5, marginTop: 5, marginBottom: 12 },
+  subtitle: { fontSize: 12.5, marginTop: 9, marginBottom: 12 },
   loading: { paddingVertical: 24 },
   emptyBox: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 14, paddingVertical: 20, alignItems: 'center' },
   emptyText: { fontSize: 12.5 },

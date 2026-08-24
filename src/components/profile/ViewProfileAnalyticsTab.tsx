@@ -70,6 +70,17 @@ export function ViewProfileAnalyticsTab() {
 
   return (
     <View style={styles.container}>
+      {/* Matches the mockup's own header exactly (decoded `vpIsAnalytics` block) — missed in the
+          original build, added after the user caught it. Static copy, not computed from `pct`:
+          the mockup shows this same string regardless of completion level, and no alternate
+          "you're all set" copy exists in either source to switch to at 100%. */}
+      <View>
+        <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>Your Profile Needs Work</Text>
+        <Text style={[fonts.regular, styles.headerSubtitle, { color: colors.ink3 }]}>
+          Higher profile completion improves Match Score accuracy and inbound deal flow.
+        </Text>
+      </View>
+
       <View style={[styles.ringCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.ringWrap}>
           <Svg width={RING_SIZE} height={RING_SIZE}>
@@ -85,7 +96,7 @@ export function ViewProfileAnalyticsTab() {
               cx={RING_SIZE / 2}
               cy={RING_SIZE / 2}
               r={RING_RADIUS}
-              stroke={colors.indigo}
+              stroke="#3B82F6"
               strokeWidth={RING_STROKE}
               fill="none"
               strokeLinecap="round"
@@ -94,7 +105,10 @@ export function ViewProfileAnalyticsTab() {
               transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
             />
           </Svg>
-          <Text style={[fonts.display, styles.ringPct, { color: colors.indigo }]}>{pct}%</Text>
+          {/* Matches the "Profile Insights" ring's own color on the Overview tab (`#3B82F6`,
+              `ViewProfileOverviewTab.tsx`) — kept as the same literal blue on purpose, per explicit
+              user direction, rather than the section rows below (which stay indigo, unaffected). */}
+          <Text style={[fonts.display, styles.ringPct, { color: '#3B82F6' }]}>{pct}%</Text>
         </View>
         <View style={styles.ringMeta}>
           <Text style={[fonts.semibold, styles.ringTitle, { color: colors.ink }]}>Profile Strength</Text>
@@ -112,13 +126,13 @@ export function ViewProfileAnalyticsTab() {
               <View key={section.label} style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.sectionTopRow}>
                   <Text style={[fonts.semibold, styles.sectionTitle, { color: colors.ink }]} numberOfLines={1}>{section.label}</Text>
-                  <Text style={[fonts.bold, styles.sectionPct, { color: colors.indigo }]}>{Math.round(section.percentage)}%</Text>
+                  <Text style={[fonts.bold, styles.sectionPct, { color: '#3B82F6' }]}>{Math.round(section.percentage)}%</Text>
                 </View>
                 {!!section.description && (
                   <Text style={[fonts.regular, styles.sectionDesc, { color: colors.ink3 }]}>{section.description}</Text>
                 )}
                 <View style={[styles.sectionTrack, { backgroundColor: colors.surfaceSunken }]}>
-                  <View style={[styles.sectionFill, { width: `${Math.max(0, Math.min(100, section.percentage))}%`, backgroundColor: colors.indigo }]} />
+                  <View style={[styles.sectionFill, { width: `${Math.max(0, Math.min(100, section.percentage))}%`, backgroundColor: '#3B82F6' }]} />
                 </View>
               </View>
             ))}
@@ -148,6 +162,8 @@ export function ViewProfileAnalyticsTab() {
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28, gap: 18 },
   loading: { paddingVertical: 60, alignItems: 'center' },
+  headerTitle: { fontSize: 21, lineHeight: 25, letterSpacing: -0.2 },
+  headerSubtitle: { fontSize: 11.5, lineHeight: 17, marginTop: 5 },
   ringCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 16 },
   ringWrap: { alignItems: 'center', justifyContent: 'center' },
   ringPct: { position: 'absolute', fontSize: 16, letterSpacing: -0.3 },

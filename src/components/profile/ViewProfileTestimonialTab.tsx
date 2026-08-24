@@ -137,7 +137,7 @@ export function ViewProfileTestimonialTab({ username }: { username: string }) {
 
           <Pressable
             onPress={() => setRequestOpen(true)}
-            style={[styles.requestButton, { borderColor: colors.border, backgroundColor: colors.surface2 }]}
+            style={[styles.requestButton, { borderColor: colors.authFieldBorder, backgroundColor: colors.authField }]}
           >
             <Plus size={14} color={colors.ink} strokeWidth={2} />
             <Text style={[fonts.bold, styles.requestButtonText, { color: colors.ink }]}>Request Testimonial</Text>
@@ -176,7 +176,7 @@ export function ViewProfileTestimonialTab({ username }: { username: string }) {
           </Text>
           <Pressable
             onPress={() => setRequestOpen(true)}
-            style={[styles.requestButton, styles.emptyRequestButton, { borderColor: colors.border, backgroundColor: colors.surface2 }]}
+            style={[styles.requestButton, styles.emptyRequestButton, { borderColor: colors.authFieldBorder, backgroundColor: colors.authField }]}
           >
             <Plus size={14} color={colors.ink} strokeWidth={2} />
             <Text style={[fonts.bold, styles.requestButtonText, { color: colors.ink }]}>Request Testimonial</Text>
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   factRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   factDot: { width: 4, height: 4, borderRadius: 2 },
   factText: { fontSize: 11.5 },
-  requestButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, height: 42, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, marginTop: 13 },
+  requestButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, height: 42, borderRadius: 12, borderWidth: 1, marginTop: 13 },
   requestButtonText: { fontSize: 12.5 },
   emptyRequestButton: { marginTop: 16, alignSelf: 'stretch' },
   chipRow: { flexDirection: 'row', gap: 8 },
