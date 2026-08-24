@@ -7,12 +7,19 @@ import { useTheme } from '../../../theme';
  * One "Profile Completion"-style section card — matches the mockup's `imSections` card chrome
  * exactly (decoded `profilelast_decoded_role.html:2505-2616`): an eyebrow label above the card,
  * a header row (icon box + title + description + status badge + a pencil "Edit section" icon
- * shown ONLY when already complete), the section's own body content (`children` — each of the 5
- * Intermediary cards composes its own rows/chips/stats shape, matching the mockup's own
- * per-section body variety rather than one over-generalized renderer), and a footer that's either
- * a right-aligned "Complete this section" button (incomplete) or a plain 12px spacer (complete) —
- * both drive the SAME `onEdit`, matching the mockup's own `sec.onCta` reuse for both the pencil
- * and the CTA button.
+ * shown ONLY when already complete), the section's own body content (`children` — each card
+ * composes its own rows/chips/stats shape, matching the mockup's own per-section body variety
+ * rather than one over-generalized renderer), and a footer that's either a right-aligned
+ * "Complete this section" button (incomplete) or a plain 12px spacer (complete) — both drive the
+ * SAME `onEdit`, matching the mockup's own `sec.onCta` reuse for both the pencil and the CTA
+ * button. This is the default mode (`showStatus` omitted/true), used by Intermediary and Searcher.
+ *
+ * `showStatus={false}` — Investor's real mode: web's `CardShell` never passes `complete`/
+ * `incomplete` for ANY of Investor's 5 cards, which per its own logic means `alwaysShowEdit = true`
+ * — every card ALWAYS shows the edit pencil and NEVER shows a status badge or a "Complete this
+ * section" CTA, regardless of how much data exists. `complete` is ignored entirely in this mode
+ * (omit it) — some individual Investor cards still show their OWN inline "Add X" button when
+ * empty, but that's ordinary `children` content, not this component's built-in CTA system.
  *
  * Icon box color defaults to the mockup's own status-driven rule (`--fill` navy when incomplete,
  * `--chip` gold when complete) — `iconBg`/`iconColor` override that per-card when explicitly
@@ -24,7 +31,8 @@ export function RoleThesisSectionCard({
   icon,
   title,
   description,
-  complete,
+  complete = true,
+  showStatus = true,
   onEdit,
   iconBg,
   iconColor,
@@ -34,7 +42,10 @@ export function RoleThesisSectionCard({
   icon: React.ReactNode;
   title: string;
   description: string;
-  complete: boolean;
+  /** Ignored when `showStatus={false}` — defaults to `true` so callers in that mode can omit it. */
+  complete?: boolean;
+  /** `false` for Investor's "always editable, no badge, no CTA" mode — see the doc comment above. */
+  showStatus?: boolean;
   onEdit: () => void;
   /** Overrides the default complete/incomplete-driven icon box background. */
   iconBg?: string;
@@ -43,6 +54,7 @@ export function RoleThesisSectionCard({
   children?: React.ReactNode;
 }) {
   const { colors, fonts } = useTheme();
+  const showEditPencil = !showStatus || complete;
   const resolvedIconBg = iconBg ?? (complete ? colors.chip : colors.hero1);
   const resolvedIconColor = iconColor ?? (complete ? colors.goldDark : '#fff');
 
@@ -60,12 +72,14 @@ export function RoleThesisSectionCard({
             <Text style={[fonts.display, styles.title, { color: colors.ink }]}>{title}</Text>
             <Text style={[fonts.regular, styles.description, { color: colors.ink3 }]}>{description}</Text>
           </View>
-          <View style={[styles.badge, { backgroundColor: complete ? colors.successSurface : colors.dangerSurface }]}>
-            <Text style={[fonts.bold, styles.badgeText, { color: complete ? colors.success : colors.danger }]}>
-              {complete ? 'Complete' : 'Incomplete'}
-            </Text>
-          </View>
-          {complete && (
+          {showStatus && (
+            <View style={[styles.badge, { backgroundColor: complete ? colors.successSurface : colors.dangerSurface }]}>
+              <Text style={[fonts.bold, styles.badgeText, { color: complete ? colors.success : colors.danger }]}>
+                {complete ? 'Complete' : 'Incomplete'}
+              </Text>
+            </View>
+          )}
+          {showEditPencil && (
             <Pressable
               onPress={onEdit}
               accessibilityLabel="Edit section"
@@ -78,7 +92,7 @@ export function RoleThesisSectionCard({
 
         {children}
 
-        {complete ? (
+        {showEditPencil ? (
           <View style={styles.spacer} />
         ) : (
           <View style={[styles.ctaRow, { borderTopColor: colors.borderSoft }]}>

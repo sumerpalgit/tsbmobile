@@ -27,6 +27,11 @@ export const AUTH_ENDPOINTS = {
    * (`GET /profile/me`), only saving through this endpoint. See `api/roleThesis.ts`'s
    * `normalizeSearcherThesis` doc comment. */
   SEARCHER: '/auth/searcher',
+  /** `GET`/`PUT /api/auth/investor` — matches web's `fetchInvestorProfile`/`saveInvestorProfile`
+   * (`webSrc/actions/my-profile.ts:387-389,407-413`). Same dedicated-GET shape as `SELLER` above
+   * (unlike `SEARCHER`, which has no GET at all) — no filename/import-swap quirk here though,
+   * `InvestmentThesisTab.tsx` is a straight, correctly-named import. */
+  INVESTOR: '/auth/investor',
 } as const;
 
 export const PROFILE_ENDPOINTS = {
@@ -286,5 +291,7 @@ export const ROLE_THESIS_ENDPOINTS = {
   SELLER_COMPLETION: '/profile/seller-thesis/completion',
   /** Matches web's `fetchSearchThesisCompletion` (`my-profile.ts:419-421`). */
   SEARCH_THESIS_COMPLETION: '/profile/search-thesis/completion',
+  /** Matches web's `fetchInvestmentThesisCompletion` (`my-profile.ts:415-417`). */
+  INVESTMENT_THESIS_COMPLETION: '/profile/investment-thesis/completion',
   SIMILAR: '/profile',
 } as const;

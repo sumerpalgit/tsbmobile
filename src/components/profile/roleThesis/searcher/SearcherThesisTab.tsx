@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import ReactNativeBlobUtil from 'react-native-blob-util';
+import Toast from 'react-native-toast-message';
 import { User, FileText, Briefcase, Target, Zap, MessageCircle, Check, ExternalLink, Download, Info } from 'lucide-react-native';
 import { useTheme } from '../../../../theme';
 import type { AppStackParamList } from '../../../../navigation/types';
@@ -13,6 +15,7 @@ import {
   SearcherThesis,
   RoleThesisCompletion,
 } from '../../../../api/roleThesis';
+import { DocumentPreviewSheet } from '../DocumentPreviewSheet';
 import { RoleThesisCompleteness } from '../RoleThesisCompleteness';
 import { RoleThesisSectionCard } from '../RoleThesisSectionCard';
 import { SimilarProfilesRow } from '../SimilarProfilesRow';
@@ -55,6 +58,7 @@ export function SearcherThesisTab({ profile, roleProfile, userId }: { profile: P
   const [similar, setSimilar] = useState<Profile[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(true);
   const [openSheet, setOpenSheet] = useState<SheetKey>(null);
+  const [previewingDoc, setPreviewingDoc] = useState(false);
 
   useEffect(() => {
     setThesis(getSearcherThesis(roleProfile));
@@ -97,6 +101,37 @@ export function SearcherThesisTab({ profile, roleProfile, userId }: { profile: P
    * like the button did nothing at all. */
   const handleMessage = () => {
     navigation.navigate('Drawer', { screen: 'Tabs', params: { screen: 'Messages' } });
+  };
+
+  /** Real save-to-device — matches web's own `<a href={docUrl} download>` intent, not just
+   * viewing. Same implementation as Investor's identical Download button
+   * (`InvestorThesisTab.tsx`'s own `handleDownloadDoc`): Android routes through the native
+   * Download Manager into the device's real Downloads folder; iOS downloads into the app sandbox
+   * and hands it to Quick Look's native preview, whose own "Save to Files" action is the closest
+   * iOS equivalent since apps can't write into a public Downloads folder there. */
+  const handleDownloadDoc = async () => {
+    const url = thesis.searchThesisDocumentUrl;
+    if (!url) return;
+    const fileName = decodeURIComponent(url.split('/').pop()?.split('?')[0] || 'search-thesis');
+    try {
+      if (Platform.OS === 'android') {
+        await ReactNativeBlobUtil.config({
+          fileCache: true,
+          addAndroidDownloads: {
+            useDownloadManager: true,
+            notification: true,
+            title: fileName,
+            description: 'Downloading document',
+            path: `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${fileName}`,
+          },
+        }).fetch('GET', url);
+      } else {
+        const res = await ReactNativeBlobUtil.config({ fileCache: true }).fetch('GET', url);
+        await ReactNativeBlobUtil.ios.previewDocument(res.path());
+      }
+    } catch {
+      Toast.show({ type: 'error', text1: 'Download failed', text2: 'Please try again.' });
+    }
   };
 
   const handleViewSimilar = (p: Profile) => {
@@ -248,10 +283,10 @@ export function SearcherThesisTab({ profile, roleProfile, userId }: { profile: P
                 <View style={[styles.docBadge, { backgroundColor: colors.successSurface, borderColor: colors.success }]}>
                   <Text style={[fonts.bold, styles.docBadgeText, { color: colors.success }]}>Uploaded</Text>
                 </View>
-                <Pressable onPress={() => Linking.openURL(thesis.searchThesisDocumentUrl).catch(() => {})} style={styles.docIconButton}>
+                <Pressable onPress={() => setPreviewingDoc(true)} style={styles.docIconButton}>
                   <ExternalLink size={15} color={colors.ink2} strokeWidth={1.6} />
                 </Pressable>
-                <Pressable onPress={() => Linking.openURL(thesis.searchThesisDocumentUrl).catch(() => {})} style={styles.docIconButton}>
+                <Pressable onPress={handleDownloadDoc} style={styles.docIconButton}>
                   <Download size={15} color={colors.ink2} strokeWidth={1.6} />
                 </Pressable>
               </>
@@ -424,6 +459,14 @@ export function SearcherThesisTab({ profile, roleProfile, userId }: { profile: P
       <CapitalFundingSheet visible={openSheet === 'capital'} thesis={thesis} onClose={() => setOpenSheet(null)} onSaved={handleSaved} />
       <SearchProgressSheet visible={openSheet === 'progress'} thesis={thesis} onClose={() => setOpenSheet(null)} onSaved={handleSaved} />
       <ExecutionStrengthSheet visible={openSheet === 'execution'} thesis={thesis} onClose={() => setOpenSheet(null)} onSaved={handleSaved} />
+      {!!thesis.searchThesisDocumentUrl && (
+        <DocumentPreviewSheet
+          visible={previewingDoc}
+          url={thesis.searchThesisDocumentUrl}
+          title="Search Thesis"
+          onClose={() => setPreviewingDoc(false)}
+        />
+      )}
     </View>
   );
 }

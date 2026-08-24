@@ -300,3 +300,117 @@ export async function fetchSearcherThesisCompletion(): Promise<RoleThesisComplet
   const data = await apiClient.get(ROLE_THESIS_ENDPOINTS.SEARCH_THESIS_COMPLETION).then(res => res.data).catch(() => null);
   return normalizeCompletion((data as Record<string, unknown> | null)?.data ?? data);
 }
+
+/**
+ * Investor role — a dedicated GET, like Intermediary (unlike Searcher, which has none). Field
+ * names/mapping match web's real standalone `parseApiResponse` (`InvestmentThesisTab.tsx:107-138`)
+ * verbatim, including its one real quirk: `educationalInstitution` is a misnamed leftover field
+ * that actually holds "Investor Type" (firm type), mapped from wire key `institution_name` — kept
+ * as-is rather than renamed, since it's still the real wire contract. No card in this role ever
+ * shows a "Complete this section" CTA or a status badge on web (`CardShell` never receives
+ * `complete`/`incomplete` for any of its 5 cards) — see `RoleThesisSectionCard`'s `showStatus`
+ * prop, used with `false` for every Investor card.
+ */
+export type InvestorThesis = {
+  profileId: string;
+  educationalInstitution: string;
+  organizationName: string;
+  organizationWebsite: string;
+  yearsOfInvestmentExperience: string;
+  investmentStage: string[];
+  majorityPreference: string;
+  ownershipPreference: string;
+  participationStyle: string[];
+  industries: string[];
+  excludedIndustries: string[];
+  geographies: string[];
+  minEquity: string;
+  maxEquity: string;
+  minEV: string;
+  maxEV: string;
+  minRevenue: string;
+  maxRevenue: string;
+  minEBITDA: string;
+  maxEBITDA: string;
+  investmentCriteriaUrl: string;
+  investmentThesisSummary: string;
+  dueDiligenceApproach: string[];
+  preferredSelections: string[];
+  totalCapitalInvested: string;
+  numberOfInvestmentsMade: string;
+  activePortfolioCompanies: string;
+  portfolioSupportCapabilities: string;
+};
+
+/** Matches web's real `toRawUSD` (`InvestmentThesisTab.tsx:100-105`) — revenue/EBITDA min/max
+ * values under 10,000 are assumed to be expressed in millions (an onboarding-slider convention)
+ * and multiplied by 1,000,000; values ≥10,000 pass through as-is. Only applies to
+ * `minRevenue`/`maxRevenue`/`minEBITDA`/`maxEBITDA` — NOT equity or EV fields, which are taken raw. */
+function toRawUSD(value: unknown): string {
+  if (value == null || value === '') return '';
+  const n = Number(value);
+  if (Number.isNaN(n)) return '';
+  return String(n < 10_000 ? n * 1_000_000 : n);
+}
+
+function normalizeInvestorThesis(raw: unknown): InvestorThesis {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const str = (a: unknown, b: unknown) => String(a ?? b ?? '');
+  const numStr = (a: unknown, b: unknown) => (a != null ? String(a) : b != null ? String(b) : '');
+  const arr = (a: unknown, b: unknown): string[] => (Array.isArray(a) ? (a as string[]) : Array.isArray(b) ? (b as string[]) : []);
+  const ownershipRaw = Array.isArray(r.ownership_preferences) ? (r.ownership_preferences as unknown[])[0] : r.ownership_preferences;
+
+  return {
+    profileId: str(r.profile_id, r.profileId),
+    educationalInstitution: str(r.institution_name, r.educationalInstitution),
+    organizationName: str(r.organization_name, r.organizationName),
+    organizationWebsite: str(r.organization_website, r.organizationWebsite),
+    yearsOfInvestmentExperience: numStr(r.years_of_investment_experience, r.years_of_investment_experience),
+    investmentStage: arr(r.preferred_investment_stages, r.investmentStage),
+    majorityPreference: str(r.majority_preference, r.majorityPreference),
+    ownershipPreference: str(ownershipRaw, r.ownershipPreference),
+    participationStyle: arr(r.participation_modes, r.participationStyle),
+    industries: arr(r.investment_industries, r.industries),
+    excludedIndustries: arr(r.excluded_industries, r.excludedIndustries),
+    geographies: arr(r.active_investment_geographies, r.geographies),
+    minEquity: numStr(r.typical_equity_cheque_min, r.minEquity),
+    maxEquity: numStr(r.typical_equity_cheque_max, r.maxEquity),
+    minEV: numStr(r.preferred_deal_size_min, r.minEV),
+    maxEV: numStr(r.preferred_deal_size_max, r.maxEV),
+    minRevenue: toRawUSD(r.preferred_revenue_min) || toRawUSD(r.minRevenue),
+    maxRevenue: toRawUSD(r.preferred_revenue_max) || toRawUSD(r.maxRevenue),
+    minEBITDA: toRawUSD(r.preferred_ebitda_min) || toRawUSD(r.minEBITDA),
+    maxEBITDA: toRawUSD(r.preferred_ebitda_max) || toRawUSD(r.maxEBITDA),
+    investmentCriteriaUrl: str(r.investment_thesis_url, r.investmentCriteriaUrl),
+    investmentThesisSummary: str(r.investment_thesis_summary, r.investmentThesisSummary),
+    dueDiligenceApproach: arr(r.due_diligence_approach, r.dueDiligenceApproach),
+    preferredSelections: arr(r.preferred_selections, r.preferredSelections),
+    totalCapitalInvested: numStr(r.total_capital_invested, r.totalCapitalInvested),
+    numberOfInvestmentsMade: numStr(r.number_of_investments_made, r.numberOfInvestmentsMade),
+    activePortfolioCompanies: numStr(r.active_portfolio_companies, r.activePortfolioCompanies),
+    portfolioSupportCapabilities: str(r.portfolio_support_capabilities, r.portfolioSupportCapabilities),
+  };
+}
+
+/** `GET /auth/investor` — matches web's `fetchInvestorProfile`. */
+export async function fetchInvestorThesis(): Promise<InvestorThesis> {
+  const data = await apiClient.get(AUTH_ENDPOINTS.INVESTOR).then(res => res.data).catch(() => null);
+  const envelope = data as Record<string, unknown> | null;
+  return normalizeInvestorThesis(envelope?.data ?? envelope?.investor ?? envelope);
+}
+
+/** `PUT /auth/investor`, body `{ formData: payload }` — matches web's `saveInvestorProfile`
+ * exactly. Unlike Intermediary's `updateIntermediaryThesis`, there's no field-remapping quirk —
+ * confirmed no dual-send-under-two-names behavior exists for Investor. */
+export async function updateInvestorThesis(payload: Partial<InvestorThesis>): Promise<void> {
+  await apiClient.put(AUTH_ENDPOINTS.INVESTOR, { formData: payload });
+}
+
+/** `GET /profile/investment-thesis/completion` — matches web's `fetchInvestmentThesisCompletion`.
+ * Unlike Intermediary/Searcher, this is fetched for informational purposes only (the top
+ * completeness bar) — no Investor card ever reads per-section `complete` to drive its own
+ * badge/CTA, since none of them show one (`showStatus={false}` throughout). */
+export async function fetchInvestorThesisCompletion(): Promise<RoleThesisCompletion> {
+  const data = await apiClient.get(ROLE_THESIS_ENDPOINTS.INVESTMENT_THESIS_COMPLETION).then(res => res.data).catch(() => null);
+  return normalizeCompletion((data as Record<string, unknown> | null)?.data ?? data);
+}

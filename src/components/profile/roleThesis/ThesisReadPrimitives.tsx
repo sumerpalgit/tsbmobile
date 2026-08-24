@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../../../theme';
 
 /**
@@ -54,11 +54,29 @@ export function RowsGrid({ rows }: { rows: { label: string; value: string; full?
 }
 
 /** Label + value/pill(s) block — `SubLabel`-equivalent styling (10px/700/uppercase/ink3). */
-export function PillField({ label, children }: { label: string; children: React.ReactNode }) {
+export function PillField({
+  label,
+  action,
+  children,
+}: {
+  label: string;
+  /** Inline trailing action next to the label — matches web's Investor "Due Diligence Approach"
+   * row, the one field in this whole feature with a `SubLabel`-level action slot (a gold "add
+   * now" link, `InvestmentThesisTab.tsx`'s `InvestmentApproachCard`). Omit for every other field. */
+  action?: { label: string; onPress: () => void };
+  children: React.ReactNode;
+}) {
   const { colors, fonts } = useTheme();
   return (
     <View style={pillFieldStyles.field}>
-      <Text style={[fonts.bold, pillFieldStyles.label, { color: colors.ink3 }]}>{label}</Text>
+      <View style={pillFieldStyles.labelRow}>
+        <Text style={[fonts.bold, pillFieldStyles.label, { color: colors.ink3 }]}>{label}</Text>
+        {!!action && (
+          <Pressable onPress={action.onPress}>
+            <Text style={[fonts.bold, pillFieldStyles.action, { color: colors.gold }]}>{action.label}</Text>
+          </Pressable>
+        )}
+      </View>
       {children}
     </View>
   );
@@ -173,7 +191,9 @@ const rowsGridStyles = StyleSheet.create({
 
 const pillFieldStyles = StyleSheet.create({
   field: { gap: 8 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   label: { fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase' },
+  action: { fontSize: 10.5, textTransform: 'none' },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999 },
   pillText: { fontSize: 12 },

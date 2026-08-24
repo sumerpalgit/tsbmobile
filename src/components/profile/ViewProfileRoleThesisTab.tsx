@@ -4,6 +4,7 @@ import { useTheme } from '../../theme';
 import type { Profile } from '../../types/directory';
 import { IntermediaryThesisTab } from './roleThesis/intermediary/IntermediaryThesisTab';
 import { SearcherThesisTab } from './roleThesis/searcher/SearcherThesisTab';
+import { InvestorThesisTab } from './roleThesis/investor/InvestorThesisTab';
 
 /**
  * Role Thesis tab dispatcher — Phase 8, built one role at a time (per explicit instruction:
@@ -26,10 +27,10 @@ import { SearcherThesisTab } from './roleThesis/searcher/SearcherThesisTab';
  * (Intermediary's `/auth/seller` does; Searcher's flow doesn't call a fetch endpoint at all to
  * have one).
  *
- * Only Intermediary and Searcher have real content so far; every other role still shows the same
- * "coming soon" placeholder `ViewProfileScreen.tsx` showed for ALL of Role Thesis before this
- * phase, so an Investor/Lender/Advisor/etc. profile's own experience is unaffected until its own
- * future phase lands.
+ * Only Intermediary, Searcher, and Investor have real content so far; every other role still shows
+ * the same "coming soon" placeholder `ViewProfileScreen.tsx` showed for ALL of Role Thesis before
+ * this phase, so a Lender/Operator/Advisor/etc. profile's own experience is unaffected until its
+ * own future phase lands.
  */
 export function ViewProfileRoleThesisTab({
   profile,
@@ -48,6 +49,9 @@ export function ViewProfileRoleThesisTab({
   }
   if (role === 'searcher') {
     return <SearcherThesisTab profile={profile} roleProfile={roleProfile} userId={userId} />;
+  }
+  if (role === 'investor') {
+    return <InvestorThesisTab profile={profile} />;
   }
 
   return (
