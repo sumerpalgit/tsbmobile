@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, BackHandler, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
@@ -120,6 +120,47 @@ function ViewProfileScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [switching, setSwitching] = useState(false);
   const [followListMode, setFollowListMode] = useState<'followers' | 'following' | null>(null);
+
+  /** Makes back tab-aware instead of always leaving the screen — previously both the header's back
+   * arrow and the Android hardware back button called `navigation.goBack()`/the default pop
+   * unconditionally, with no regard for `activeTab`. That meant tapping the "Profile Insights" card
+   * (`onOpenAnalytics` → `setActiveTab('analytics')`, an in-place tab switch, no real navigation)
+   * then pressing back immediately popped this whole screen off the stack — landing on whatever
+   * screen sits beneath it (e.g. the Profile hub menu, if that's how this screen was reached), not
+   * "back to the Overview tab" as expected. Now back returns to Overview first when on any other
+   * tab, and only actually leaves the screen once already there — the standard in-screen-tabs
+   * pattern. Returns `true` when it handled the back press itself (so the header `Pressable` and
+   * `BackHandler` both know NOT to also call `goBack()`). */
+  const handleBackPress = useCallback(() => {
+    if (activeTab !== 'overview') {
+      setActiveTab('overview');
+      return true;
+    }
+    return false;
+  }, [activeTab]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+      return () => sub.remove();
+    }, [handleBackPress]),
+  );
+
+  /** Scrolls the horizontal tab bar so the active tab is actually visible whenever it changes
+   * programmatically (e.g. the "Profile Insights" card jumping straight to Analytics) — a direct
+   * tab tap already scrolls it into view implicitly since the user's own finger put it there, but a
+   * programmatic switch doesn't move the row at all, so a tab past the visible edge (Analytics is
+   * the last of 6) would highlight off-screen with no visible feedback. `tabLayouts` is populated by
+   * each tab's own `onLayout` below; scrolling is skipped if that tab hasn't measured yet. */
+  const tabScrollRef = useRef<ScrollView>(null);
+  const tabLayouts = useRef<Partial<Record<TabKey, { x: number; width: number }>>>({});
+
+  useEffect(() => {
+    const layout = tabLayouts.current[activeTab];
+    if (layout) {
+      tabScrollRef.current?.scrollTo({ x: Math.max(0, layout.x - 16), animated: true });
+    }
+  }, [activeTab]);
 
   const profile = user?.profile ? normalizeProfile(user.profile) : null;
 
@@ -286,7 +327,7 @@ function ViewProfileScreen() {
           </View>
 
           <View style={[styles.tabBarWrap, { borderTopColor: colors.border }]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
+            <ScrollView ref={tabScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
               {TABS.map(tab => {
                 const active = tab.key === activeTab;
                 const label = tab.key === 'roleThesis' ? roleTabLabel : tab.label;
@@ -294,6 +335,9 @@ function ViewProfileScreen() {
                   <Pressable
                     key={tab.key}
                     onPress={() => setActiveTab(tab.key)}
+                    onLayout={e => {
+                      tabLayouts.current[tab.key] = { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width };
+                    }}
                     style={[styles.tab, active && { borderBottomColor: colors.gold, borderBottomWidth: 2.5 }]}
                   >
                     <Text style={[active ? fonts.bold : fonts.semibold, styles.tabLabel, { color: active ? colors.gold : colors.ink3 }]}>
@@ -310,7 +354,13 @@ function ViewProfileScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => navigation.goBack()} accessibilityLabel="Back" style={styles.headerButton}>
+        <Pressable
+          onPress={() => {
+            if (!handleBackPress()) navigation.goBack();
+          }}
+          accessibilityLabel="Back"
+          style={styles.headerButton}
+        >
           <ChevronLeft size={22} color={colors.ink} strokeWidth={1.8} />
         </Pressable>
         <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>View Profile</Text>
@@ -324,6 +374,14 @@ function ViewProfileScreen() {
         <ViewProfilePostsTab username={profile.username} listHeaderComponent={identityBlock} />
       ) : (
         <KeyboardAwareScrollView
+          // Forces a fresh mount (and so a scroll position reset to the top) on every tab switch —
+          // Overview/Testimonial/Resources/Analytics/Role Thesis all share this ONE element (only
+          // its children swap in the ternary below), so without a per-tab `key` React just updates
+          // the existing instance's children and preserves its old scroll offset. That's why
+          // jumping to Analytics from partway down Overview (e.g. the "Profile Insights" card,
+          // itself well below the fold) landed mid-scroll on Analytics, with the identity header
+          // and tab bar scrolled out of view — confirmed on-device.
+          key={activeTab}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
           enableOnAndroid
