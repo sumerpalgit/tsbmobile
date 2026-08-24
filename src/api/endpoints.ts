@@ -13,6 +13,14 @@ export const AUTH_ENDPOINTS = {
   COMPLETE_PROFILE: '/auth/complete-profile',
   CHECK_LINKEDIN: '/auth/check-linkedin',
   OAUTH_SIGNIN: '/auth/oauth-signin',
+  /** `GET`/`PUT /api/auth/seller` — the real backend resource View Profile's Role Thesis tab
+   * (Phase 8) saves Intermediary data to. Matches web's `fetchSellerProfile`/`updateSellerProfile`
+   * (`webSrc/actions/my-profile.ts:482-492`) exactly, including web's own filename/import-swap
+   * quirk: the component that actually renders for `role_type === 'intermediary'` is literally
+   * named `SellerThesisTab.tsx` and persists through this Seller endpoint, not a dedicated
+   * Intermediary one — replicated here on purpose (confirmed with the user) rather than "fixed",
+   * so mobile-saved data lands in the same place web's own Intermediary users' data already does. */
+  SELLER: '/auth/seller',
 } as const;
 
 export const PROFILE_ENDPOINTS = {
@@ -260,4 +268,15 @@ export const FOLLOW_ENDPOINTS = {
  * mobile-side duplication. */
 export const ANALYTICS_ENDPOINTS = {
   SUMMARY: '/profile/analytics/summary',
+} as const;
+
+/** Role Thesis tab (Phase 8), Intermediary role. `SELLER_COMPLETION` matches web's
+ * `fetchSellerThesisCompletion` (`GET /profile/seller-thesis/completion`) — a distinct completion
+ * mechanism from `ANALYTICS_ENDPOINTS.SUMMARY`/`PROFILE_ENDPOINTS.COMPLETION` above (web itself has
+ * three separate completion endpoints across the app, not a mobile-side duplication). `SIMILAR`
+ * matches web's `fetchSimilarProfiles` (`GET /profile/:profileId/similar?role=`), profile id
+ * interpolated at the call site same as `TESTIMONIAL_ENDPOINTS.BY_USERNAME`. */
+export const ROLE_THESIS_ENDPOINTS = {
+  SELLER_COMPLETION: '/profile/seller-thesis/completion',
+  SIMILAR: '/profile',
 } as const;

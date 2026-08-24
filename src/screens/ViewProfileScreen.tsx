@@ -15,6 +15,7 @@ import { normalizeProfile } from '../api/directory';
 import { normalizeLinkedInUrl } from '../types/directory';
 import { switchDualProfile } from '../api/dual-profile';
 import { ViewProfileOverviewTab } from '../components/profile/ViewProfileOverviewTab';
+import { ViewProfileRoleThesisTab } from '../components/profile/ViewProfileRoleThesisTab';
 import { ViewProfilePostsTab } from '../components/profile/ViewProfilePostsTab';
 import { ViewProfileTestimonialTab } from '../components/profile/ViewProfileTestimonialTab';
 import { ViewProfileResourcesTab } from '../components/profile/ViewProfileResourcesTab';
@@ -51,9 +52,10 @@ type TabKey = (typeof TABS)[number]['key'];
  * (`ViewProfileResourcesTab.tsx`, Phase 5, Contributed/Saved + real delete), and Analytics
  * (`ViewProfileAnalyticsTab.tsx`, Phase 7, completion ring + real stat facts — despite the tab
  * LABEL, web's own equivalent is a profile-completion widget, not an engagement dashboard) have
- * real content; only Role Thesis (saved last deliberately — see the plan's Phase 8 note on why,
- * it's the one tab whose content is entirely role-dependent) still shows a "coming soon"
- * placeholder body, matching every other partially-built feature's stub convention in this app.
+ * real content. Role Thesis (`ViewProfileRoleThesisTab.tsx`, Phase 8, deliberately saved for last
+ * since its content is entirely role-dependent) is now real too, one role at a time — only
+ * Intermediary has content so far; every other role still shows the same "coming soon" placeholder
+ * every tab here used before its own phase landed.
  * Posts is a `FlatList`, not the `KeyboardAwareScrollView` every other tab renders inside — see
  * the render branch below for why (nesting a `FlatList` inside a `ScrollView` breaks
  * virtualization). Testimonial, Resources, and Analytics all stay inside the
@@ -327,6 +329,8 @@ function ViewProfileScreen() {
             <ViewProfileResourcesTab />
           ) : activeTab === 'analytics' ? (
             <ViewProfileAnalyticsTab />
+          ) : activeTab === 'roleThesis' ? (
+            <ViewProfileRoleThesisTab profile={profile} />
           ) : (
             <View style={styles.comingSoon}>
               <Text style={[fonts.semibold, { color: colors.ink3 }]}>More is coming here in a future update.</Text>
