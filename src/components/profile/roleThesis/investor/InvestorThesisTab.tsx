@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Animated, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,6 +16,7 @@ import {
   RoleThesisCompletion,
 } from '../../../../api/roleThesis';
 import { DocumentPreviewSheet } from '../DocumentPreviewSheet';
+import type { RoleThesisTabHandle } from '../RoleThesisTabHandle';
 import { RoleThesisCompleteness } from '../RoleThesisCompleteness';
 import { RoleThesisSectionCard } from '../RoleThesisSectionCard';
 import { SimilarProfilesRow } from '../SimilarProfilesRow';
@@ -45,7 +46,7 @@ type SheetKey = 'profile' | 'focus' | 'criteria' | 'approach' | 'track' | null;
  * `fetchInvestorThesis`), including the same `profile_id`-from-the-response pattern for "Similar
  * investors" — proven reliable there, unlike Searcher's `roleProfile`-based approach.
  */
-export function InvestorThesisTab({ profile }: { profile: Profile }) {
+export const InvestorThesisTab = forwardRef<RoleThesisTabHandle, { profile: Profile }>(function InvestorThesisTabImpl({ profile }, ref) {
   const { colors, fonts } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [loading, setLoading] = useState(true);
@@ -85,6 +86,18 @@ export function InvestorThesisTab({ profile }: { profile: Profile }) {
   const refreshCompletion = () => {
     fetchInvestorThesisCompletion().then(setCompletion);
   };
+
+  useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      const [t, c] = await Promise.all([fetchInvestorThesis(), fetchInvestorThesisCompletion()]);
+      const withPrefill = !t.educationalInstitution && profile.sub_category ? { ...t, educationalInstitution: profile.sub_category } : t;
+      setThesis(withPrefill);
+      setCompletion(c);
+      if (withPrefill.profileId) {
+        setSimilar(await fetchSimilarRoleProfiles(withPrefill.profileId, profile.role_type ?? 'Investor'));
+      }
+    },
+  }), [profile.sub_category, profile.role_type]);
 
   const handleSaved = (patch: Partial<InvestorThesis>) => {
     setThesis(prev => (prev ? { ...prev, ...patch } : prev));
@@ -417,7 +430,7 @@ export function InvestorThesisTab({ profile }: { profile: Profile }) {
       <TrackRecordValueAddSheet visible={openSheet === 'track'} thesis={thesis} onClose={() => setOpenSheet(null)} onSaved={handleSaved} />
     </View>
   );
-}
+});
 
 function PlainValue({ value, emptyText = '-' }: { value: string; emptyText?: string }) {
   const { colors, fonts } = useTheme();

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,6 +13,7 @@ import {
   AdvisorThesis,
   RoleThesisCompletion,
 } from '../../../../api/roleThesis';
+import type { RoleThesisTabHandle } from '../RoleThesisTabHandle';
 import { RoleThesisCompleteness } from '../RoleThesisCompleteness';
 import { RoleThesisSectionCard } from '../RoleThesisSectionCard';
 import { SimilarProfilesRow } from '../SimilarProfilesRow';
@@ -45,7 +46,7 @@ function fmtFee(value: string): string {
  *
  * Data source is a dedicated GET (`GET /auth/advisor`), same shape as Intermediary/Investor/Lender.
  */
-export function AdvisorThesisTab({ profile }: { profile: Profile }) {
+export const AdvisorThesisTab = forwardRef<RoleThesisTabHandle, { profile: Profile }>(function AdvisorThesisTabImpl({ profile }, ref) {
   const { colors, fonts } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [loading, setLoading] = useState(true);
@@ -79,6 +80,17 @@ export function AdvisorThesisTab({ profile }: { profile: Profile }) {
   const refreshCompletion = () => {
     fetchAdvisorThesisCompletion().then(setCompletion);
   };
+
+  useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      const [t, c] = await Promise.all([fetchAdvisorThesis(), fetchAdvisorThesisCompletion()]);
+      setThesis(t);
+      setCompletion(c);
+      if (t.profileId) {
+        setSimilar(await fetchSimilarRoleProfiles(t.profileId, profile.role_type ?? 'Advisor'));
+      }
+    },
+  }), [profile.role_type]);
 
   const handleSaved = (patch: Partial<AdvisorThesis>) => {
     setThesis(prev => (prev ? { ...prev, ...patch } : prev));
@@ -378,7 +390,7 @@ export function AdvisorThesisTab({ profile }: { profile: Profile }) {
       <TrackRecordSheet visible={openSheet === 'track'} thesis={thesis} onClose={() => setOpenSheet(null)} onSaved={handleSaved} />
     </View>
   );
-}
+});
 
 function credPublicVisible(thesis: AdvisorThesis, hasCredentials: boolean): boolean {
   return thesis.credentialsPublic && hasCredentials;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../../theme';
 import type { Profile } from '../../types/directory';
@@ -7,6 +7,10 @@ import { SearcherThesisTab } from './roleThesis/searcher/SearcherThesisTab';
 import { InvestorThesisTab } from './roleThesis/investor/InvestorThesisTab';
 import { LenderThesisTab } from './roleThesis/lender/LenderThesisTab';
 import { AdvisorThesisTab } from './roleThesis/advisor/AdvisorThesisTab';
+import { OperatorThesisTab } from './roleThesis/operator/OperatorThesisTab';
+import type { RoleThesisTabHandle } from './roleThesis/RoleThesisTabHandle';
+
+export type { RoleThesisTabHandle };
 
 /**
  * Role Thesis tab dispatcher — Phase 8, built one role at a time (per explicit instruction:
@@ -29,37 +33,37 @@ import { AdvisorThesisTab } from './roleThesis/advisor/AdvisorThesisTab';
  * (Intermediary's `/auth/seller` does; Searcher's flow doesn't call a fetch endpoint at all to
  * have one).
  *
- * Only Intermediary, Searcher, Investor, Lender, and Advisor have real content so far; every other
- * role still shows the same "coming soon" placeholder `ViewProfileScreen.tsx` showed for ALL of
- * Role Thesis before this phase, so an Operator/Seller/Student profile's own experience is
- * unaffected until its own future phase lands.
+ * Only Intermediary, Searcher, Investor, Lender, Advisor, and Operator have real content so far;
+ * every other role (Business Owner/Seller, Student) still shows the same "coming soon" placeholder
+ * `ViewProfileScreen.tsx` showed for ALL of Role Thesis before this phase, so those profiles' own
+ * experience is unaffected until their own future phase lands. The placeholder branch forwards no
+ * ref (nothing to refresh there) — `ViewProfileScreen.tsx`'s pull-to-refresh handler just no-ops if
+ * its ref is null.
  */
-export function ViewProfileRoleThesisTab({
-  profile,
-  roleProfile,
-  userId,
-}: {
-  profile: Profile;
-  roleProfile: unknown;
-  userId: string;
-}) {
+export const ViewProfileRoleThesisTab = forwardRef<
+  RoleThesisTabHandle,
+  { profile: Profile; roleProfile: unknown; userId: string }
+>(function ViewProfileRoleThesisTabImpl({ profile, roleProfile, userId }, ref) {
   const { colors, fonts } = useTheme();
   const role = (profile.role_type ?? '').trim().toLowerCase();
 
   if (role === 'intermediary') {
-    return <IntermediaryThesisTab profile={profile} />;
+    return <IntermediaryThesisTab ref={ref} profile={profile} />;
   }
   if (role === 'searcher') {
-    return <SearcherThesisTab profile={profile} roleProfile={roleProfile} userId={userId} />;
+    return <SearcherThesisTab ref={ref} profile={profile} roleProfile={roleProfile} userId={userId} />;
   }
   if (role === 'investor') {
-    return <InvestorThesisTab profile={profile} />;
+    return <InvestorThesisTab ref={ref} profile={profile} />;
   }
   if (role === 'lender') {
-    return <LenderThesisTab profile={profile} />;
+    return <LenderThesisTab ref={ref} profile={profile} />;
   }
   if (role === 'advisor') {
-    return <AdvisorThesisTab profile={profile} />;
+    return <AdvisorThesisTab ref={ref} profile={profile} />;
+  }
+  if (role === 'operator') {
+    return <OperatorThesisTab ref={ref} profile={profile} />;
   }
 
   return (
@@ -67,7 +71,7 @@ export function ViewProfileRoleThesisTab({
       <Text style={[fonts.semibold, { color: colors.ink3 }]}>More is coming here in a future update.</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   comingSoon: { paddingVertical: 60, alignItems: 'center', paddingHorizontal: 30 },

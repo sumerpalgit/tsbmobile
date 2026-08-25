@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,6 +13,7 @@ import {
   IntermediaryThesis,
   RoleThesisCompletion,
 } from '../../../../api/roleThesis';
+import type { RoleThesisTabHandle } from '../RoleThesisTabHandle';
 import { RoleThesisCompleteness } from '../RoleThesisCompleteness';
 import { RoleThesisSectionCard } from '../RoleThesisSectionCard';
 import { SimilarProfilesRow } from '../SimilarProfilesRow';
@@ -39,7 +40,7 @@ type SheetKey = 'seller' | 'coverage' | 'flow' | 'engagement' | 'track' | null;
  * local `thesis` state immediately so the read-mode card reflects the edit without waiting on a
  * full refetch, while completion catches up right behind it.
  */
-export function IntermediaryThesisTab({ profile }: { profile: Profile }) {
+export const IntermediaryThesisTab = forwardRef<RoleThesisTabHandle, { profile: Profile }>(function IntermediaryThesisTabImpl({ profile }, ref) {
   const { colors, fonts } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [loading, setLoading] = useState(true);
@@ -81,6 +82,17 @@ export function IntermediaryThesisTab({ profile }: { profile: Profile }) {
   const refreshCompletion = () => {
     fetchIntermediaryThesisCompletion().then(setCompletion);
   };
+
+  useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      const [t, c] = await Promise.all([fetchIntermediaryThesis(), fetchIntermediaryThesisCompletion()]);
+      setThesis(t);
+      setCompletion(c);
+      if (t.profileId) {
+        setSimilar(await fetchSimilarRoleProfiles(t.profileId, profile.role_type ?? 'Intermediary'));
+      }
+    },
+  }), [profile.role_type]);
 
   const handleSaved = (patch: Partial<IntermediaryThesis>) => {
     setThesis(prev => (prev ? { ...prev, ...patch } : prev));
@@ -310,7 +322,7 @@ export function IntermediaryThesisTab({ profile }: { profile: Profile }) {
       <TrackRecordSheet visible={openSheet === 'track'} thesis={thesis} onClose={() => setOpenSheet(null)} onSaved={handleSaved} />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28, gap: 18 },

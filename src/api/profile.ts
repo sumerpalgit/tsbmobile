@@ -147,7 +147,10 @@ export async function fetchProfileByUsername(username: string): Promise<Profile>
 /** `PUT /profile/update-profile` — shared by Settings' Account and Profile tabs, each sending a
  * disjoint partial body (`{name,phone,phone_country,timezone}` vs `{name,bio,city,headline}`),
  * matching web's `handleSavePersonalInfo`/`handleSaveProfileForm` exactly (see
- * `PROFILE_ENDPOINTS.UPDATE`'s doc comment). */
+ * `PROFILE_ENDPOINTS.UPDATE`'s doc comment). `linkedin_url` added for Operator's Role Thesis
+ * "Profile & Supporting Materials" card — web's real `updateMyProfile` (`my-profile.ts:228-236`)
+ * hits this SAME endpoint, a genuinely separate call from the role-thesis PUT itself (LinkedIn
+ * lives on the general profile record, not the Operator-specific one). */
 export function updateProfile(payload: {
   name?: string;
   phone?: string;
@@ -156,6 +159,7 @@ export function updateProfile(payload: {
   bio?: string;
   city?: string;
   headline?: string;
+  linkedin_url?: string;
 }) {
   return apiClient.put(PROFILE_ENDPOINTS.UPDATE, payload).then(res => res.data);
 }

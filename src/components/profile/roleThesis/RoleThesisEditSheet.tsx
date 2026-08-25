@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useTheme } from '../../../theme';
 import { BottomSheet } from '../../BottomSheet';
@@ -14,6 +14,15 @@ import { BottomSheet } from '../../BottomSheet';
  * shell (same one `RequestTestimonialSheet.tsx` uses) rather than a new Modal, per this app's own
  * established sheet convention — keyboard avoidance is inherited from that shell's own
  * `marginBottom` shift, same as every other sheet in this app with a handful of text fields.
+ *
+ * The footer's Cancel/Save `Pressable`s both fire `Keyboard.dismiss()` on `onPressIn` (touch-down)
+ * rather than relying on the keyboard's own automatic outside-tap dismissal — confirmed on-device:
+ * tapping Save while a field is still focused otherwise needed two taps, since `BottomSheet.tsx`'s
+ * `marginBottom: keyboardHeight` snaps instantly (not animated) once the keyboard-hide listener
+ * fires, shifting the whole sheet — Save included — out from under the finger mid-press, which
+ * React Native treats as a cancelled gesture rather than a completed tap. Dismissing on `onPressIn`
+ * (well before `onPress`'s touch-release) gives that shift time to finish before the tap is
+ * evaluated, so the same single tap now both closes the keyboard and fires the action.
  */
 export function RoleThesisEditSheet({
   visible,
@@ -68,6 +77,7 @@ export function RoleThesisEditSheet({
 
       <View style={[styles.footer, { borderTopColor: colors.borderSoft }]}>
         <Pressable
+          onPressIn={Keyboard.dismiss}
           onPress={onClose}
           disabled={saving}
           style={[styles.cancelButton, { backgroundColor: colors.authField, borderColor: colors.authFieldBorder }]}
@@ -75,6 +85,7 @@ export function RoleThesisEditSheet({
           <Text style={[fonts.semibold, styles.footerButtonText, { color: colors.ink2 }]}>Cancel</Text>
         </Pressable>
         <Pressable
+          onPressIn={Keyboard.dismiss}
           onPress={onSave}
           disabled={saving || saveDisabled}
           style={[styles.saveButton, { backgroundColor: colors.hero1, opacity: saving || saveDisabled ? 0.6 : 1 }]}

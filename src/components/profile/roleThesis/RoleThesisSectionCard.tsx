@@ -83,9 +83,9 @@ export function RoleThesisSectionCard({
             <Pressable
               onPress={onEdit}
               accessibilityLabel="Edit section"
-              style={[styles.editButton, { backgroundColor: colors.authField, borderColor: colors.authFieldBorder }]}
+              style={[styles.editButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
             >
-              <Pencil size={12} color={colors.ink2} strokeWidth={1.8} />
+              <Pencil size={16} color={colors.ink2} strokeWidth={1.8} />
             </Pressable>
           )}
         </View>
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   description: { fontSize: 11, marginTop: 3 },
   badge: { flexShrink: 0, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7 },
   badgeText: { fontSize: 10, letterSpacing: 0.4, textTransform: 'uppercase' },
-  editButton: { width: 30, height: 30, borderRadius: 9, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  editButton: { width: 32, height: 32, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   spacer: { height: 12 },
   ctaRow: { alignItems: 'flex-end', paddingHorizontal: 14, paddingBottom: 14, paddingTop: 12, marginTop: 6, borderTopWidth: StyleSheet.hairlineWidth },
   ctaButton: { height: 42, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

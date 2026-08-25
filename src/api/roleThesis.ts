@@ -768,3 +768,128 @@ export async function fetchAdvisorThesisCompletion(): Promise<RoleThesisCompleti
   const data = await apiClient.get(ROLE_THESIS_ENDPOINTS.ADVISOR_THESIS_COMPLETION).then(res => res.data).catch(() => null);
   return normalizeCompletion((data as Record<string, unknown> | null)?.data ?? data);
 }
+
+/**
+ * Operator role — a dedicated GET, like Intermediary/Investor/Lender/Advisor (unlike Searcher). All
+ * 6 cards show a status badge + "Complete this section" CTA (`RoleThesisSectionCard`'s default
+ * `showStatus=true`), matching every already-built role except Investor — web's `CardShell`
+ * receives explicit `complete`/`incomplete` for every Operator card, confirmed not the Investor
+ * `alwaysShowEdit` pattern. Per-card `complete` is computed 100% client-side (see each `hasData`
+ * formula quoted at its call site in `OperatorThesisTab.tsx`), matching the project-wide convention.
+ *
+ * Field mapping matches web's real `parseRoleProfile` (`OperatorThesisTab.tsx`) verbatim — every
+ * field is a plain two-way `camelCase ?? snake_case` fallback, no dual-write quirks, no string↔int
+ * lookup-table transcoding (Advisor-style simplicity, not Lender's). `updateOperatorThesis` sends
+ * plain camelCase keys as-is (matching web's own `buildApiPayload`, which has no remapping step at
+ * all) — only numeric string→number conversion is needed for the 6 money/count fields.
+ *
+ * `noticePeriod` exists on web's own type/parse function but is a confirmed dead field — no card
+ * reads or writes it — so it's deliberately omitted here rather than plumbed through for nothing.
+ *
+ * LinkedIn URL is a genuine architectural quirk: it's NOT part of Operator's own data at all on
+ * web — it lives on the general profile record and saves through a completely separate
+ * `updateMyProfile` call (`PUT /profile/update-profile`, same endpoint mobile's own
+ * `updateProfile()` already uses) only when changed, run in parallel with the Operator PUT. Kept
+ * out of `OperatorThesis` entirely; `ProfileMaterialsSheet` reads/writes it via `profile.linkedin_url`
+ * and `updateProfile()` directly instead.
+ */
+export type OperatorThesis = {
+  profileId: string;
+  currentDesignation: string;
+  totalExperience: string;
+  functionalStrengths: string[];
+  revenueManaged: string;
+  teamSizeManaged: string;
+  keyOutcomesDelivered: string;
+  transactionExperience: string[];
+  leadershipExperience: string[];
+  operatingBio: string;
+  engagementType: string[];
+  workMode: string[];
+  dealStagePreference: string[];
+  startRoleWith: string[];
+  timeCommitment: string;
+  compensationPreference: string[];
+  industryInterests: string[];
+  geographyFocus: string[];
+  revenueRangeMin: string;
+  revenueRangeMax: string;
+  employeeCountMin: string;
+  employeeCountMax: string;
+  startDatePreference: string;
+  relocationPreference: string[];
+  equityAppetite: string[];
+  resumeUrl: string;
+  coverLetterUrl: string;
+  professionalStatement: string;
+};
+
+function normalizeOperatorThesis(raw: unknown): OperatorThesis {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const str = (a: unknown, b: unknown) => String(a ?? b ?? '');
+  const numStr = (a: unknown, b: unknown) => (a != null ? String(a) : b != null ? String(b) : '');
+  const arr = (...vals: unknown[]): string[] => (vals.find(v => Array.isArray(v)) as string[] | undefined) ?? [];
+
+  return {
+    profileId: str(r.profile_id, r.profileId),
+    currentDesignation: str(r.currentDesignation, r.current_designation) || str(r.current_professional_role, ''),
+    totalExperience: str(r.totalExperience, r.total_years_experience),
+    functionalStrengths: arr(r.functionalStrengths, r.primary_functional_strengths),
+    revenueManaged: numStr(r.revenueManaged, r.revenue_managed),
+    teamSizeManaged: numStr(r.teamSizeManaged, r.team_size_managed),
+    keyOutcomesDelivered: str(r.keyOutcomesDelivered, r.key_outcomes_delivered),
+    transactionExperience: arr(r.transactionExperience, r.acquisition_transaction_experience),
+    leadershipExperience: arr(r.leadershipExperience, r.leadership_experience),
+    operatingBio: str(r.operatingBio, r.operating_bio),
+    engagementType: arr(r.engagementType, r.preferred_engagement_types),
+    workMode: arr(r.workMode, r.preferred_work_modes),
+    dealStagePreference: arr(r.dealStagePreference, r.deal_stage_preference),
+    startRoleWith: arr(r.startRoleWith, r.start_role_with),
+    timeCommitment: str(r.timeCommitment, r.time_commitment),
+    compensationPreference: arr(r.compensationPreference, r.compensation_preferences),
+    industryInterests: arr(r.industryInterests, r.industry_interests),
+    geographyFocus: arr(r.geographyFocus, r.geography_focus),
+    revenueRangeMin: numStr(r.revenueRangeMin, r.revenue_range_min),
+    revenueRangeMax: numStr(r.revenueRangeMax, r.revenue_range_max),
+    employeeCountMin: numStr(r.employeeCountMin, r.employee_count_min),
+    employeeCountMax: numStr(r.employeeCountMax, r.employee_count_max),
+    startDatePreference: str(r.startDatePreference, r.start_date_preference),
+    relocationPreference: arr(r.relocationPreference, r.relocation_preference),
+    equityAppetite: arr(r.equityAppetite, r.equity_appetite),
+    resumeUrl: str(r.resumeUrl, r.resume_url),
+    coverLetterUrl: str(r.coverLetterUrl, r.cover_letter_url),
+    professionalStatement: str(r.professionalStatement, r.professional_statement),
+  };
+}
+
+/** `GET /auth/operator` — matches web's `fetchOperatorProfile`. */
+export async function fetchOperatorThesis(): Promise<OperatorThesis> {
+  const data = await apiClient.get(AUTH_ENDPOINTS.OPERATOR).then(res => res.data).catch(() => null);
+  const envelope = data as Record<string, unknown> | null;
+  return normalizeOperatorThesis(envelope?.data ?? envelope?.operator ?? envelope);
+}
+
+/** `PUT /auth/operator`, body `{ formData: payload }` — matches web's `updateOperatorProfile` +
+ * `buildApiPayload` exactly: plain camelCase passthrough, no remapping. Only the 6 money/count
+ * fields need Number() conversion right before the PUT. */
+export async function updateOperatorThesis(payload: Partial<OperatorThesis>): Promise<void> {
+  const p: Record<string, unknown> = { ...payload };
+  const numericFields: (keyof OperatorThesis)[] = [
+    'revenueManaged', 'teamSizeManaged', 'revenueRangeMin', 'revenueRangeMax', 'employeeCountMin', 'employeeCountMax',
+  ];
+  for (const field of numericFields) {
+    if (payload[field] !== undefined) {
+      const value = payload[field] as string;
+      p[field] = value ? Number(value) : undefined;
+    }
+  }
+  await apiClient.put(AUTH_ENDPOINTS.OPERATOR, { formData: p });
+}
+
+/** `GET /profile/operator-thesis/completion` — matches web's `fetchOperatorThesisCompletion`.
+ * Fetched for the top completeness bar only — see `OperatorThesis`'s own doc comment for why each
+ * card's `complete` prop is computed client-side instead. */
+export async function fetchOperatorThesisCompletion(): Promise<RoleThesisCompletion> {
+  const data = await apiClient.get(ROLE_THESIS_ENDPOINTS.OPERATOR_THESIS_COMPLETION).then(res => res.data).catch(() => null);
+  return normalizeCompletion((data as Record<string, unknown> | null)?.data ?? data);
+}

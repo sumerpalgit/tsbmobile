@@ -40,6 +40,10 @@ export const AUTH_ENDPOINTS = {
    * (`webSrc/actions/my-profile.ts:466-480`). Same dedicated-GET shape as `SELLER`/`INVESTOR`/
    * `LENDER` above (unlike `SEARCHER`). */
   ADVISOR: '/auth/advisor',
+  /** `GET`/`PUT /api/auth/operator` — matches web's `fetchOperatorProfile`/`updateOperatorProfile`
+   * (`webSrc/actions/my-profile.ts:447-464`). Same dedicated-GET shape as `SELLER`/`INVESTOR`/
+   * `LENDER`/`ADVISOR` above (unlike `SEARCHER`). */
+  OPERATOR: '/auth/operator',
 } as const;
 
 export const PROFILE_ENDPOINTS = {
@@ -305,5 +309,7 @@ export const ROLE_THESIS_ENDPOINTS = {
   LENDING_THESIS_COMPLETION: '/profile/lending-thesis/completion',
   /** Matches web's `fetchAdvisorThesisCompletion` (`GET /profile/advisor-thesis/completion`). */
   ADVISOR_THESIS_COMPLETION: '/profile/advisor-thesis/completion',
+  /** Matches web's `fetchOperatorThesisCompletion` (`GET /profile/operator-thesis/completion`). */
+  OPERATOR_THESIS_COMPLETION: '/profile/operator-thesis/completion',
   SIMILAR: '/profile',
 } as const;

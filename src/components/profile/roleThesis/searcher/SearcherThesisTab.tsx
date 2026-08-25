@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Animated, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,6 +16,7 @@ import {
   RoleThesisCompletion,
 } from '../../../../api/roleThesis';
 import { DocumentPreviewSheet } from '../DocumentPreviewSheet';
+import type { RoleThesisTabHandle } from '../RoleThesisTabHandle';
 import { RoleThesisCompleteness } from '../RoleThesisCompleteness';
 import { RoleThesisSectionCard } from '../RoleThesisSectionCard';
 import { SimilarProfilesRow } from '../SimilarProfilesRow';
@@ -49,7 +50,8 @@ const SEARCH_STAGES = ['Preparing', 'Actively sourcing', 'LOI stage', 'Under DD'
  * searchers you may know" uses — more robust than depending on a role-specific GET response's own
  * `profile_id` field, which this role doesn't even have (no GET call to have one).
  */
-export function SearcherThesisTab({ profile, roleProfile, userId }: { profile: Profile; roleProfile: unknown; userId: string }) {
+export const SearcherThesisTab = forwardRef<RoleThesisTabHandle, { profile: Profile; roleProfile: unknown; userId: string }>(
+  function SearcherThesisTabImpl({ profile, roleProfile, userId }, ref) {
   const { colors, fonts } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [thesis, setThesis] = useState<SearcherThesis>(() => getSearcherThesis(roleProfile));
@@ -85,6 +87,22 @@ export function SearcherThesisTab({ profile, roleProfile, userId }: { profile: P
   const refreshCompletion = () => {
     fetchSearcherThesisCompletion().then(setCompletion);
   };
+
+  // Unlike the other 4 roles, Searcher has no dedicated GET — `thesis` already re-syncs on its own
+  // whenever the `roleProfile` prop changes (the effect above), so refresh here only needs to
+  // re-pull completion + similar profiles. Getting fresh `roleProfile` itself is
+  // `ViewProfileScreen.tsx`'s job (it owns the `useMe()` query this prop comes from — invalidating
+  // that query on pull-to-refresh is what actually updates `roleProfile`, which then flows back down
+  // as a prop and re-triggers this component's own sync effect).
+  useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      const [c] = await Promise.all([
+        fetchSearcherThesisCompletion(),
+        userId ? fetchSimilarRoleProfiles(userId, profile.role_type ?? 'Searcher').then(setSimilar) : Promise.resolve(),
+      ]);
+      setCompletion(c);
+    },
+  }), [userId, profile.role_type]);
 
   const handleSaved = (patch: Partial<SearcherThesis>) => {
     setThesis(prev => ({ ...prev, ...patch }));
@@ -472,7 +490,7 @@ export function SearcherThesisTab({ profile, roleProfile, userId }: { profile: P
       )}
     </View>
   );
-}
+});
 
 /** Same opacity-pulse shimmer as `ResourceCardSkeleton.tsx`/Analytics' own skeleton — matches
  * web's own loading state (5 `animate-pulse` boxes, `SearcherThesisTab.tsx`'s `if (loading)`

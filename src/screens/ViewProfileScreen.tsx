@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,6 +21,7 @@ import { ViewProfileTestimonialTab } from '../components/profile/ViewProfileTest
 import { ViewProfileResourcesTab } from '../components/profile/ViewProfileResourcesTab';
 import { FollowListSheet } from '../components/profile/FollowListSheet';
 import { ViewProfileAnalyticsTab } from '../components/profile/ViewProfileAnalyticsTab';
+import type { RoleThesisTabHandle } from '../components/profile/roleThesis/RoleThesisTabHandle';
 import type { AppStackParamList } from '../navigation/types';
 
 const TABS = [
@@ -155,6 +156,21 @@ function ViewProfileScreen() {
   const tabScrollRef = useRef<ScrollView>(null);
   const tabLayouts = useRef<Partial<Record<TabKey, { x: number; width: number }>>>({});
 
+  /** Pull-to-refresh, Role Thesis tab only — per explicit direction ("add seprate for all role").
+   * The actual pull gesture lives on the ONE shared outer `KeyboardAwareScrollView` below (every
+   * tab's content renders inside it, none owns its own scroll container), so `RefreshControl` is
+   * only ever attached there, conditionally, when `activeTab === 'roleThesis'`. The role tab itself
+   * exposes a `refresh()` method via `forwardRef`/`useImperativeHandle` (`RoleThesisTabHandle`)
+   * since it owns its own `thesis`/`completion`/`similar` state internally — this screen has no
+   * other way to ask it to refetch. Also invalidates `ME_QUERY_KEY` first: Searcher has no
+   * dedicated GET at all (reads `roleProfile` straight off this screen's own `useMe()` data), so
+   * its thesis fields only ever refresh via a fresh `user` object flowing back down as a prop —
+   * the other 4 roles' own `refresh()` re-fetches their dedicated GET directly and don't need this,
+   * but invalidating here too keeps the general profile data (avatar, stats, etc.) fresh for all of
+   * them as a reasonable side benefit, not just Searcher's special case. */
+  const roleThesisRef = useRef<RoleThesisTabHandle>(null);
+  const [refreshingRoleThesis, setRefreshingRoleThesis] = useState(false);
+
   useEffect(() => {
     const layout = tabLayouts.current[activeTab];
     if (layout) {
@@ -178,6 +194,18 @@ function ViewProfileScreen() {
   const initials = profile.name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   const roleTabLabel = profile.role_type ? (ROLE_TAB_LABELS[profile.role_type.trim().toLowerCase()] ?? profile.role_type) : 'Role Thesis';
   const memberSince = user.created_at ? new Date(user.created_at).getFullYear() : null;
+
+  const handleRefreshRoleThesis = async () => {
+    setRefreshingRoleThesis(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY }),
+        roleThesisRef.current?.refresh() ?? Promise.resolve(),
+      ]);
+    } finally {
+      setRefreshingRoleThesis(false);
+    }
+  };
 
   const handleLinkedIn = () => {
     if (!profile.linkedin_url) return;
@@ -387,6 +415,11 @@ function ViewProfileScreen() {
           enableOnAndroid
           extraScrollHeight={80}
           keyboardOpeningTime={0}
+          refreshControl={
+            activeTab === 'roleThesis' ? (
+              <RefreshControl refreshing={refreshingRoleThesis} onRefresh={handleRefreshRoleThesis} tintColor={colors.gold} colors={[colors.gold]} />
+            ) : undefined
+          }
         >
           {identityBlock}
 
@@ -403,7 +436,7 @@ function ViewProfileScreen() {
           ) : activeTab === 'analytics' ? (
             <ViewProfileAnalyticsTab />
           ) : activeTab === 'roleThesis' ? (
-            <ViewProfileRoleThesisTab profile={profile} roleProfile={user.roleProfile} userId={user.id} />
+            <ViewProfileRoleThesisTab ref={roleThesisRef} profile={profile} roleProfile={user.roleProfile} userId={user.id} />
           ) : (
             <View style={styles.comingSoon}>
               <Text style={[fonts.semibold, { color: colors.ink3 }]}>More is coming here in a future update.</Text>

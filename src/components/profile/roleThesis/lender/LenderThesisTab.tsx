@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,6 +16,7 @@ import {
   RoleThesisCompletion,
 } from '../../../../api/roleThesis';
 import { DocumentPreviewSheet } from '../DocumentPreviewSheet';
+import type { RoleThesisTabHandle } from '../RoleThesisTabHandle';
 import { RoleThesisCompleteness } from '../RoleThesisCompleteness';
 import { RoleThesisSectionCard } from '../RoleThesisSectionCard';
 import { SimilarProfilesRow } from '../SimilarProfilesRow';
@@ -47,7 +48,7 @@ type SheetKey = 'financing' | 'criteria' | 'terms' | 'process' | 'track' | null;
  * `LenderThesis`'s own doc comment (`api/roleThesis.ts`) for the real dual-write/transcoding quirks
  * `updateLenderThesis` handles centrally so these sheets can just pass plain camelCase patches.
  */
-export function LenderThesisTab({ profile }: { profile: Profile }) {
+export const LenderThesisTab = forwardRef<RoleThesisTabHandle, { profile: Profile }>(function LenderThesisTabImpl({ profile }, ref) {
   const { colors, fonts } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [loading, setLoading] = useState(true);
@@ -82,6 +83,17 @@ export function LenderThesisTab({ profile }: { profile: Profile }) {
   const refreshCompletion = () => {
     fetchLenderThesisCompletion().then(setCompletion);
   };
+
+  useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      const [t, c] = await Promise.all([fetchLenderThesis(), fetchLenderThesisCompletion()]);
+      setThesis(t);
+      setCompletion(c);
+      if (t.profileId) {
+        setSimilar(await fetchSimilarRoleProfiles(t.profileId, profile.role_type ?? 'Lender'));
+      }
+    },
+  }), [profile.role_type]);
 
   const handleSaved = (patch: Partial<LenderThesis>) => {
     setThesis(prev => (prev ? { ...prev, ...patch } : prev));
@@ -439,7 +451,7 @@ export function LenderThesisTab({ profile }: { profile: Profile }) {
       )}
     </View>
   );
-}
+});
 
 /** Same opacity-pulse shimmer as every other Role Thesis skeleton (`SearcherThesisTab.tsx`'s own
  * copy, this codebase's established per-file duplication precedent for this small component). */
