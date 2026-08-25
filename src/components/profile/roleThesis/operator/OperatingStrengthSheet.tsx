@@ -96,6 +96,7 @@ export function OperatingStrengthSheet({
     >
       <ThesisField label="Key Outcomes Delivered">
         <TextInput
+          underlineColorAndroid="transparent"
           value={outcomes}
           onChangeText={setOutcomes}
           placeholder="e.g. Grew revenue from $5M to $18M, reduced COGS by 22%, built team of 40 from scratch..."
@@ -116,6 +117,7 @@ export function OperatingStrengthSheet({
 
       <ThesisField label="Operating Bio">
         <TextInput
+          underlineColorAndroid="transparent"
           value={bio}
           onChangeText={setBio}
           placeholder="Describe your operating background — the businesses you've run, the results you've delivered..."

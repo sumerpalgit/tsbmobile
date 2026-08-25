@@ -170,6 +170,7 @@ export const OperatorThesisTab = forwardRef<RoleThesisTabHandle, { profile: Prof
         description="Your operating role and areas of expertise"
         complete={profileComplete}
         onEdit={() => setOpenSheet('profile')}
+        ctaHelperText="Not yet filled · Visible to all members with empty state"
         iconBg={colors.hero1}
         iconColor="#fff"
       >
@@ -223,6 +224,7 @@ export const OperatorThesisTab = forwardRef<RoleThesisTabHandle, { profile: Prof
         description="Outcomes, transactions and ownership background"
         complete={strengthComplete}
         onEdit={() => setOpenSheet('strength')}
+        ctaHelperText="Not yet filled · Visible to all members with empty state"
         iconBg={colors.chip}
         iconColor={colors.goldDark}
       >
@@ -259,6 +261,7 @@ export const OperatorThesisTab = forwardRef<RoleThesisTabHandle, { profile: Prof
         description="How and when you prefer to work"
         complete={engagementComplete}
         onEdit={() => setOpenSheet('engagement')}
+        ctaHelperText="Not yet filled · Visible to all members with empty state"
         iconBg={colors.chip}
         iconColor={colors.goldDark}
       >
@@ -293,6 +296,7 @@ export const OperatorThesisTab = forwardRef<RoleThesisTabHandle, { profile: Prof
         description="Industries, geographies and company profiles you target"
         complete={fitComplete}
         onEdit={() => setOpenSheet('fit')}
+        ctaHelperText="Not yet filled · Visible to all members with empty state"
         iconBg={colors.hero1}
         iconColor="#fff"
       >
@@ -334,6 +338,7 @@ export const OperatorThesisTab = forwardRef<RoleThesisTabHandle, { profile: Prof
         description="Time, location and compensation"
         complete={availabilityComplete}
         onEdit={() => setOpenSheet('availability')}
+        ctaHelperText="Not yet filled · Visible to all members with empty state"
         iconBg={colors.chip}
         iconColor={colors.goldDark}
       >
@@ -368,6 +373,7 @@ export const OperatorThesisTab = forwardRef<RoleThesisTabHandle, { profile: Prof
         description="Documents and links that support your profile"
         complete={materialsComplete}
         onEdit={() => setOpenSheet('materials')}
+        ctaHelperText="Not yet filled · Visible to all members with empty state"
         iconBg={colors.hero1}
         iconColor="#fff"
       >

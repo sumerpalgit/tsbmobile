@@ -115,6 +115,7 @@ export function OperatorProfileSheet({
             <View style={[styles.dollarBox, { backgroundColor: colors.authField, borderColor: colors.authFieldBorder }]}>
               <Text style={[styles.dollar, { color: colors.ink3 }]}>$</Text>
               <TextInput
+                underlineColorAndroid="transparent"
                 value={revenueManaged}
                 onChangeText={setRevenueManaged}
                 placeholder="e.g. 5,000,000"
@@ -128,6 +129,7 @@ export function OperatorProfileSheet({
         <View style={styles.col}>
           <ThesisField label="Team Size Managed" labelLines={2}>
             <TextInput
+              underlineColorAndroid="transparent"
               value={teamSizeManaged}
               onChangeText={setTeamSizeManaged}
               placeholder="e.g. 25"

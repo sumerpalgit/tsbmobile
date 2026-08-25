@@ -8,6 +8,8 @@ import { InvestorThesisTab } from './roleThesis/investor/InvestorThesisTab';
 import { LenderThesisTab } from './roleThesis/lender/LenderThesisTab';
 import { AdvisorThesisTab } from './roleThesis/advisor/AdvisorThesisTab';
 import { OperatorThesisTab } from './roleThesis/operator/OperatorThesisTab';
+import { BusinessOwnerThesisTab } from './roleThesis/seller/BusinessOwnerThesisTab';
+import { StudentThesisTab } from './roleThesis/student/StudentThesisTab';
 import type { RoleThesisTabHandle } from './roleThesis/RoleThesisTabHandle';
 
 export type { RoleThesisTabHandle };
@@ -33,12 +35,17 @@ export type { RoleThesisTabHandle };
  * (Intermediary's `/auth/seller` does; Searcher's flow doesn't call a fetch endpoint at all to
  * have one).
  *
- * Only Intermediary, Searcher, Investor, Lender, Advisor, and Operator have real content so far;
- * every other role (Business Owner/Seller, Student) still shows the same "coming soon" placeholder
- * `ViewProfileScreen.tsx` showed for ALL of Role Thesis before this phase, so those profiles' own
- * experience is unaffected until their own future phase lands. The placeholder branch forwards no
- * ref (nothing to refresh there) — `ViewProfileScreen.tsx`'s pull-to-refresh handler just no-ops if
- * its ref is null.
+ * All 8 web roles now have real content — Intermediary, Searcher, Investor, Lender, Advisor,
+ * Operator, Business Owner, and Student (the last one built) — completing View Profile's Phase 8.
+ * The placeholder branch below is unreachable for any of this app's known `role_type` values but is
+ * kept as a defensive fallback (an unrecognized/future role value falls through to it rather than
+ * crashing) — its ref stays unforwarded (nothing to refresh there); `ViewProfileScreen.tsx`'s
+ * pull-to-refresh handler just no-ops if its ref is null.
+ *
+ * `role_type === 'seller'` (Business Owner) renders `BusinessOwnerThesisTab` — confirmed web's own
+ * filename/import-swap bug (`AUTH_ENDPOINTS.INTERMEDIARY`'s doc comment) means this role actually
+ * has DIFFERENT real fields/endpoint than what the mobile-side name "Seller" might suggest; don't
+ * confuse it with `AUTH_ENDPOINTS.SELLER`, which `role_type === 'intermediary'` above uses instead.
  */
 export const ViewProfileRoleThesisTab = forwardRef<
   RoleThesisTabHandle,
@@ -64,6 +71,12 @@ export const ViewProfileRoleThesisTab = forwardRef<
   }
   if (role === 'operator') {
     return <OperatorThesisTab ref={ref} profile={profile} />;
+  }
+  if (role === 'seller') {
+    return <BusinessOwnerThesisTab ref={ref} profile={profile} />;
+  }
+  if (role === 'student') {
+    return <StudentThesisTab ref={ref} profile={profile} />;
   }
 
   return (

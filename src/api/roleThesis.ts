@@ -893,3 +893,288 @@ export async function fetchOperatorThesisCompletion(): Promise<RoleThesisComplet
   const data = await apiClient.get(ROLE_THESIS_ENDPOINTS.OPERATOR_THESIS_COMPLETION).then(res => res.data).catch(() => null);
   return normalizeCompletion((data as Record<string, unknown> | null)?.data ?? data);
 }
+
+/**
+ * View Profile's Role Thesis tab, **Business Owner** role (`role_type === 'seller'`). This is the
+ * OTHER HALF of web's own filename/import-swap bug (see `AUTH_ENDPOINTS.INTERMEDIARY`'s doc
+ * comment): `role_type === 'seller'` actually renders the file literally named
+ * `IntermediaryThesisTab.tsx` and persists through `/auth/intermediary` — confirmed directly from
+ * that file's own `fetchIntermediaryProfile`/`updateIntermediaryProfile` calls
+ * (`webSrc/actions/my-profile.ts:516-528`). Replicated on purpose (confirmed with the user:
+ * "we needs to do same as Web app") — mobile's `IntermediaryThesis` above already correctly holds
+ * the REAL Seller fields/endpoint for `role_type === 'intermediary'`; this type is the mirror image.
+ *
+ * Unlike every other role built so far, this component has **no server completion endpoint at
+ * all** — web's real `IntermediaryThesisTab.tsx` computes its top completeness bar with a pure
+ * local function (`calcCompletion`, lines 198-210) instead of fetching one. A real
+ * `fetchIntermediaryThesisCompletion` action exists in web's own actions file
+ * (`/api/profile/intermediary-thesis/completion`) but the live component simply never calls it —
+ * dead code on web's side, not a gap to fill here. `calcBusinessOwnerThesisCompletion` below
+ * mirrors that exact local formula instead of adding a fetch web itself doesn't make.
+ */
+export type BusinessOwnerThesis = {
+  profileId: string;
+  reasonForTransaction: string;
+  currentSituation: string;
+  typesOfTransitionOpenTo: string[];
+  targetTimeline: string;
+  businessIndustry: string;
+  businessModel: string;
+  businessLocation: string;
+  yearsInOperation: string;
+  businessRevenueMin: string;
+  businessRevenueMax: string;
+  businessEbitdaMin: string;
+  businessEbitdaMax: string;
+  valuationMin: string;
+  valuationMax: string;
+  ownershipStake: string;
+  preferredBuyerType: string[];
+  operatorInvolvement: string;
+  /** GET's real DB field is `owner_current_role`, NOT `current_role` — confirmed from
+   * `parseApiResponse` (`IntermediaryThesisTab.tsx:155`). The PUT payload key IS `currentRole`
+   * (camelCase, matching `buildApiPayload`'s own `p.currentRole = d.currentRole`) — only the GET
+   * side's snake_case source differs from the obvious guess. */
+  currentRole: string;
+  dayToDayInvolvement: string;
+  managementTeam: string;
+  advisorSupport: string;
+  postTransactionInvolvement: string;
+  keyGrowthOpportunities: string;
+  currentConstraintsChallenges: string;
+  cimDocumentUrl: string;
+};
+
+function normalizeBusinessOwnerThesis(raw: unknown): BusinessOwnerThesis {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const str = (a: unknown, b: unknown) => String(a ?? b ?? '');
+  const numStr = (a: unknown, b: unknown) => (a != null ? String(a) : b != null ? String(b) : '');
+  const arr = (...vals: unknown[]): string[] => (vals.find(v => Array.isArray(v)) as string[] | undefined) ?? [];
+
+  return {
+    profileId: str(r.profile_id, r.profileId),
+    reasonForTransaction: str(r.reasonForTransaction, r.reason_for_transaction),
+    currentSituation: str(r.currentSituation, r.current_situation),
+    typesOfTransitionOpenTo: arr(r.typesOfTransitionOpenTo, r.types_of_transition_open_to),
+    targetTimeline: str(r.targetTimeline, r.target_timeline),
+    businessIndustry: str(r.businessIndustry, r.business_industry),
+    businessModel: str(r.businessModel, r.business_model),
+    businessLocation: str(r.businessLocation, r.business_location),
+    yearsInOperation: str(r.yearsInOperation, r.years_in_operation),
+    businessRevenueMin: numStr(r.businessRevenueMin, r.business_revenue_min),
+    businessRevenueMax: numStr(r.businessRevenueMax, r.business_revenue_max),
+    businessEbitdaMin: numStr(r.businessEbitdaMin, r.business_ebitda_min),
+    businessEbitdaMax: numStr(r.businessEbitdaMax, r.business_ebitda_max),
+    valuationMin: numStr(r.valuationMin, r.valuation_min),
+    valuationMax: numStr(r.valuationMax, r.valuation_max),
+    ownershipStake: str(r.ownershipStake, r.ownership_stake),
+    preferredBuyerType: arr(r.preferredBuyerType, r.preferred_buyer_type),
+    operatorInvolvement: str(r.operatorInvolvement, r.operator_involvement),
+    currentRole: str(r.currentRole, r.owner_current_role),
+    dayToDayInvolvement: str(r.dayToDayInvolvement, r.day_to_day_involvement),
+    managementTeam: str(r.managementTeam, r.management_team),
+    advisorSupport: str(r.advisorSupport, r.advisor_support),
+    postTransactionInvolvement: str(r.postTransactionInvolvement, r.post_transaction_involvement),
+    keyGrowthOpportunities: str(r.keyGrowthOpportunities, r.key_growth_opportunities),
+    currentConstraintsChallenges: str(r.currentConstraintsChallenges, r.current_constraints_challenges),
+    cimDocumentUrl: str(r.cimDocumentUrl, r.cim_document_url),
+  };
+}
+
+/** `GET /auth/intermediary` — matches web's real `fetchIntermediaryProfile` (the function actually
+ * called by `role_type === 'seller'`, per this type's own doc comment above). */
+export async function fetchBusinessOwnerThesis(): Promise<BusinessOwnerThesis> {
+  const data = await apiClient.get(AUTH_ENDPOINTS.INTERMEDIARY).then(res => res.data).catch(() => null);
+  const envelope = data as Record<string, unknown> | null;
+  return normalizeBusinessOwnerThesis(envelope?.data ?? envelope?.intermediary ?? envelope);
+}
+
+/** `PUT /auth/intermediary`, body `{ formData: payload }` — matches web's real
+ * `updateIntermediaryProfile` + `buildApiPayload` exactly: plain camelCase passthrough (including
+ * `currentRole`, despite the GET side reading `owner_current_role` — see the type's own doc
+ * comment). Only the 6 money-range fields need `Number()` conversion right before the PUT — web's
+ * own `buildApiPayload` also strips thousands-separator commas first
+ * (`d.valuationMin.replace(/,/g, "")`), replicated here since mobile's plain number-pad `TextInput`s
+ * never contain commas to begin with, but kept for byte-for-byte parity with a pasted value. */
+export async function updateBusinessOwnerThesis(payload: Partial<BusinessOwnerThesis>): Promise<void> {
+  const p: Record<string, unknown> = { ...payload };
+  const numericFields: (keyof BusinessOwnerThesis)[] = [
+    'businessRevenueMin', 'businessRevenueMax', 'businessEbitdaMin', 'businessEbitdaMax', 'valuationMin', 'valuationMax',
+  ];
+  for (const field of numericFields) {
+    if (payload[field] !== undefined) {
+      const value = (payload[field] as string).replace(/,/g, '');
+      p[field] = value ? Number(value) : undefined;
+    }
+  }
+  await apiClient.put(AUTH_ENDPOINTS.INTERMEDIARY, { formData: p });
+}
+
+/** Pure client-side completion calculator — matches web's real `calcCompletion`
+ * (`IntermediaryThesisTab.tsx:198-210`) exactly, section-for-section and formula-for-formula. NOT a
+ * fetch — see this type's own doc comment for why web itself never calls a completion endpoint for
+ * this role. Each of these 6 formulas is DELIBERATELY narrower than its own card's `hasData` (e.g.
+ * "Business Snapshot" here omits `yearsInOperation`, which Card 2's own badge DOES count) — matches
+ * web's real, genuinely inconsistent formulas verbatim rather than unifying them, same as every
+ * other role's top-bar-vs-card-badge split built so far. */
+export function calcBusinessOwnerThesisCompletion(t: BusinessOwnerThesis): RoleThesisCompletion {
+  const sections: { label: string; complete: boolean }[] = [
+    { label: 'Transaction Intent', complete: !!(t.reasonForTransaction || t.typesOfTransitionOpenTo.length || t.targetTimeline) },
+    { label: 'Business Snapshot', complete: !!(t.businessIndustry || t.businessLocation || t.businessRevenueMin) },
+    { label: 'Deal Overview', complete: !!(t.valuationMin || t.ownershipStake || t.preferredBuyerType.length) },
+    { label: 'Operations & Transition', complete: !!(t.currentRole || t.dayToDayInvolvement || t.postTransactionInvolvement) },
+    { label: 'Growth & Risks', complete: !!(t.keyGrowthOpportunities || t.currentConstraintsChallenges) },
+    { label: 'Supporting Materials', complete: !!t.cimDocumentUrl },
+  ];
+  const filled = sections.filter(s => s.complete).length;
+  return {
+    percentage: Math.round((filled / sections.length) * 100),
+    sections: sections.map(s => ({ ...s, percentage: s.complete ? 100 : 0 })),
+  };
+}
+
+/**
+ * View Profile's Role Thesis tab, **Student** role (`role_type === 'student'`). Straight,
+ * correctly-named import on web (`StudentThesisTab.tsx`) — no filename/import-swap quirk like
+ * Intermediary/Business Owner above. Same "no server completion endpoint" architecture as
+ * `BusinessOwnerThesis` — web's real `calcLocalCompletion` (`StudentThesisTab.tsx:1047-1064`) is a
+ * pure local function, replicated as `calcStudentThesisCompletion` below rather than adding a fetch
+ * web itself doesn't make.
+ *
+ * **The one genuinely unique thing about this role**: GET and PUT use DIFFERENT field names for
+ * more than half the fields — not just a snake_case/camelCase casing difference like every other
+ * role, but actually different words (e.g. `experienceLevel` reads from `prior_professional_
+ * experience` on GET, but PUTs back out as `priorExperience` — a THIRD spelling). Confirmed
+ * directly from web's own `parseApiResponse` (GET, lines 991-1015) and `buildApiPayload` (PUT,
+ * lines 1018-1044) — both read below field-by-field, do not "simplify" this to one shared key set,
+ * the backend genuinely expects the PUT-side names and genuinely returns the GET-side names.
+ *
+ * Full mapping table (UI field → GET raw source → PUT payload key):
+ * - academicStage      ← academicStage ?? academic_stage           → academicStage
+ * - primaryInterest    ← primaryInterest ?? eta_interest            → etaInterest
+ * - lookingFor          ← preferred_internship_types (ONLY)          → internshipType
+ * - workInterestedIn    ← work_type_interests (ONLY)                 → workInterest
+ * - coreSkills          ← coreSkills ?? core_skills                  → coreSkills
+ * - tools               ← tools (ONLY, no snake_case alt)            → tools
+ * - experienceLevel     ← prior_professional_experience (ONLY)       → priorExperience
+ * - aboutYou            ← key_responsibilities (ONLY)                → keyResponsibilities
+ * - preferredMode       ← preferred_work_modes (ONLY)                → workMode
+ * - duration            ← preferred_engagement_duration (ONLY)       → engagementDuration
+ * - compensation        ← compensation_preferences[0] (GET is an     → compensationPreference
+ *                          ARRAY; UI/PUT treat it as a single string)   (sent back as a plain string)
+ * - timeCommitment      ← timeCommitment ?? time_commitment          → timeCommitment
+ * - startDate           ← start_date_preference (ONLY)               → startDatePreference
+ * - industryFocus       ← industry_interests (ONLY)                  → preferredIndustryDomain
+ * - avoidedIndustries   ← avoidedIndustries ?? avoided_industries    → avoidedIndustries
+ * - geographyFocus      ← geographyFocus ?? geography_focus          → geographyFocus
+ * - resumeUrl           ← resume_url (ONLY)                          → resumeUrl
+ * - coverLetterUrl      ← cover_letter_url (ONLY)                    → coverLetterUrl
+ * - linkedinUrl         ← linkedinUrl ?? linkedin_url                → linkedinUrl
+ */
+export type StudentThesis = {
+  profileId: string;
+  academicStage: string;
+  primaryInterest: string;
+  lookingFor: string[];
+  workInterestedIn: string[];
+  coreSkills: string[];
+  tools: string[];
+  experienceLevel: string;
+  aboutYou: string;
+  preferredMode: string[];
+  duration: string;
+  compensation: string;
+  timeCommitment: string[];
+  startDate: string;
+  industryFocus: string[];
+  avoidedIndustries: string[];
+  geographyFocus: string[];
+  resumeUrl: string;
+  coverLetterUrl: string;
+  linkedinUrl: string;
+};
+
+function normalizeStudentThesis(raw: unknown): StudentThesis {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const str = (a: unknown, b?: unknown) => String(a ?? b ?? '');
+  const arr = (...vals: unknown[]): string[] => (vals.find(v => Array.isArray(v)) as string[] | undefined) ?? [];
+  const compPrefs = r.compensation_preferences;
+
+  return {
+    profileId: str(r.profile_id, r.profileId),
+    academicStage: str(r.academicStage, r.academic_stage),
+    primaryInterest: str(r.primaryInterest, r.eta_interest),
+    lookingFor: arr(r.preferred_internship_types),
+    workInterestedIn: arr(r.work_type_interests),
+    coreSkills: arr(r.coreSkills, r.core_skills),
+    tools: arr(r.tools),
+    experienceLevel: str(r.prior_professional_experience),
+    aboutYou: str(r.key_responsibilities),
+    preferredMode: arr(r.preferred_work_modes),
+    duration: str(r.preferred_engagement_duration),
+    compensation: Array.isArray(compPrefs) ? str((compPrefs as unknown[])[0]) : '',
+    timeCommitment: arr(r.timeCommitment, r.time_commitment),
+    startDate: str(r.start_date_preference),
+    industryFocus: arr(r.industry_interests),
+    avoidedIndustries: arr(r.avoidedIndustries, r.avoided_industries),
+    geographyFocus: arr(r.geographyFocus, r.geography_focus),
+    resumeUrl: str(r.resume_url),
+    coverLetterUrl: str(r.cover_letter_url),
+    linkedinUrl: str(r.linkedinUrl, r.linkedin_url),
+  };
+}
+
+/** `GET /auth/student` — matches web's `fetchStudentProfile`. */
+export async function fetchStudentThesis(): Promise<StudentThesis> {
+  const data = await apiClient.get(AUTH_ENDPOINTS.STUDENT).then(res => res.data).catch(() => null);
+  const envelope = data as Record<string, unknown> | null;
+  return normalizeStudentThesis(envelope?.data ?? envelope?.student ?? envelope);
+}
+
+/** `PUT /auth/student`, body `{ formData: payload }` — matches web's real `updateStudentProfile` +
+ * `buildApiPayload` exactly: this is NOT a camelCase passthrough (unlike Operator/Business Owner) —
+ * see `StudentThesis`'s own doc comment for the full GET/PUT field-name mapping table this mirrors. */
+export async function updateStudentThesis(payload: Partial<StudentThesis>): Promise<void> {
+  const p: Record<string, unknown> = {};
+  if (payload.workInterestedIn !== undefined) p.workInterest = payload.workInterestedIn;
+  if (payload.lookingFor !== undefined) p.internshipType = payload.lookingFor;
+  if (payload.experienceLevel !== undefined) p.priorExperience = payload.experienceLevel;
+  if (payload.aboutYou !== undefined) p.keyResponsibilities = payload.aboutYou;
+  if (payload.preferredMode !== undefined) p.workMode = payload.preferredMode;
+  if (payload.duration !== undefined) p.engagementDuration = payload.duration;
+  if (payload.compensation !== undefined) p.compensationPreference = payload.compensation;
+  if (payload.startDate !== undefined) p.startDatePreference = payload.startDate;
+  if (payload.industryFocus !== undefined) p.preferredIndustryDomain = payload.industryFocus;
+  if (payload.resumeUrl !== undefined) p.resumeUrl = payload.resumeUrl;
+  if (payload.coverLetterUrl !== undefined) p.coverLetterUrl = payload.coverLetterUrl;
+  if (payload.academicStage !== undefined) p.academicStage = payload.academicStage;
+  if (payload.primaryInterest !== undefined) p.etaInterest = payload.primaryInterest;
+  if (payload.coreSkills !== undefined) p.coreSkills = payload.coreSkills;
+  if (payload.tools !== undefined) p.tools = payload.tools;
+  if (payload.timeCommitment !== undefined) p.timeCommitment = payload.timeCommitment;
+  if (payload.avoidedIndustries !== undefined) p.avoidedIndustries = payload.avoidedIndustries;
+  if (payload.geographyFocus !== undefined) p.geographyFocus = payload.geographyFocus;
+  if (payload.linkedinUrl !== undefined) p.linkedinUrl = payload.linkedinUrl;
+  await apiClient.put(AUTH_ENDPOINTS.STUDENT, { formData: p });
+}
+
+/** Pure client-side completion calculator — matches web's real `calcLocalCompletion`
+ * (`StudentThesisTab.tsx:1047-1064`) exactly. NOT a fetch — see this type's own doc comment. Note
+ * "Skills & Capabilities" uses `&&` (AND), not `||` like every other section here — coreSkills must
+ * be non-empty AND at least one of tools/experienceLevel/aboutYou must be set, replicated verbatim
+ * even though it's an outlier among these 6 formulas. */
+export function calcStudentThesisCompletion(t: StudentThesis): RoleThesisCompletion {
+  const sections: { label: string; complete: boolean }[] = [
+    { label: 'Learning & Career Intent', complete: !!(t.lookingFor.length || t.workInterestedIn.length || t.academicStage || t.primaryInterest) },
+    { label: 'Skills & Capabilities', complete: !!(t.coreSkills.length && (t.tools.length || t.experienceLevel || t.aboutYou)) },
+    { label: 'Engagement Preferences', complete: !!(t.preferredMode.length || t.duration || t.compensation) },
+    { label: 'Availability & Logistics', complete: !!(t.timeCommitment.length || t.startDate) },
+    { label: 'Interest & Fit', complete: !!(t.industryFocus.length || t.geographyFocus.length) },
+    { label: 'Supporting Materials', complete: !!(t.resumeUrl || t.coverLetterUrl || t.linkedinUrl) },
+  ];
+  const filled = sections.filter(s => s.complete).length;
+  return {
+    percentage: Math.round((filled / sections.length) * 100),
+    sections: sections.map(s => ({ ...s, percentage: s.complete ? 100 : 0 })),
+  };
+}

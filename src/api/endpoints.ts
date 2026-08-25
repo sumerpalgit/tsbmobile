@@ -44,6 +44,25 @@ export const AUTH_ENDPOINTS = {
    * (`webSrc/actions/my-profile.ts:447-464`). Same dedicated-GET shape as `SELLER`/`INVESTOR`/
    * `LENDER`/`ADVISOR` above (unlike `SEARCHER`). */
   OPERATOR: '/auth/operator',
+  /** `GET`/`PUT /api/auth/intermediary` — matches web's `fetchIntermediaryProfile`/
+   * `updateIntermediaryProfile` (`webSrc/actions/my-profile.ts:516-528`). This is the OTHER HALF of
+   * the same filename/import-swap bug documented on `SELLER` above: web's dispatch aliases
+   * `SellerThesisTab` (the const name) to the FILE literally named `IntermediaryThesisTab.tsx`, so
+   * `role_type === 'seller'` (Business Owner) actually renders THAT file's real fields and persists
+   * through THIS endpoint — not a Seller-specific one. Confirmed by reading both files' own
+   * `fetchXProfile`/`updateXProfile` calls directly (`IntermediaryThesisTab.tsx` calls
+   * `fetchIntermediaryProfile`/`updateIntermediaryProfile`, i.e. this endpoint). Replicated here on
+   * purpose (confirmed with the user, "we needs to do same as Web app") — mobile's role_type
+   * `intermediary` tab already correctly uses `SELLER` above; this is role_type `seller`'s real
+   * endpoint. */
+  INTERMEDIARY: '/auth/intermediary',
+  /** `GET`/`PUT /api/auth/student` — matches web's `fetchStudentProfile`/`updateStudentProfile`
+   * (`webSrc/actions/my-profile.ts:502-514`). Straight correctly-named import
+   * (`StudentThesisTab.tsx`), no filename swap. Unlike every other role, the GET and PUT sides use
+   * GENUINELY DIFFERENT field names for several fields (not just a camelCase/snake_case casing
+   * difference) — see `BusinessOwnerThesis`'s sibling type `StudentThesis`'s own doc comment
+   * (`api/roleThesis.ts`) for the full mapping table. */
+  STUDENT: '/auth/student',
 } as const;
 
 export const PROFILE_ENDPOINTS = {

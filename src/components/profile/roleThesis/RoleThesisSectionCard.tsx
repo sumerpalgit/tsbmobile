@@ -36,6 +36,9 @@ export function RoleThesisSectionCard({
   onEdit,
   iconBg,
   iconColor,
+  ctaHelperText,
+  alwaysShowCta,
+  extraBadge,
   children,
 }: {
   label: string;
@@ -51,10 +54,30 @@ export function RoleThesisSectionCard({
   iconBg?: string;
   /** Overrides the default complete/incomplete-driven icon color. */
   iconColor?: string;
+  /** Left-aligned helper copy shown next to the "Complete this section" button — matches web's real
+   * `SectionFooter`/`!hasData` footer, which is a `justify-between` row (helper text + button), not
+   * a button alone. Per-card text on web (e.g. "Help buyers understand your intent and timeline"),
+   * so this is a caller-supplied prop rather than one fixed string. Omit to fall back to the
+   * previous button-only layout (right-aligned) for any card that hasn't been given its real copy
+   * yet. */
+  ctaHelperText?: string;
+  /** Student's 3 middle cards (Engagement Preferences/Availability & Logistics/Interest & Fit) call
+   * web's `<SectionFooter/>` UNCONDITIONALLY — not gated behind `{!hasData &&}` like every other
+   * card built so far. The pencil in the header still follows the real `complete` value as normal
+   * (so both the pencil AND the CTA row can show together when complete) — only the CTA row's own
+   * visibility is decoupled from `complete` here. Omit for the normal (mutually-exclusive) behavior. */
+  alwaysShowCta?: boolean;
+  /** Extra badge rendered before the normal Complete/Incomplete badge — matches web's real
+   * `statusBadge` prop on `CardShell` (Student's Supporting Materials card passes a "Not yet
+   * shared" pill here, shown ALONGSIDE the normal badge, not instead of it — web's header renders
+   * `{statusBadge}` then `{complete && <CompleteBadge/>}` then `{incomplete && <IncompleteBadge/>}`
+   * as three independent checks, so both can appear together). Omit for every other card. */
+  extraBadge?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   const { colors, fonts } = useTheme();
   const showEditPencil = !showStatus || complete;
+  const showCtaRow = !showEditPencil || alwaysShowCta;
   const resolvedIconBg = iconBg ?? (complete ? colors.chip : colors.hero1);
   const resolvedIconColor = iconColor ?? (complete ? colors.goldDark : '#fff');
 
@@ -72,11 +95,16 @@ export function RoleThesisSectionCard({
             <Text style={[fonts.display, styles.title, { color: colors.ink }]}>{title}</Text>
             <Text style={[fonts.regular, styles.description, { color: colors.ink3 }]}>{description}</Text>
           </View>
-          {showStatus && (
-            <View style={[styles.badge, { backgroundColor: complete ? colors.successSurface : colors.dangerSurface }]}>
-              <Text style={[fonts.bold, styles.badgeText, { color: complete ? colors.success : colors.danger }]}>
-                {complete ? 'Complete' : 'Incomplete'}
-              </Text>
+          {(showStatus || !!extraBadge) && (
+            <View style={styles.badgeStack}>
+              {showStatus && (
+                <View style={[styles.badge, { backgroundColor: complete ? colors.successSurface : colors.dangerSurface }]}>
+                  <Text style={[fonts.bold, styles.badgeText, { color: complete ? colors.success : colors.danger }]}>
+                    {complete ? 'Complete' : 'Incomplete'}
+                  </Text>
+                </View>
+              )}
+              {!!extraBadge && extraBadge}
             </View>
           )}
           {showEditPencil && (
@@ -92,14 +120,17 @@ export function RoleThesisSectionCard({
 
         {children}
 
-        {showEditPencil ? (
-          <View style={styles.spacer} />
-        ) : (
-          <View style={[styles.ctaRow, { borderTopColor: colors.borderSoft }]}>
+        {showCtaRow ? (
+          <View style={[styles.ctaRow, ctaHelperText && styles.ctaRowWithHelper, { borderTopColor: colors.borderSoft }]}>
+            {!!ctaHelperText && (
+              <Text style={[fonts.regular, styles.ctaHelperText, { color: colors.ink3 }]}>{ctaHelperText}</Text>
+            )}
             <Pressable onPress={onEdit} style={[styles.ctaButton, { backgroundColor: colors.hero1 }]}>
               <Text style={[fonts.bold, styles.ctaText]}>Complete this section</Text>
             </Pressable>
           </View>
+        ) : (
+          <View style={styles.spacer} />
         )}
       </View>
     </View>
@@ -110,6 +141,7 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 10.5, letterSpacing: 0.6, textTransform: 'uppercase', marginHorizontal: 2, marginBottom: 7 },
   card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, padding: 13 },
+  badgeStack: { alignItems: 'flex-start', gap: 6, flexShrink: 0 },
   iconBox: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   headerText: { flex: 1, minWidth: 0 },
   title: { fontSize: 15.5, lineHeight: 19 },
@@ -119,6 +151,8 @@ const styles = StyleSheet.create({
   editButton: { width: 32, height: 32, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   spacer: { height: 12 },
   ctaRow: { alignItems: 'flex-end', paddingHorizontal: 14, paddingBottom: 14, paddingTop: 12, marginTop: 6, borderTopWidth: StyleSheet.hairlineWidth },
-  ctaButton: { height: 42, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  ctaRowWithHelper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  ctaHelperText: { flex: 1, minWidth: 0, fontSize: 11 },
+  ctaButton: { height: 42, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   ctaText: { fontSize: 12.5, color: '#fff' },
 });
