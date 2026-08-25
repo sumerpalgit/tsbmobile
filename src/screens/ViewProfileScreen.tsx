@@ -194,6 +194,14 @@ function ViewProfileScreen() {
   const initials = profile.name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   const roleTabLabel = profile.role_type ? (ROLE_TAB_LABELS[profile.role_type.trim().toLowerCase()] ?? profile.role_type) : 'Role Thesis';
   const memberSince = user.created_at ? new Date(user.created_at).getFullYear() : null;
+  /** Matches web's real sub-title line (`my-profile/page.tsx:5076-5078`):
+   * `[sub_category, organization_name || firm_name].filter(Boolean).join(" at ")` — was missing
+   * entirely on mobile (the organization/firm name was never read at all). `roleProfile` is loosely
+   * typed (varies per role, same as `ViewProfileRoleThesisTab`'s own usage below), so read
+   * defensively. */
+  const roleProfileRecord = (user.roleProfile ?? {}) as Record<string, unknown>;
+  const organizationName = (roleProfileRecord.organization_name ?? roleProfileRecord.firm_name) as string | undefined;
+  const subtitleLine = [profile.sub_category, organizationName].filter(Boolean).join(' at ');
 
   const handleRefreshRoleThesis = async () => {
     setRefreshingRoleThesis(true);
@@ -232,7 +240,28 @@ function ViewProfileScreen() {
 
   const identityBlock = (
         <View style={{ backgroundColor: colors.surface }}>
-          <LinearGradient colors={[colors.hero1, colors.hero2, colors.goldDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1.2 }} style={styles.cover}>
+          <View style={styles.cover}>
+            {/* Real cover photo when the user has set one — matches web's own `profile.cover_img`
+                (`my-profile/page.tsx:4854`), which this screen previously ignored entirely in favor
+                of an always-on decorative gradient. Read off `user.coverImg` (`api/profile.ts`'s
+                `mapProfileToUser`), not `profile.cover_img` — same Directory-vs-my-profile type
+                split as `followers`/`followings`/`created_at` above; the Directory-scoped `Profile`
+                type doesn't carry this field. Falls back to that same gradient (rather than web's
+                own `/Noprofile.svg`, a web-only static asset) only when no photo is set. */}
+            {user.coverImg ? (
+              <Image source={{ uri: user.coverImg }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+            ) : (
+              <LinearGradient
+                colors={[colors.hero1, colors.hero2, colors.goldDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1.2 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+            )}
+            {/* Web's own dark gradient overlay (`linear-gradient(180deg, rgba(15,30,45,.25) 0%,
+                rgba(15,30,45,.55) 100%)`), applied unconditionally on web regardless of real photo
+                vs. its own default — matched here the same way. */}
+            <LinearGradient colors={['rgba(15,30,45,0.25)', 'rgba(15,30,45,0.55)']} style={StyleSheet.absoluteFillObject} />
             <View style={[styles.avatarWrap, { borderColor: colors.surface }]}>
               {profile.profile_img ? (
                 <Image source={{ uri: profile.profile_img }} style={styles.avatarImage} />
@@ -243,21 +272,28 @@ function ViewProfileScreen() {
             {/* This is the user's own profile — they're definitionally online while viewing it,
                 unlike a real-time presence claim about someone else. */}
             <View style={[styles.onlineDot, { backgroundColor: colors.success, borderColor: colors.surface }]} />
-          </LinearGradient>
+          </View>
 
           <View style={styles.identityBody}>
             <View style={styles.nameRow}>
               <Text style={[fonts.display, styles.name, { color: colors.ink }]}>{profile.name}</Text>
               {!!profile.role_type && (
-                <View style={[styles.roleBadge, { backgroundColor: colors.gold }]}>
+                <View style={[styles.roleBadge, { backgroundColor: '#8B6914' }]}>
                   <Text style={[fonts.bold, styles.roleBadgeText]}>{profile.role_type.toUpperCase()}</Text>
+                </View>
+              )}
+              {/* Web's real second badge (`my-profile/page.tsx:4984-5003`) — was missing entirely,
+                  sub_category previously only ever appeared as plain text below the name. */}
+              {!!profile.sub_category && (
+                <View style={[styles.roleBadge, { backgroundColor: '#BF9019' }]}>
+                  <Text style={[fonts.bold, styles.roleBadgeText]}>{profile.sub_category.toUpperCase()}</Text>
                 </View>
               )}
             </View>
 
             <View style={styles.subRow}>
-              {!!profile.sub_category && (
-                <Text style={[fonts.regular, styles.subText, { color: colors.ink2 }]}>{profile.sub_category}</Text>
+              {!!subtitleLine && (
+                <Text style={[fonts.regular, styles.subText, { color: colors.ink2 }]}>{subtitleLine}</Text>
               )}
               {hasRating && (
                 <>
@@ -298,7 +334,7 @@ function ViewProfileScreen() {
               {[
                 { label: 'Followers', value: String(user.followers ?? 0), onPress: () => setFollowListMode('followers') },
                 { label: 'Following', value: String(user.followings ?? 0), onPress: () => setFollowListMode('following') },
-                { label: 'Member Since', value: memberSince ? String(memberSince) : '—', onPress: undefined },
+                { label: 'Joined Since', value: memberSince ? String(memberSince) : '—', onPress: undefined },
               ].map((s, i) => (
                 <Pressable
                   key={s.label}
@@ -496,8 +532,8 @@ const styles = StyleSheet.create({
   identityBody: { paddingTop: 34, paddingHorizontal: 16, paddingBottom: 14 },
   nameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   name: { fontSize: 22, letterSpacing: -0.3 },
-  roleBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 5 },
-  roleBadgeText: { fontSize: 9.5, letterSpacing: 0.6, color: '#fff' },
+  roleBadge: { paddingHorizontal: 5, paddingVertical: 3, borderRadius: 3 },
+  roleBadgeText: { fontSize: 8.5, letterSpacing: 0.5, color: '#fff' },
   subRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 5 },
   subText: { fontSize: 12.5 },
   starsRow: { flexDirection: 'row', gap: 1.5 },

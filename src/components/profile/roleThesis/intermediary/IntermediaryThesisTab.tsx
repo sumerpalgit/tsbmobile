@@ -1,5 +1,5 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { User, Target, BarChart2, FileText, Star, MessageCircle, Upload } from 'lucide-react-native';
@@ -117,11 +117,7 @@ export const IntermediaryThesisTab = forwardRef<RoleThesisTabHandle, { profile: 
   };
 
   if (loading || !thesis) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="small" color={colors.ink3} />
-      </View>
-    );
+    return <IntermediaryThesisSkeleton />;
   }
 
   const sectionAt = (i: number) => completion?.sections[i];
@@ -324,9 +320,74 @@ export const IntermediaryThesisTab = forwardRef<RoleThesisTabHandle, { profile: 
   );
 });
 
+/** Same opacity-pulse shimmer as every other Role Thesis role's skeleton — replaces this tab's
+ * original plain `ActivityIndicator` spinner (Intermediary was the first role built, before this
+ * project's "skeleton over spinner" convention was established on every later role; never
+ * backported here until now). */
+function Shimmer({ width, height, radius = 6 }: { width: number | `${number}%`; height: number; radius?: number }) {
+  const { colors } = useTheme();
+  const opacity = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.5, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity]);
+
+  return <Animated.View style={[{ width, height, borderRadius: radius, backgroundColor: colors.surfaceSunken }, { opacity }]} />;
+}
+
+/** Mirrors this tab's own real shape (completeness bar + 5 section cards) rather than a single
+ * generic spinner. */
+function IntermediaryThesisSkeleton() {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.container}>
+      <View style={[skeletonStyles.completeness, { backgroundColor: colors.surface, borderColor: colors.authFieldBorder }]}>
+        <Shimmer width="55%" height={13} />
+        <View style={skeletonStyles.completenessBar}>
+          <Shimmer width="100%" height={6} radius={3} />
+        </View>
+        <Shimmer width="40%" height={11} />
+      </View>
+      {[0, 1, 2, 3, 4].map(i => (
+        <View key={i} style={[skeletonStyles.card, { backgroundColor: colors.surface, borderColor: colors.homeCardBorder }]}>
+          <View style={skeletonStyles.cardHeader}>
+            <Shimmer width={36} height={36} radius={11} />
+            <View style={skeletonStyles.cardHeaderText}>
+              <Shimmer width="60%" height={13} />
+              <View style={skeletonStyles.cardHeaderLine}>
+                <Shimmer width="85%" height={11} />
+              </View>
+            </View>
+          </View>
+          <Shimmer width="100%" height={11} />
+          <View style={skeletonStyles.cardLine}>
+            <Shimmer width="70%" height={11} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const skeletonStyles = StyleSheet.create({
+  completeness: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 9 },
+  completenessBar: { marginTop: 2 },
+  card: { borderRadius: 16, borderWidth: 1, padding: 13, gap: 10 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  cardHeaderText: { flex: 1, minWidth: 0, gap: 6 },
+  cardHeaderLine: { marginTop: 1 },
+  cardLine: { marginTop: 1 },
+});
+
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28, gap: 18 },
-  loading: { paddingVertical: 60, alignItems: 'center' },
   chipGroupsWrap: { paddingHorizontal: 14, paddingTop: 2, gap: 12 },
   pillFieldsWrap: { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 14, gap: 14 },
   pillFieldsRow: { flexDirection: 'row', gap: 16 },

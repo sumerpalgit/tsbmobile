@@ -22,7 +22,14 @@ export function normalizeProfile(item: unknown): Profile {
     state_code: (r?.state_code as string | null) ?? null,
     country_code: (r?.country_code as string | null) ?? null,
     linkedin_url: (r?.linkedin_url as string | null) ?? null,
-    dual_id: (r?.dual_id as string | null) ?? null,
+    // Web's own `UserProfile` type declares this ONE field as camelCase `dualId`, read straight
+    // off the profile payload with no transformation (`my-profile/page.tsx:130,5039`) — every
+    // other field on this response is snake_case, but this one genuinely isn't. Checking only
+    // `dual_id` (as this line previously did) meant mobile could never detect an existing dual
+    // profile from this payload — always fell through to showing "Dual Profile" (create) instead
+    // of "Switch Profile", confirmed on a real account that has one and correctly shows "Switch
+    // Profile" on web.
+    dual_id: (r?.dual_id as string | null) ?? (r?.dualId as string | null) ?? null,
     dual_profile: dual
       ? {
           id: String(dual.id ?? ''),
