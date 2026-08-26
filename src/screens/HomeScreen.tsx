@@ -9,7 +9,11 @@ import { EMPTY_FILTERS, FilterPanel, FilterState, countActiveFilters } from '../
 import { ProfileCompletionCard } from '../components/home/ProfileCompletionCard';
 import { FeedSkeleton } from '../components/home/FeedSkeleton';
 import { PostCard } from '../components/home/PostCard';
+import { CommentComposerSheet } from '../components/home/CommentComposerSheet';
+import { JobApplyFormSheet } from '../components/home/JobApplyFormSheet';
 import { useHomeFeed } from '../hooks/useHomeFeed';
+import { useFeedActions } from '../hooks/useFeedActions';
+import { dispatchFeedPrimaryPress } from '../utils/feedPrimaryAction';
 import type { FeedItem } from '../api/feed';
 import type { DrawerParamList, MainTabParamList } from '../navigation/types';
 
@@ -52,6 +56,18 @@ function HomeScreen() {
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const { items, engagements, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useHomeFeed(query, filters);
+  const feedActions = useFeedActions();
+  const [commentTargetId, setCommentTargetId] = useState<string | null>(null);
+  const [jobApplyTarget, setJobApplyTarget] = useState<{ jobId: string; screeningQuestions: string[] } | null>(null);
+
+  const handlePrimaryPress = useCallback(
+    (item: FeedItem) =>
+      dispatchFeedPrimaryPress(item, feedActions, (jobId, screeningQuestions) =>
+        setJobApplyTarget({ jobId, screeningQuestions }),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   // Only referenced inside the temporarily-disabled `handleScroll` block below.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -137,7 +153,18 @@ function HomeScreen() {
         contentContainerStyle={{ padding: spacing.md, gap: spacing.lg }}
         data={items}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => <PostCard feedItem={item} engagement={engagements[item.id]} />}
+        renderItem={({ item }) => (
+          <PostCard
+            feedItem={item}
+            engagement={engagements[item.id]}
+            onLike={() => feedActions.toggleLike(item.id)}
+            onSave={() => feedActions.toggleSave({ feedId: item.id, wasSaved: !!engagements[item.id]?.saved })}
+            onComment={() => setCommentTargetId(item.id)}
+            onVote={optionIndex => feedActions.submitPollVote({ pollId: item.item_id, optionIndex, feedId: item.id })}
+            onPrimaryPress={() => handlePrimaryPress(item)}
+            onRsvp={() => feedActions.submitRsvp(item.item_id)}
+          />
+        )}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         onEndReached={() => {
@@ -175,6 +202,33 @@ function HomeScreen() {
         onApply={next => {
           setFilters(next);
           setFilterPanelOpen(false);
+        }}
+      />
+
+      <CommentComposerSheet
+        visible={commentTargetId !== null}
+        onClose={() => setCommentTargetId(null)}
+        submitting={feedActions.isPostingComment}
+        onSubmit={content => {
+          if (!commentTargetId) return;
+          feedActions.postComment({ feedId: commentTargetId, content });
+          setCommentTargetId(null);
+        }}
+      />
+
+      <JobApplyFormSheet
+        visible={jobApplyTarget !== null}
+        jobId={jobApplyTarget?.jobId ?? null}
+        screeningQuestions={jobApplyTarget?.screeningQuestions ?? []}
+        onClose={() => setJobApplyTarget(null)}
+        submitting={feedActions.isSubmittingJobApplication}
+        onSubmit={async args => {
+          try {
+            await feedActions.submitJobApplication(args);
+            setJobApplyTarget(null);
+          } catch {
+            // Toast already shown by the mutation's onError — keep the sheet open to retry.
+          }
         }}
       />
     </>

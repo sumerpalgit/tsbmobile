@@ -102,6 +102,11 @@ export function reportFeedItem(feedId: string, reason: string) {
   return apiClient.post(`${FEED_ENDPOINTS.REPORT}/${feedId}`, { reason }).then(res => res.data);
 }
 
+/** Matches `MiniCardMenu.tsx`'s "Hide this post" — `POST /feed/hide/:feedId`, fire-and-forget. */
+export function hideFeedItem(feedId: string) {
+  return apiClient.post(`${FEED_ENDPOINTS.HIDE}/${feedId}`).then(res => res.data);
+}
+
 /** `FilterPanel`'s `postTypes` values (`ask`, `investor`, ...) → backend `feed_type` strings —
  * mirrors webSrc's own `FEED_TYPE_MAP` (`app/dashboard/page.tsx`), just named for our UI's value
  * set instead of web's label set. */

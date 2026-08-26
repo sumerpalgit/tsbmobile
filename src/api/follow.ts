@@ -54,3 +54,20 @@ export function fetchFollowers(username: string, page: number, limit: number) {
 export function fetchFollowings(username: string, page: number, limit: number) {
   return fetchFollowList('followings', username, page, limit);
 }
+
+/** `GET /follow/status/:username` — matches `MiniCardMenu.tsx`'s live follow-status check, fetched
+ * when the menu opens. */
+export async function fetchFollowStatus(username: string): Promise<boolean> {
+  const data = await apiClient
+    .get(`${FOLLOW_ENDPOINTS.BASE}/status/${username}`)
+    .then(res => res.data)
+    .catch(() => null);
+  return Boolean(data?.following ?? data?.isFollowing ?? data?.data?.following ?? false);
+}
+
+/** `POST`/`DELETE /follow/:username` — matches `MiniCardMenu.tsx`'s Follow/Unfollow action. */
+export function toggleFollow(username: string, isFollowing: boolean) {
+  return isFollowing
+    ? apiClient.delete(`${FOLLOW_ENDPOINTS.BASE}/${username}`).then(res => res.data)
+    : apiClient.post(`${FOLLOW_ENDPOINTS.BASE}/${username}`).then(res => res.data);
+}

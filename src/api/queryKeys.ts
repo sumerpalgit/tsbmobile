@@ -8,3 +8,10 @@ export const MY_EVENTS_QUERY_KEY = ['myEvents'] as const;
 export const SAVED_EVENTS_QUERY_KEY = ['savedEvents'] as const;
 export const AI_CONVERSATIONS_QUERY_KEY = ['aiConversations'] as const;
 export const CONVERSATIONS_QUERY_KEY = ['conversations'] as const;
+/** Keyed further by tab at the call site (`[...MY_ACTIVITY_QUERY_KEY, activeTab]`), same pattern
+ * as `USER_FEED_QUERY_KEY`'s per-username keying — each of My Activity's 4 tabs paginates
+ * independently. */
+export const MY_ACTIVITY_QUERY_KEY = ['myActivity'] as const;
+/** Counts + hero stats — fetched once per screen mount, not per tab (matches web: these don't
+ * refetch on tab switch, see `useMyActivity.ts`'s doc comment). */
+export const MY_ACTIVITY_STATS_QUERY_KEY = ['myActivityStats'] as const;

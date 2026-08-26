@@ -12,7 +12,10 @@ import type { QuickProfileContent } from '../PostCardQuickProfile';
 /** `"$15M – $80M USD"` — the overlay's "Target revenue" row appends the currency code after the
  * range, unlike the stat tiles' plain `formatMoneyRange` (confirmed against a real rendered
  * overlay screenshot). */
-function formatRevenueWithCurrency(range: InvestorCornerItem['revenue'], currency: string | null | undefined): string | undefined {
+function formatRevenueWithCurrency(
+  range: { min?: number | null; max?: number | null },
+  currency: string | null | undefined,
+): string | undefined {
   const range_ = formatMoneyRange(range, currency);
   return range_ && currency ? `${range_} ${currency}` : range_;
 }
@@ -33,7 +36,9 @@ function splitList(value: string | null | undefined): string[] {
 export function getInvestorCornerQuickProfile(item: InvestorCornerItem): QuickProfileContent {
   if (item.scenario_type === 'Invest in a Deal') {
     const rows = [
-      { label: 'Target revenue', value: formatRevenueWithCurrency(item.revenue, item.currency) },
+      // No `revenue` field exists for this scenario (unlike "Back a Searcher") — `deal_size` is
+      // the real, closest equivalent, matching web's own `InvestInADealMiniCard.tsx`.
+      { label: 'Deal size', value: formatRevenueWithCurrency({ min: item.deal_size_min, max: item.deal_size_max }, item.currency) },
       { label: 'Hold period', value: item.hold_period },
       { label: 'Participation', value: item.participation_style },
       { label: 'Board', value: item.board_involvement },
@@ -45,8 +50,8 @@ export function getInvestorCornerQuickProfile(item: InvestorCornerItem): QuickPr
   }
 
   const rows = [
-    { label: 'Target revenue', value: formatRevenueWithCurrency(item.revenue, item.currency) },
-    { label: 'Ticket size', value: formatMoneyRange(item.ticket_size, item.currency) },
+    { label: 'Target revenue', value: formatRevenueWithCurrency({ min: item.revenue_min, max: item.revenue_max }, item.currency) },
+    { label: 'Ticket size', value: formatMoneyRange({ min: item.ticket_size_min, max: item.ticket_size_max }, item.currency) },
     { label: 'Involvement', value: item.involvement_level },
     { label: 'Board', value: item.board_involvement },
     { label: 'Co-investor friendly', value: item.co_investor_friendly },
@@ -72,9 +77,15 @@ export function InvestorCornerBody({ item }: { item: InvestorCornerItem }) {
   const isBackSearcher = item.scenario_type === 'Back a Searcher';
 
   const tiles: StatTile[] = [];
-  const ticketSize = formatMoneyRange(item.ticket_size, item.currency);
-  const dealSize = formatMoneyRange(item.deal_size, item.currency);
-  const ebitda = formatMoneyRange(item.ebitda, item.currency);
+  const ticketSize = formatMoneyRange({ min: item.ticket_size_min, max: item.ticket_size_max }, item.currency);
+  // "Deal size" reads `revenue_min/max` for Back a Searcher (no separate `deal_size` field exists
+  // for that scenario) and `deal_size_min/max` for Invest in a Deal — matches web's two real
+  // mini-cards exactly, see `getInvestorCornerQuickProfile`'s same split above.
+  const dealSize =
+    item.scenario_type === 'Back a Searcher'
+      ? formatMoneyRange({ min: item.revenue_min, max: item.revenue_max }, item.currency)
+      : formatMoneyRange({ min: item.deal_size_min, max: item.deal_size_max }, item.currency);
+  const ebitda = formatMoneyRange({ min: item.ebitda_min, max: item.ebitda_max }, item.currency);
   if (ticketSize) tiles.push({ label: 'Ticket size', value: ticketSize });
   if (dealSize) tiles.push({ label: 'Deal size', value: dealSize });
   if (ebitda) tiles.push({ label: 'EBITDA', value: ebitda });

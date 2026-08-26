@@ -11,7 +11,7 @@ import {
   Users2,
 } from 'lucide-react-native';
 import type { FeedEngagement, FeedItem } from '../../../api/feed';
-import { formatMoneyRange } from '../../home/PostCard/primitives/formatMoney';
+import { formatMoney, formatMoneyRange } from '../../home/PostCard/primitives/formatMoney';
 import { isRaisingCapital } from '../../home/PostCard/bodies/DealBody';
 
 export type PostStat = { label: string; value: string };
@@ -220,8 +220,8 @@ export function getPostCardContent(item: FeedItem, engagement: FeedEngagement | 
     case 'deal': {
       const raising = isRaisingCapital(item.item);
       if (raising) {
-        const hasEquity = item.item.equity_financing_status === 'Yes' || !!item.item.equity_financing?.min;
-        const hasDebt = item.item.debt_financing_status === 'Yes' || !!item.item.debt_financing?.min;
+        const hasEquity = item.item.equity_financing_status === 'Yes' || !!item.item.equity_financing_amount || !!item.item.equity_financing_min;
+        const hasDebt = item.item.debt_financing_status === 'Yes' || !!item.item.debt_financing_min;
         const structureVal = hasEquity && hasDebt ? 'Equity + Debt' : hasEquity ? 'Equity Only' : hasDebt ? 'Debt Only' : '';
         const isExclusive = item.item.exclusivity_status === 'Yes' || (item.item.exclusivity_status || '').toLowerCase().includes('exclu');
         return {
@@ -240,9 +240,15 @@ export function getPostCardContent(item: FeedItem, engagement: FeedEngagement | 
           bodyKind: 'description',
           description: item.item.opportunity_description,
           metrics: [
-            { label: 'Total Raise', value: formatMoneyRange(item.item.equity_financing, item.item.currency) ?? item.item.total_capital_status ?? '—' },
-            { label: 'Equity', value: formatMoneyRange(item.item.equity_financing, item.item.currency) ?? item.item.equity_financing_status ?? '—' },
-            { label: 'Debt', value: formatMoneyRange(item.item.debt_financing, item.item.currency) ?? item.item.debt_financing_status ?? '—' },
+            {
+              label: 'Total Raise',
+              value: (item.item.equity_financing_min != null ? formatMoney(item.item.equity_financing_min, item.item.currency) : undefined) ?? item.item.total_capital_status ?? '—',
+            },
+            {
+              label: 'Equity',
+              value: (item.item.equity_financing_amount != null ? formatMoney(item.item.equity_financing_amount, item.item.currency) : undefined) ?? item.item.equity_financing_status ?? '—',
+            },
+            { label: 'Debt', value: formatMoneyRange({ min: item.item.debt_financing_min, max: item.item.debt_financing_max }, item.item.currency) ?? item.item.debt_financing_status ?? '—' },
           ],
           footerNote: 'Your post',
         };
@@ -266,9 +272,9 @@ export function getPostCardContent(item: FeedItem, engagement: FeedEngagement | 
         bodyKind: 'description',
         description: item.item.opportunity_description,
         metrics: [
-          { label: 'Asking', value: formatMoneyRange(item.item.asking_price, item.item.currency) ?? '—' },
-          { label: 'Revenue', value: formatMoneyRange(item.item.revenue, item.item.currency) ?? '—' },
-          { label: 'EBITDA', value: formatMoneyRange(item.item.ebitda, item.item.currency) ?? '—' },
+          { label: 'Asking', value: formatMoneyRange({ min: item.item.asking_price_min, max: item.item.asking_price_max }, item.item.currency) ?? item.item.tentative_deal_value ?? '—' },
+          { label: 'Revenue', value: formatMoneyRange({ min: item.item.revenue_min, max: item.item.revenue_max }, item.item.currency) ?? item.item.revenue_range ?? '—' },
+          { label: 'EBITDA', value: formatMoneyRange({ min: item.item.ebitda_min, max: item.item.ebitda_max }, item.item.currency) ?? item.item.ebitda_range ?? '—' },
         ],
         footerNote: 'Your post',
       };
@@ -295,7 +301,7 @@ export function getPostCardContent(item: FeedItem, engagement: FeedEngagement | 
         description: item.item.post_description,
         metrics: [
           { label: 'Equity', value: equityVal },
-          { label: 'Target EBITDA', value: formatMoneyRange(item.item.target_ebitda, item.item.currency) ?? '—' },
+          { label: 'Target EBITDA', value: formatMoneyRange({ min: item.item.target_ebitda_min, max: item.item.target_ebitda_max }, item.item.currency) ?? '—' },
           { label: 'Sectors', value: item.item.sectors || '—' },
         ],
         footerNote: 'Your post',
@@ -322,9 +328,9 @@ export function getPostCardContent(item: FeedItem, engagement: FeedEngagement | 
           bodyKind: 'description',
           description: icItem.mandate_description,
           metrics: [
-            { label: 'Ticket', value: formatMoneyRange(icItem.ticket_size, icItem.currency) ?? '—' },
-            { label: 'Deal Size', value: formatMoneyRange(icItem.deal_size, icItem.currency) ?? formatMoneyRange(icItem.revenue, icItem.currency) ?? '—' },
-            { label: 'EBITDA', value: formatMoneyRange(icItem.ebitda, icItem.currency) ?? '—' },
+            { label: 'Ticket', value: formatMoneyRange({ min: icItem.ticket_size_min, max: icItem.ticket_size_max }, icItem.currency) ?? '—' },
+            { label: 'Deal Size', value: formatMoneyRange({ min: icItem.revenue_min, max: icItem.revenue_max }, icItem.currency) ?? '—' },
+            { label: 'EBITDA', value: formatMoneyRange({ min: icItem.ebitda_min, max: icItem.ebitda_max }, icItem.currency) ?? '—' },
           ],
           footerNote: 'Your post',
         };
@@ -345,9 +351,9 @@ export function getPostCardContent(item: FeedItem, engagement: FeedEngagement | 
         bodyKind: 'description',
         description: icItem.mandate_description,
         metrics: [
-          { label: 'Ticket', value: formatMoneyRange(icItem.ticket_size, icItem.currency) ?? '—' },
-          { label: 'Deal Size', value: formatMoneyRange(icItem.deal_size, icItem.currency) ?? '—' },
-          { label: 'EBITDA', value: formatMoneyRange(icItem.ebitda, icItem.currency) ?? '—' },
+          { label: 'Ticket', value: formatMoneyRange({ min: icItem.ticket_size_min, max: icItem.ticket_size_max }, icItem.currency) ?? '—' },
+          { label: 'Deal Size', value: formatMoneyRange({ min: icItem.deal_size_min, max: icItem.deal_size_max }, icItem.currency) ?? '—' },
+          { label: 'EBITDA', value: formatMoneyRange({ min: icItem.ebitda_min, max: icItem.ebitda_max }, icItem.currency) ?? '—' },
         ],
         footerNote: 'Your post',
       };

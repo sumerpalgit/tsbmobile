@@ -124,6 +124,83 @@ export const FEED_ENDPOINTS = {
   /** `POST /feed/report/:feedId` — matches `webSrc/.../mini-cards/MiniCardMenu.tsx`'s
    * `submitReport`, body `{ reason }`. Feed id interpolated at the call site. */
   REPORT: '/feed/report',
+  /** `POST /feed/interactions/count`, body `{ feedIds }` — matches `webSrc/actions/my-activity.ts`'s
+   * `fetchMyActivityInteractionCounts`. My Activity's per-tab list endpoints don't return this
+   * inline (unlike `LIST`/`SEARCH`'s `engagements`), so it's a separate batch call. */
+  INTERACTION_COUNTS: '/feed/interactions/count',
+  /** `POST /feed/poll/vote`, body `{ poll_id, option_index }` — matches
+   * `webSrc/hooks/useFeedActions.ts`'s `submitPollVote`. */
+  POLL_VOTE: '/feed/poll/vote',
+  /** `DELETE /feed/poll/delete/:pollId` — matches `useFeedActions.ts`'s `deletePollVote`. Poll id
+   * interpolated at the call site. */
+  POLL_DELETE_VOTE: '/feed/poll/delete',
+  /** `GET /feed/my-activity/tab-stats` — matches `webSrc/actions/my-activity.ts`'s
+   * `fetchActivityTabStats`. Lives under the `/feed` namespace on the backend, not `/my-activity`
+   * (confirmed directly — not a typo). Powers My Activity's `ActivityHeroStats`. */
+  MY_ACTIVITY_TAB_STATS: '/feed/my-activity/tab-stats',
+  /** `POST /feed/hide/:feedId` — matches `MiniCardMenu.tsx`'s "Hide this post" (fire-and-forget,
+   * feed id interpolated at the call site). Powers `ActivityCardMenu`'s Hide action. */
+  HIDE: '/feed/hide',
+} as const;
+
+/** `POST /likes/toggle`, body `{ feed_id }` — matches `webSrc/hooks/useFeedActions.ts`'s
+ * `toggleLike`. Distinct resource from `SAVES_ENDPOINTS` below (likes vs. bookmarks). */
+export const LIKES_ENDPOINTS = {
+  TOGGLE: '/likes/toggle',
+} as const;
+
+/** Matches `useFeedActions.ts`'s `postComment`/(web's separate inline `PUT /api/comments/:id`
+ * edit-comment call in `my-activities/page.tsx`). Comment id interpolated at the call site for the
+ * edit (`PUT`) case. */
+export const COMMENTS_ENDPOINTS = {
+  BASE: '/comments',
+} as const;
+
+/** `POST /engagement`, body `{ feed_ids }` — matches `webSrc/actions/my-activity.ts`'s
+ * `fetchMyActivityEngagements`. Batch companion to `INTERACTION_COUNTS` above, needed for the same
+ * reason (My Activity's list endpoints don't inline `engagements`). */
+export const ENGAGEMENT_ENDPOINTS = {
+  BATCH: '/engagement',
+} as const;
+
+/** `POST /feed/job/apply`, body `{ job_id, resume_file_url, cover_letter, screening_answers }` —
+ * matches `useFeedActions.ts`'s `submitJobApplication`. */
+export const JOB_ENDPOINTS = {
+  APPLY: '/feed/job/apply',
+} as const;
+
+/** `POST /feed/deal/request-nda`, body `{ deal_id, feed_id, requester_note, document_type }` —
+ * matches `useFeedActions.ts`'s `requestDealNda`. Also reused (with an `investor_corner_id` body
+ * key instead) by the Investor Corner "Invest in a Deal" scenario's combined action. */
+export const DEAL_ENDPOINTS = {
+  REQUEST_NDA: '/feed/deal/request-nda',
+} as const;
+
+/** `POST /feed/ppm/request-ppm` (body shape varies by caller — `search_capital_id` vs
+ * `investor_corner_id` vs `ppm_id`+`message`+`ppm_file_url`, see `useFeedActions.ts`'s
+ * `requestSearchCapitalPpm`/`handleInvestorCornerAction`/`submitPpmRequest`), `PUT /feed/ppm/sign`
+ * body `{requestId, signedNdaUrl}`, `PUT /feed/ppm/withdraw`/`/decline` body `{requestId}` — all
+ * matching `useFeedActions.ts` + `webSrc/actions/my-activity.ts`. */
+export const PPM_ENDPOINTS = {
+  REQUEST: '/feed/ppm/request-ppm',
+  SIGN: '/feed/ppm/sign',
+  WITHDRAW: '/feed/ppm/withdraw',
+  DECLINE: '/feed/ppm/decline',
+} as const;
+
+/** `PUT /feed/nda/send` body `{requestId, ndaUrl}`, `/sign` body `{requestId, signedNdaUrl}`,
+ * `/withdraw`/`/decline` body `{requestId}` — matches `webSrc/actions/my-activity.ts` exactly. */
+export const NDA_ENDPOINTS = {
+  SEND: '/feed/nda/send',
+  SIGN: '/feed/nda/sign',
+  WITHDRAW: '/feed/nda/withdraw',
+  DECLINE: '/feed/nda/decline',
+} as const;
+
+/** `PUT /feed/cim/send` body `{requestId, cimUrl}` — matches `webSrc/actions/my-activity.ts`'s
+ * `submitSendCim`. */
+export const CIM_ENDPOINTS = {
+  SEND: '/feed/cim/send',
 } as const;
 
 export const LOCATION_ENDPOINTS = {
@@ -158,6 +235,20 @@ export const MY_ACTIVITY_ENDPOINTS = {
    * `cancelEventRsvp`) to call this address instead — event ID goes in the URL path, no request
    * body needed. */
   EVENT_RSVP: '/my-activity/event-rsvp',
+  /** Per-tab list endpoints — `GET {tab}?page=&limit=`, matches `webSrc/actions/my-activity.ts`'s
+   * `fetchMyActivityTabData`. `SAVED_POSTS` above is the 5th real tab web never renders (Decision 2
+   * in the plan) — not used by `MyActivitiesScreen`. */
+  MY_POSTS: '/my-activity/my-posts',
+  LIKED_POSTS: '/my-activity/liked-posts',
+  COMMENTED_POSTS: '/my-activity/commented-posts',
+  INTERACTED_POSTS: '/my-activity/interacted-posts',
+  /** `GET /my-activity/counts` → `{liked, commented, received, sent}` — matches
+   * `fetchMyActivityCounts`. */
+  COUNTS: '/my-activity/counts',
+  /** `DELETE :id` (withdraw) / `PATCH :id/status` body `{status}` (employer updates status) —
+   * matches `submitWithdrawJobApplication`/`submitUpdateJobApplicationStatus`. Id interpolated at
+   * the call site, same convention as every other id-scoped endpoint in this file. */
+  JOB_APPLICATION: '/my-activity/job-application',
 } as const;
 
 export const UPLOAD_ENDPOINTS = {

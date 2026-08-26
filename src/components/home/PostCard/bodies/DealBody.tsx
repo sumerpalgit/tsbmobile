@@ -6,7 +6,7 @@ import { PostCardBadge } from '../PostCardBadge';
 import { PostCardTags } from '../PostCardTags';
 import { PostCardDescription } from '../PostCardDescription';
 import { StatTiles, StatTile } from '../primitives/StatTiles';
-import { formatMoneyRange } from '../primitives/formatMoney';
+import { formatMoney, formatMoneyRange } from '../primitives/formatMoney';
 import type { IconName } from '../../../icons/Icon';
 import type { QuickProfileContent } from '../PostCardQuickProfile';
 
@@ -67,14 +67,14 @@ export function DealBody({ item }: { item: DealItem }) {
 
   const tiles: StatTile[] = [];
   if (raisingCapital) {
-    const raise = formatMoneyRange(item.equity_financing, item.currency);
+    const raise = item.equity_financing_min != null ? formatMoney(item.equity_financing_min, item.currency) : undefined;
     if (raise) tiles.push({ label: 'Raise', value: raise });
-    const ebitda = formatMoneyRange(item.ebitda, item.currency);
+    const ebitda = formatMoneyRange({ min: item.ebitda_min, max: item.ebitda_max }, item.currency) ?? item.ebitda_range;
     if (ebitda) tiles.push({ label: 'EBITDA', value: ebitda });
   } else {
-    const askingPrice = formatMoneyRange(item.asking_price, item.currency);
+    const askingPrice = formatMoneyRange({ min: item.asking_price_min, max: item.asking_price_max }, item.currency) ?? item.tentative_deal_value;
     if (askingPrice) tiles.push({ label: 'Asking price', value: askingPrice });
-    const ebitda = formatMoneyRange(item.ebitda, item.currency);
+    const ebitda = formatMoneyRange({ min: item.ebitda_min, max: item.ebitda_max }, item.currency) ?? item.ebitda_range;
     if (ebitda) tiles.push({ label: 'EBITDA', value: ebitda });
     if (item.sba_eligibility_status) tiles.push({ label: 'SBA', value: item.sba_eligibility_status });
     if (item.owner_financing_status) tiles.push({ label: 'Owner fin.', value: item.owner_financing_status });

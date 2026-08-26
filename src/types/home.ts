@@ -96,17 +96,27 @@ export type DealItem = {
   years_in_operation: string;
   industry_sectors: string[];
   business_location: string;
-  revenue: RangeField;
-  ebitda: RangeField;
+  revenue_min?: number | null;
+  revenue_max?: number | null;
+  revenue_range?: string;
+  ebitda_min?: number | null;
+  ebitda_max?: number | null;
+  ebitda_range?: string;
   sba_eligibility_status: string;
-  asking_price: RangeField;
+  asking_price_min?: number | null;
+  asking_price_max?: number | null;
+  tentative_deal_value?: string;
+  is_under_loi?: boolean;
   owner_financing_status: string;
-  owner_financing: RangeField;
   total_capital_status: string;
   debt_financing_status: string;
-  debt_financing: RangeField;
+  debt_financing_min?: number | null;
+  debt_financing_max?: number | null;
   equity_financing_status: string;
-  equity_financing: RangeField;
+  /** "Total Raise" reads this single value, not a range — matches web's real
+   * `DealCapitalMiniCard.tsx` exactly (`fmtMoney(item.equity_financing_min, ...)`), not a guess. */
+  equity_financing_min?: number | null;
+  equity_financing_amount?: number | null;
   investor_type_preference: string[];
   investor_type_preference_other?: string | null;
   searcher_type_preference: string[];
@@ -130,7 +140,8 @@ export type SearchCapitalItem = {
   sectors: string;
   target_location: string;
   target_revenue: RangeField;
-  target_ebitda: RangeField;
+  target_ebitda_min?: number | null;
+  target_ebitda_max?: number | null;
   deal_value_known: string;
   deal_value: RangeField;
   equity_financing_required: string;
@@ -156,10 +167,14 @@ export type InvestorCornerBackSearcherItem = {
   involvement_level: string;
   preferred_industries: string;
   preferred_geography: string;
-  ticket_size: RangeField;
-  deal_size: RangeField;
-  revenue: RangeField;
-  ebitda: RangeField;
+  ticket_size_min?: number | null;
+  ticket_size_max?: number | null;
+  /** The "Deal Size" metric reads this, not a separate `deal_size` field — matches web's real
+   * `BackSearcherMiniCard.tsx` exactly ("revenue_min/max — used as deal_size in BS mode"). */
+  revenue_min?: number | null;
+  revenue_max?: number | null;
+  ebitda_min?: number | null;
+  ebitda_max?: number | null;
   investment_instrument: string;
   currency?: string | null;
   ownership_preference: string;
@@ -180,10 +195,12 @@ export type InvestorCornerInvestDealItem = {
   preferred_deal_type: string;
   exclusivity_stance: string;
   process_stage: string;
-  ticket_size: RangeField;
-  deal_size: RangeField;
-  ebitda: RangeField;
-  revenue: RangeField;
+  ticket_size_min?: number | null;
+  ticket_size_max?: number | null;
+  deal_size_min?: number | null;
+  deal_size_max?: number | null;
+  ebitda_min?: number | null;
+  ebitda_max?: number | null;
   deal_industries: string;
   deal_geography: string;
   investment_instrument: string;

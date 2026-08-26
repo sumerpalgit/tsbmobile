@@ -6,7 +6,7 @@ import { useTheme } from '../theme';
 import { TopBar } from '../components/TopBar';
 import { useMe } from '../hooks/useMe';
 import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
-import { EtaChaptersScreen, MyEventsScreen, MyResourcesScreen } from '../screens';
+import { EtaChaptersScreen, MyActivitiesScreen, MyEventsScreen, MyResourcesScreen } from '../screens';
 import MainNavigator from './MainNavigator';
 import { DrawerContent } from './DrawerContent';
 import { AppStackParamList, DrawerParamList } from './types';
@@ -31,10 +31,7 @@ const SCREENS: Record<
     icon: 'matches',
     phase: 'Phase 5',
   }),
-  MyActivities: createPlaceholderScreen({
-    title: 'My Activities',
-    icon: 'activities',
-  }),
+  MyActivities: MyActivitiesScreen,
   MyEvents: MyEventsScreen,
   MyResources: MyResourcesScreen,
 };
@@ -116,7 +113,11 @@ function DrawerNavigator() {
           // actions without a cross-component bridge — same reasoning as `MyEvents`, and no
           // `focusedTabName` workaround needed since all three are plain `Drawer.Screen`s, not
           // nested inside the `Tabs` screen the way AI Assist/Messages are.
-          options={name === 'MyEvents' || name === 'EtaChapters' || name === 'MyResources' ? { headerShown: false } : undefined}
+          options={
+            name === 'MyEvents' || name === 'EtaChapters' || name === 'MyResources' || name === 'MyActivities'
+              ? { headerShown: false }
+              : undefined
+          }
         />
       ))}
     </Drawer.Navigator>

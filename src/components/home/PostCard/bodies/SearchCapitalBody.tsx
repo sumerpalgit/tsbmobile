@@ -61,7 +61,7 @@ export function SearchCapitalBody({ item }: { item: SearchCapitalItem }) {
   }
   const targetDeal = formatMoneyRange(item.deal_value, item.currency);
   if (targetDeal) tiles.push({ label: 'Target Deal', value: targetDeal });
-  const targetEbitda = formatMoneyRange(item.target_ebitda, item.currency);
+  const targetEbitda = formatMoneyRange({ min: item.target_ebitda_min, max: item.target_ebitda_max }, item.currency);
   if (targetEbitda) tiles.push({ label: 'Target EBITDA', value: targetEbitda });
   if (item.sba_eligibility) tiles.push({ label: 'SBA', value: item.sba_eligibility });
 
