@@ -15,14 +15,20 @@ const DISMISSED_KEY = 'profileCompletionBannerDismissed';
 const GRADIENT_START = { x: 0.18, y: 0.12 };
 const GRADIENT_END = { x: 0.82, y: 0.88 };
 
+/** Web's CTA button gradient direction (`135deg`) — close enough to the card's own 140deg above
+ * that reusing the same normalized start/end reads identically at this size. */
+const CTA_GRADIENT_START = { x: 0.15, y: 0.15 };
+const CTA_GRADIENT_END = { x: 0.85, y: 0.85 };
+
 /**
  * "Complete your profile" nudge card — matches the app bar/drawer/home reference (`TSB Home
  * FV.html`)'s mockup exactly for layout/copy: icon badge, title + description, dismiss button,
- * a "Profile strength" progress bar, and a full-width dark CTA that navigates to the profile
- * screen. webSrc's dashboard banner (`webSrc/src/app/dashboard/page.tsx`) is closely related but
- * NOT the visual source here — its copy/CTA styling differ slightly (e.g. "actively looking",
- * a compact gold button) from the mockup, and the mockup wins per project convention. The card
- * background is the mockup's exact `linear-gradient(140deg, var(--surf) 0%, var(--chip) 130%)`
+ * a "Profile strength" progress bar, and a full-width CTA that navigates to the profile screen.
+ * The CTA itself was a flat dark button here (a mockup-vs-web divergence, per this project's
+ * usual "no mockup → web wins" rule this one just hadn't been reconciled yet) — corrected to
+ * match web's real gold gradient CTA (`webSrc/app/dashboard/page.tsx`'s own banner) exactly, per
+ * user request. The card background is the mockup's exact
+ * `linear-gradient(140deg, var(--surf) 0%, var(--chip) 130%)`
  * (`react-native-linear-gradient`, added for this — RN has no gradient primitive built in,
  * unlike `colors.avatarFallback`'s flat approximation elsewhere) — `--chip` matches the existing
  * `colors.chip` token exactly in both themes; the `130%` second stop (past the gradient line's
@@ -127,13 +133,16 @@ export function ProfileCompletionCard({ onCompleteProfile }: { onCompleteProfile
         </Text>
       </View>
 
-      <Pressable
-        onPress={onCompleteProfile}
-        accessibilityRole="button"
-        style={[styles.cta, { backgroundColor: colors.accentSolid, borderRadius: radius.xl }]}
-      >
-        <Text style={[fonts.bold, styles.ctaLabel, { color: colors.onAccent }]}>Complete profile</Text>
-        <Icon name="arrowRight" size={15} color={colors.onAccent} strokeWidth={1.8} />
+      <Pressable onPress={onCompleteProfile} accessibilityRole="button">
+        <LinearGradient
+          colors={[colors.goldLight, colors.gold]}
+          start={CTA_GRADIENT_START}
+          end={CTA_GRADIENT_END}
+          style={[styles.cta, { borderRadius: radius.xl }]}
+        >
+          <Text style={[fonts.bold, styles.ctaLabel, { color: '#fff' }]}>Complete profile</Text>
+          <Icon name="arrowRight" size={15} color="#fff" strokeWidth={1.8} />
+        </LinearGradient>
       </Pressable>
     </LinearGradient>
   );

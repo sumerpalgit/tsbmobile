@@ -71,6 +71,7 @@ export function NotificationRow({
   onDismiss,
   onAcceptInvite,
   onDeclineInvite,
+  onAvatarPress,
   etaInvitePending = 'idle',
 }: {
   item: NotificationItem;
@@ -78,6 +79,11 @@ export function NotificationRow({
   onDismiss: () => void;
   onAcceptInvite: () => void;
   onDeclineInvite: () => void;
+  /** Web wraps the actor avatar in its own `<Link>` (stops propagation) that jumps straight to
+   * that actor's profile, independent of wherever the rest of the row navigates — a separate tap
+   * target that was missing here entirely. Only relevant when `item.actor` exists (matches web:
+   * the plain type-icon-only rendering, when there's no actor, has no such link either). */
+  onAvatarPress: () => void;
   etaInvitePending?: EtaInvitePending;
 }) {
   const { colors, fonts, radius, borderWidth, isDark } = useTheme();
@@ -105,12 +111,20 @@ export function NotificationRow({
       ]}
     >
       {item.actor ? (
-        <View style={styles.avatarWrap}>
+        <Pressable
+          onPress={e => {
+            e.stopPropagation();
+            onAvatarPress();
+          }}
+          style={styles.avatarWrap}
+          accessibilityRole="button"
+          accessibilityLabel={`View ${item.actor.name}'s profile`}
+        >
           <Avatar name={item.actor.name} imageUri={item.actor.profile_img} size={42} />
           <View style={[styles.typeBadge, { backgroundColor: bg, borderColor: colors.surface }]}>
             <Icon size={9} color={fg} strokeWidth={1.8} />
           </View>
-        </View>
+        </Pressable>
       ) : (
         <View style={[styles.typeIconWell, { backgroundColor: bg, borderRadius: radius.md }]}>
           <Icon size={19} color={fg} strokeWidth={1.8} />

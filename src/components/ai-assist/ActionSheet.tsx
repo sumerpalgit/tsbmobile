@@ -8,6 +8,10 @@ export type ActionSheetItem = {
   label: string;
   icon: React.ReactNode;
   danger?: boolean;
+  /** Renders the row dimmed and inert (tap does nothing, sheet stays open) instead of omitting
+   * it — for an action that's real but not currently applicable (e.g. "Mark all as read" when
+   * nothing's unread), so the option stays visibly discoverable rather than disappearing. */
+  disabled?: boolean;
   onPress: () => void;
 };
 
@@ -94,12 +98,15 @@ function ActionSheetContent({
               {item.danger && i > 0 && <View style={[styles.dangerDivider, { backgroundColor: colors.border }]} />}
               <Pressable
                 onPress={() => {
+                  if (item.disabled) return;
                   onClose();
                   item.onPress();
                 }}
+                disabled={item.disabled}
                 style={({ pressed }) => [
                   styles.row,
-                  { borderRadius: radius.xl, backgroundColor: pressed ? colors.surfaceSunken : 'transparent' },
+                  { borderRadius: radius.xl, backgroundColor: pressed && !item.disabled ? colors.surfaceSunken : 'transparent' },
+                  item.disabled && styles.disabledRow,
                 ]}
               >
                 <View style={styles.rowIcon}>{item.icon}</View>
@@ -162,5 +169,8 @@ const styles = StyleSheet.create({
     height: 1,
     marginVertical: 6,
     marginHorizontal: 4,
+  },
+  disabledRow: {
+    opacity: 0.4,
   },
 });

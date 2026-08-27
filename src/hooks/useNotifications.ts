@@ -130,6 +130,9 @@ export function useNotificationMutations() {
       );
       invalidateUnreadCount();
     },
+    // Web shows `alert(e.message)` on failure here (`handleClearAll`'s own catch) — this had no
+    // error handler at all, so a failed clear silently did nothing.
+    onError: () => Toast.show({ type: 'error', text1: 'Could not clear notifications' }),
   });
 
   // Matches web's real `handleAction("accept-invite", ...)` exactly: patches `is_read`/

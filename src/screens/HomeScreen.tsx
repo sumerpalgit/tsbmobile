@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, NativeScrollEvent, NativeSyntheticEvent, V
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../theme';
 import { SearchBar } from '../components';
 import { EMPTY_FILTERS, FilterPanel, FilterState, countActiveFilters } from '../components/home/FilterPanel';
@@ -17,7 +18,7 @@ import { useFeedActions } from '../hooks/useFeedActions';
 import { dispatchFeedPrimaryPress } from '../utils/feedPrimaryAction';
 import type { FeedItem } from '../api/feed';
 import type { EventItem } from '../types/home';
-import type { DrawerParamList, MainTabParamList } from '../navigation/types';
+import type { AppStackParamList, DrawerParamList, MainTabParamList } from '../navigation/types';
 
 /** Ignores scroll jitter smaller than this (a stationary thumb still fires tiny deltas) so the
  * bars don't flicker on a near-still list. Only referenced inside the temporarily-disabled
@@ -54,6 +55,11 @@ const SCROLL_DIRECTION_THRESHOLD = 12;
 function HomeScreen() {
   const { colors, spacing, borderWidth } = useTheme();
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  // `ViewProfile` lives on `AppStackParamList`, two navigators up from this tab (Tabs → Drawer →
+  // AppNavigator) — same "call `useNavigation` a second time with the ancestor's param list, let
+  // dispatch bubble up" pattern `AiAssistScreen.tsx`'s `stackNavigation` already established,
+  // rather than chaining multiple `getParent()` calls.
+  const stackNavigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
@@ -193,7 +199,7 @@ function HomeScreen() {
               onFilterPress={() => setFilterPanelOpen(true)}
               filtersActive={countActiveFilters(filters) > 0}
             />
-            <ProfileCompletionCard onCompleteProfile={() => navigation.navigate('Profile')} />
+            <ProfileCompletionCard onCompleteProfile={() => stackNavigation.navigate('ViewProfile')} />
           </View>
         }
       />

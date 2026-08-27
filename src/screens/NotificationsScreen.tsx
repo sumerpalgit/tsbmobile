@@ -147,20 +147,20 @@ export default function NotificationsScreen() {
   const mainTitle = viewMode === 'action' ? 'Needs response' : viewMode === 'digest' ? 'Smart digest' : CATEGORY_LABEL[category];
 
   // "Mark all as read"/"Clear all" — moved out of an inline action row into this overflow menu
-  // per user request. Web keeps both buttons always visible and just disables them
-  // (`disabled={counts.unread===0}` / `disabled={clearing || all.length===0}`); `ActionSheet` has
-  // no disabled-row concept, so this follows the app's own established sheet convention instead
-  // (`ConversationOptionsSheet` only pushes "Mark as read" when there's something real to mark) —
-  // an item that can't do anything simply isn't offered.
-  const moreMenuItems: ActionSheetItem[] = [];
-  if (counts.unread > 0) {
-    moreMenuItems.push({
+  // per user request. Matches web's own treatment now: both stay visible always, "Mark all as
+  // read" just renders dimmed/inert (`ActionSheetItem.disabled`) when there's nothing unread,
+  // same as web's `disabled={counts.unread===0}` — not hidden, per explicit user request (an
+  // earlier pass hid it instead, following `ConversationOptionsSheet`'s different convention;
+  // this screen follows web's disabled-not-hidden treatment instead).
+  const moreMenuItems: ActionSheetItem[] = [
+    {
       key: 'markAll',
       label: 'Mark all as read',
       icon: <ListChecks size={17} color={colors.goldDark} strokeWidth={1.8} />,
+      disabled: counts.unread === 0,
       onPress: () => setConfirmAction({ type: 'markAll' }),
-    });
-  }
+    },
+  ];
   if (all.length > 0) {
     moreMenuItems.push({
       key: 'clearAll',
@@ -176,6 +176,20 @@ export default function NotificationsScreen() {
     refetch().finally(() => setRefreshing(false));
   };
 
+  // Shared by the `follow`-destination row tap and the avatar's own tap target (below) — both
+  // only ever have a username, not a full `Profile`/saved-state, same situation
+  // `MessagesScreen.tsx`'s `handleViewProfile` already solved for "View profile" from a thread:
+  // fetch by username, then push `MemberProfile` with `initialSaved: false` (no Directory
+  // saved-contacts context available outside that screen).
+  const navigateToProfile = useCallback(
+    (username: string) => {
+      fetchProfileByUsername(username)
+        .then(profile => navigation.navigate('MemberProfile', { profile, initialSaved: false }))
+        .catch(() => Toast.show({ type: 'error', text1: 'Could not open this profile' }));
+    },
+    [navigation],
+  );
+
   const handleRowPress = useCallback(
     (item: NotificationItem) => {
       if (!item.is_read) mutations.markRead(item.id);
@@ -189,19 +203,13 @@ export default function NotificationsScreen() {
         // param), so this lands on the same Messages tab every other bell/menu entry point does.
         navigation.navigate('Drawer', { screen: 'Tabs', params: { screen: 'Messages' } });
       } else if (destination.kind === 'profile') {
-        // `follow` notifications only carry a username, not a full `Profile`/saved-state — same
-        // situation `MessagesScreen.tsx`'s `handleViewProfile` already solved for "View profile"
-        // from a thread: fetch by username, then push `MemberProfile` with `initialSaved: false`
-        // (no Directory saved-contacts context available outside that screen).
-        fetchProfileByUsername(destination.username)
-          .then(profile => navigation.navigate('MemberProfile', { profile, initialSaved: false }))
-          .catch(() => Toast.show({ type: 'error', text1: 'Could not open this profile' }));
+        navigateToProfile(destination.username);
       } else if (destination.kind === 'feedPost') {
         // comment/like/deal/community/event/post_recommendation — Phase 3's new screen.
         navigation.navigate('FeedPostDetail', { feedId: destination.feedId });
       }
     },
-    [mutations, navigation],
+    [mutations, navigation, navigateToProfile],
   );
 
   const confirmCopy: { title: string; message: string; confirmLabel: string; destructive?: boolean } | null = confirmAction
@@ -363,6 +371,7 @@ export default function NotificationsScreen() {
                     onDismiss={() => setConfirmAction({ type: 'delete', id: block.item.id })}
                     onAcceptInvite={() => mutations.acceptEtaInvite(block.item.id)}
                     onDeclineInvite={() => mutations.declineEtaInvite(block.item.id)}
+                    onAvatarPress={() => block.item.actor && navigateToProfile(block.item.actor.username)}
                     etaInvitePending={
                       mutations.isAcceptingInvite && mutations.acceptingInviteId === block.item.id
                         ? 'accepting'
