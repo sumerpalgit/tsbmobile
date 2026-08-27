@@ -54,9 +54,14 @@ export async function fetchSavedEvents(page: number, limit: number): Promise<MyE
     );
 }
 
-/** `POST /api/feed/event/rsvp` body `{event_id}` — matches web's `submitEventRsvp`. */
-export function submitEventRsvp(eventId: string) {
-  return apiClient.post(EVENT_ENDPOINTS.RSVP, { event_id: eventId }).then(res => res.data);
+/** `POST /api/feed/event/rsvp` body `{event_id, rsvp_response}` — matches web's `submitEventRsvp`
+ * (`webSrc/hooks/useFeedActions.ts`), including its own `rsvpResponse || "attending"` default, so
+ * every existing single-arg caller (My Events' own one-tap RSVP via `useEventMutations.ts`, My
+ * Activity's mini RSVP card) keeps behaving exactly as before. `RsvpModal`'s Going/Maybe/Can't
+ * make it picker (`components/home/RsvpModal.tsx`) is the only caller that passes an explicit
+ * `response`. */
+export function submitEventRsvp(eventId: string, response: 'attending' | 'maybe' | 'not_attending' = 'attending') {
+  return apiClient.post(EVENT_ENDPOINTS.RSVP, { event_id: eventId, rsvp_response: response }).then(res => res.data);
 }
 
 /** `DELETE /api/my-activity/event-rsvp/:eventId` — matches web's fixed `cancelEventRsvp`

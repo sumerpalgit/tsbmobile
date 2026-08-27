@@ -24,3 +24,9 @@ export const NOTIFICATIONS_QUERY_KEY = ['notifications'] as const;
  * independently. */
 export const NOTIFICATIONS_UNREAD_COUNT_QUERY_KEY = ['notificationsUnreadCount'] as const;
 export const NOTIFICATIONS_MATCH_COUNTS_QUERY_KEY = ['notificationsMatchCounts'] as const;
+/** Keyed further by feed id at the call site (`[...FEED_ITEM_DETAIL_QUERY_KEY, feedId]`, and again
+ * with a trailing `'related'` for the same-type related-posts query) — Feed Post Detail's own
+ * cache entry, separate from `HOME_FEED_QUERY_KEY`'s list pages since a single-item fetch isn't a
+ * page of that list. `useFeedActions.ts`'s `invalidateFeed()` invalidates this broad prefix too,
+ * so a like/comment/etc. made from this screen refreshes it the same way Home/My Activity do. */
+export const FEED_ITEM_DETAIL_QUERY_KEY = ['feedItemDetail'] as const;

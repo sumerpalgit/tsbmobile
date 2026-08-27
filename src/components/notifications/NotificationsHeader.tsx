@@ -1,22 +1,24 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Search, X } from 'lucide-react-native';
+import { ChevronLeft, MoreHorizontal } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 
 /** Notifications' own header — `Notifications` is a plain `AppStackParamList` push (reached from
  * the shared `TopBar`'s bell, same as `Profile`), so this is a back arrow + title, matching
- * `AdScreenHeader`'s own "pushed screen" treatment rather than a drawer screen's hamburger.
- * Includes web's "Your activity" eyebrow above the title and a search-icon toggle (mobile's
- * equivalent of web's always-visible 220px search box — there isn't room for that here). */
+ * `AdScreenHeader`'s own "pushed screen" treatment rather than a drawer screen's hamburger. Web's
+ * "Your activity" eyebrow above the title was dropped — on mobile's tighter width it read as
+ * breaking the flow above the real title, not adding context. The search box (web's own
+ * always-visible 220px input) now lives permanently in the page body instead of behind a header
+ * toggle; this trailing button opens the "Mark all as read"/"Clear all" menu instead — those used
+ * to be an inline action row in the body, relocated here per user request, same as any other
+ * screen's overflow menu (`AiHeader`'s "More", `ConversationOptionsSheet`, etc.). */
 export function NotificationsHeader({
   onBack,
-  searchOpen,
-  onToggleSearch,
+  onMorePress,
 }: {
   onBack: () => void;
-  searchOpen: boolean;
-  onToggleSearch: () => void;
+  onMorePress: () => void;
 }) {
   const { colors, fonts, fontSize, borderWidth } = useTheme();
   const insets = useSafeAreaInsets();
@@ -34,20 +36,19 @@ export function NotificationsHeader({
         </Pressable>
 
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[fonts.bold, styles.eyebrow, { color: colors.ink3 }]}>YOUR ACTIVITY</Text>
           <Text style={[fonts.display, styles.title, { fontSize: fontSize.h3, color: colors.ink }]} numberOfLines={1}>
             Notifications
           </Text>
         </View>
 
         <Pressable
-          onPress={onToggleSearch}
+          onPress={onMorePress}
           accessibilityRole="button"
-          accessibilityLabel={searchOpen ? 'Close search' : 'Search notifications'}
+          accessibilityLabel="Notification options"
           hitSlop={6}
           style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
         >
-          {searchOpen ? <X size={19} color={colors.ink2} strokeWidth={1.8} /> : <Search size={19} color={colors.ink2} strokeWidth={1.8} />}
+          <MoreHorizontal size={20} color={colors.ink2} strokeWidth={1.8} />
         </Pressable>
       </View>
     </View>
@@ -71,13 +72,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  eyebrow: {
-    fontSize: 9.5,
-    letterSpacing: 0.8,
-  },
   title: {
     letterSpacing: -0.3,
-    marginTop: 1,
   },
   pressed: {
     opacity: 0.6,

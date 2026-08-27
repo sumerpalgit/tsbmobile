@@ -112,6 +112,7 @@ export function TopBar({
               onPress={onBellPress}
               color={colors.ink3}
               chip
+              dimOnPress
             />
             {unreadCount > 0 && (
               <View
@@ -165,6 +166,7 @@ function IconButton({
   color,
   accessibilityLabel,
   chip = false,
+  dimOnPress = false,
 }: {
   name: React.ComponentProps<typeof Icon>['name'];
   onPress: () => void;
@@ -174,6 +176,12 @@ function IconButton({
    * theme-toggle/bell buttons — the menu button stays bare (background only on press) since
    * the reference shows it without any button chrome. */
   chip?: boolean;
+  /** The chip background-color swap on press is too subtle to read as "this registered" on the
+   * bell specifically — unlike menu (drawer slides open) or theme toggle (icon swaps instantly),
+   * tapping it pushes a whole new screen, so there can be a beat with no visible change otherwise.
+   * Adds the same opacity-dim-on-press feedback used elsewhere in the app (e.g. `NotificationRow`,
+   * `ProfileScreen`'s sign-out row) on top of the chip swap. */
+  dimOnPress?: boolean;
 }) {
   const { colors, sizes, radius, borderWidth } = useTheme();
 
@@ -197,6 +205,7 @@ function IconButton({
             : pressed
             ? colors.cream
             : 'transparent',
+          opacity: dimOnPress && pressed ? 0.6 : 1,
         },
       ]}
     >

@@ -17,13 +17,14 @@ import { getSearchCapitalQuickProfile } from './bodies/SearchCapitalBody';
 import { IconName } from '../../icons/Icon';
 
 /**
- * One feed post, any role. Composes `PostCardHeader` (avatar/name/meta/quick-profile/save) and
- * `PostCardFooter` around `PostCardBody` (the dispatcher that varies per `feed_type`) — except
- * for `event`, which skips both: its cover-image layout has no avatar, and its footer is a
- * bespoke two-button row (dark "View Details" + gold "RSVP"/disabled "Event passed") rather
- * than the shared secondary-outline/primary-gold `PostCardFooter` shape, so `EventBody` renders
- * its own. This just forwards the same save/quick-profile/primary-press/RSVP callbacks into
- * `PostCardBody` instead of rendering the shared header/footer.
+ * One feed post, any role. Composes `PostCardHeader` (avatar/name/meta/quick-profile/save) around
+ * `PostCardBody` (the dispatcher that varies per `feed_type`) — `event` used to skip this header
+ * entirely (a mobile-mockup-only deviation, "no avatar anywhere on the card"), but web's real
+ * `EventCard.tsx` always renders its own `FeedCardHeader` above the event content just like every
+ * other type, so this now does too. `event`'s footer is still its own bespoke two-button row
+ * (`EventFooter` — "View more"/"View less" + RSVP/"Event passed") rather than the shared
+ * secondary-outline/primary-gold `PostCardFooter` shape, since web's own `EventCard` footer is
+ * genuinely different from every other type's.
  *
  * Tapping the quick-profile button slides `PostCardQuickProfile` over the whole card, matching
  * the mockup's `apRows`/`apChips` overlay — every type has content now except `poll` (no overlay
@@ -57,6 +58,13 @@ export function PostCard({
 }) {
   const { colors, borderWidth, elevation } = useTheme();
   const [quickProfileOpen, setQuickProfileOpen] = useState(false);
+  // Matches web's `EventCard`'s own `expanded` state (`useState` local to that card) exactly —
+  // its single "View more"/"View less" toggle drives BOTH the event description's full-text
+  // reveal AND the "Schedule & Access" block (start/end/timezone/format/event link/visibility) +
+  // audience-role chips, not two independent toggles. Lifted here (not local to `EventBody`/
+  // `EventFooter`) since the toggle button lives in the footer but the content it reveals lives
+  // in the body — two separate components that need to share one boolean.
+  const [eventExpanded, setEventExpanded] = useState(false);
   const isEvent = feedItem.feed_type === 'event';
   const footer = getFooter(feedItem);
   const quickProfileContent = getQuickProfileContent(feedItem);
@@ -70,30 +78,30 @@ export function PostCard({
         elevation('sm'),
       ]}
     >
-      {!isEvent && (
-        <PostCardHeader
-          profile={feedItem.profile}
-          createdAt={feedItem.created_at}
-          isAnonymous={feedItem.is_anonymous}
-          saved={engagement?.saved}
-          onSave={onSave}
-          onQuickProfile={onQuickProfile}
-        />
-      )}
-
-      <PostCardBody
-        feedItem={feedItem}
-        onVote={onVote}
+      <PostCardHeader
+        profile={feedItem.profile}
+        createdAt={feedItem.created_at}
+        isAnonymous={feedItem.is_anonymous}
         saved={engagement?.saved}
         onSave={onSave}
         onQuickProfile={onQuickProfile}
       />
 
+      <PostCardBody feedItem={feedItem} onVote={onVote} eventExpanded={eventExpanded} />
+
       {hasActions(feedItem) && (
         <PostCardActions engagement={engagement} onLike={onLike} onComment={onComment} onShare={onShare} />
       )}
 
-      {isEvent && <EventFooter item={feedItem.item} onPrimaryPress={onPrimaryPress} onRsvp={onRsvp} />}
+      {isEvent && (
+        <EventFooter
+          item={feedItem.item}
+          isOwnEvent={feedItem.is_my_feed}
+          expanded={eventExpanded}
+          onToggleExpanded={() => setEventExpanded(prev => !prev)}
+          onRsvp={onRsvp}
+        />
+      )}
 
       {!isEvent && footer && (
         <PostCardFooter

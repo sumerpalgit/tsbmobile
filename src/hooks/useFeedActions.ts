@@ -23,7 +23,7 @@ import {
   submitWithdrawJobApplication as submitWithdrawJobApplicationApi,
   submitWithdrawRequest as submitWithdrawRequestApi,
 } from '../api/requests';
-import { HOME_FEED_QUERY_KEY, MY_ACTIVITY_QUERY_KEY } from '../api/queryKeys';
+import { FEED_ITEM_DETAIL_QUERY_KEY, HOME_FEED_QUERY_KEY, MY_ACTIVITY_QUERY_KEY } from '../api/queryKeys';
 import type { InvestorCornerItem } from '../types/home';
 
 /** Surfaces the backend's own error text (e.g. a Postgrest "JSON object requested, multiple (or
@@ -43,16 +43,18 @@ function extractErrorMessage(err: unknown): string | undefined {
  * web's raw-fetch-plus-manual-state-splicing (`webSrc/hooks/useFeedActions.ts`) — same resulting
  * behavior, mobile's own established implementation style (see the plan's Decision 8/10).
  *
- * Every mutation invalidates both `HOME_FEED_QUERY_KEY` and `MY_ACTIVITY_QUERY_KEY` on success —
- * a like/save/comment/vote/request made from Home feed can change what My Activity's tabs show
- * (and vice versa, once Phase 1's screen can trigger these too), so both caches refetch together
- * rather than one screen showing stale state until the other happens to remount.
+ * Every mutation invalidates `HOME_FEED_QUERY_KEY`, `MY_ACTIVITY_QUERY_KEY`, and
+ * `FEED_ITEM_DETAIL_QUERY_KEY` on success — a like/save/comment/vote/request made from Home feed,
+ * My Activity, or Feed Post Detail (Phase 3 of the Notifications plan) can change what any of the
+ * other two show, so all three caches refetch together rather than one screen showing stale state
+ * until it happens to remount.
  */
 export function useFeedActions() {
   const queryClient = useQueryClient();
   const invalidateFeed = () => {
     queryClient.invalidateQueries({ queryKey: HOME_FEED_QUERY_KEY });
     queryClient.invalidateQueries({ queryKey: MY_ACTIVITY_QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: FEED_ITEM_DETAIL_QUERY_KEY });
   };
 
   const likeMutation = useMutation({
@@ -95,12 +97,15 @@ export function useFeedActions() {
     onError: () => Toast.show({ type: 'error', text1: 'Failed to remove vote' }),
   });
 
+  // `response` defaults to 'attending' (matches `submitEventRsvp`'s own default) — every existing
+  // one-tap caller (Home feed's/Feed Post Detail's plain RSVP button, before `RsvpModal` opens)
+  // still just registers "attending"; only `RsvpModal`'s Going/Maybe/Can't-make-it picker passes
+  // an explicit response. No success toast — `RsvpModal` shows its own in-sheet success state
+  // (matches web: the modal itself is the confirmation, there's no separate toast there either).
   const rsvpMutation = useMutation({
-    mutationFn: (eventId: string) => submitEventRsvp(eventId),
-    onSuccess: () => {
-      Toast.show({ type: 'success', text1: "You're registered ✓" });
-      invalidateFeed();
-    },
+    mutationFn: ({ eventId, response }: { eventId: string; response?: 'attending' | 'maybe' | 'not_attending' }) =>
+      submitEventRsvp(eventId, response),
+    onSuccess: invalidateFeed,
     onError: () => Toast.show({ type: 'error', text1: 'Failed to RSVP', text2: 'Please try again.' }),
   });
 
@@ -248,7 +253,12 @@ export function useFeedActions() {
     isEditingComment: editCommentMutation.isPending,
     submitPollVote: voteMutation.mutate,
     deletePollVote: deleteVoteMutation.mutate,
-    submitRsvp: rsvpMutation.mutate,
+    // Thin two-arg wrappers (not `rsvpMutation.mutate`/`mutateAsync` directly) — keeps every
+    // existing single-`eventId`-argument call site (Home feed's/Feed Post Detail's plain RSVP
+    // button, My Activity's mini RSVP card) working unchanged, while `RsvpModal` can still pass
+    // an explicit `response`.
+    submitRsvp: (eventId: string, response?: 'attending' | 'maybe' | 'not_attending') =>
+      rsvpMutation.mutate({ eventId, response }),
     isSubmittingRsvp: rsvpMutation.isPending,
     requestDealNda: requestDealNdaMutation.mutate,
     requestPpm: requestPpmMutation.mutate,
@@ -256,7 +266,8 @@ export function useFeedActions() {
     // Async variants — My Activity's mini-cards (`ActivityMiniCard.tsx`) await these for real
     // loading/done button state, unlike Home feed's fire-and-forget `dispatchFeedPrimaryPress`
     // above, which only needs the sync `mutate` versions.
-    submitRsvpAsync: rsvpMutation.mutateAsync,
+    submitRsvpAsync: (eventId: string, response?: 'attending' | 'maybe' | 'not_attending') =>
+      rsvpMutation.mutateAsync({ eventId, response }),
     requestDealNdaAsync: requestDealNdaMutation.mutateAsync,
     requestPpmAsync: requestPpmMutation.mutateAsync,
     handleInvestorCornerActionAsync: investorCornerMutation.mutateAsync,

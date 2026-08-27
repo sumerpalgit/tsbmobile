@@ -73,7 +73,7 @@ export function AiHeader(
               >
                 <Icon name={isDark ? 'sun' : 'moon'} size={17} color={colors.ink2} />
               </IconButton>
-              <IconButton accessibilityLabel="Notifications" onPress={props.onBellPress} chip>
+              <IconButton accessibilityLabel="Notifications" onPress={props.onBellPress} chip dimOnPress>
                 <Bell size={17} color={colors.ink2} strokeWidth={1.6} />
               </IconButton>
               <IconButton accessibilityLabel="Chat history" onPress={props.onOpenHistory} chip>
@@ -122,11 +122,15 @@ function IconButton({
   onPress,
   accessibilityLabel,
   chip = false,
+  dimOnPress = false,
   children,
 }: {
   onPress: () => void;
   accessibilityLabel: string;
   chip?: boolean;
+  /** See `TopBar.tsx`'s `IconButton` for why — same "screen-push button, chip swap alone is too
+   * subtle" reasoning applies here to the bell specifically. */
+  dimOnPress?: boolean;
   children: React.ReactNode;
 }) {
   const { colors, sizes, radius, borderWidth } = useTheme();
@@ -159,6 +163,7 @@ function IconButton({
             : pressed
             ? colors.cream
             : 'transparent',
+          opacity: dimOnPress && pressed ? 0.6 : 1,
         },
       ]}
     >

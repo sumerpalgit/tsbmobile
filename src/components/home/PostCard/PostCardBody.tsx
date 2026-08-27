@@ -17,24 +17,18 @@ import { SearchCapitalBody } from './bodies/SearchCapitalBody';
  * matching `feed_type`, a registry lookup instead of a growing if/else chain, so adding a type
  * later is just one new import + one new switch case.
  *
- * All 8 types are built now. Event-specific props (`profile`/`isAnonymous`/`createdAt`/save/
- * quick-profile callbacks) are only ever read by `EventBody` — every other body ignores them
- * since their header comes from the shared `PostCardHeader` instead. Event's footer
- * (`EventFooter`) is rendered separately by `PostCard.tsx`, not through here — see its own doc
- * comment for why.
+ * All 8 types are built now. `eventExpanded` is only read by `EventBody` — see `PostCard.tsx`'s
+ * own doc comment for why that state lives there rather than locally. Event's own header/footer
+ * (`PostCardHeader`/`EventFooter`) are rendered separately by `PostCard.tsx`, not through here.
  */
 export function PostCardBody({
   feedItem,
   onVote,
-  saved,
-  onSave,
-  onQuickProfile,
+  eventExpanded,
 }: {
   feedItem: FeedItem;
   onVote?: (optionIndex: number) => void;
-  saved?: boolean;
-  onSave?: () => void;
-  onQuickProfile?: () => void;
+  eventExpanded?: boolean;
 }) {
   switch (feedItem.feed_type) {
     case 'atc':
@@ -52,17 +46,7 @@ export function PostCardBody({
     case 'search_capital':
       return <SearchCapitalBody item={feedItem.item} />;
     case 'event':
-      return (
-        <EventBody
-          item={feedItem.item}
-          profile={feedItem.profile}
-          isAnonymous={feedItem.is_anonymous}
-          createdAt={feedItem.created_at}
-          saved={saved}
-          onSave={onSave}
-          onQuickProfile={onQuickProfile}
-        />
-      );
+      return <EventBody item={feedItem.item} feedId={feedItem.id} expanded={!!eventExpanded} />;
     default:
       // Unreachable per the type (`feedItem` is `never` here — all 8 known `feed_type`s are
       // handled above), kept as a runtime guard: the backend could add a 9th type before this

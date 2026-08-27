@@ -90,6 +90,17 @@ export async function fetchUserFeed(username: string, page: number, limit: numbe
   return parseFeedResponse(result, limit);
 }
 
+/** `GET /feed/single/:feedId` → `{data: FeedData}` — matches web's `SingleFeedPage`'s own fetch
+ * (`app/dashboard/feed/[feedId]/page.tsx`). Same item shape as a list entry (`FeedItem`), just
+ * fetched individually; unlike `fetchFeed`/`searchFeed`, this endpoint doesn't bundle engagement
+ * data, so callers pair it with `fetchEngagements` (`api/engagement.ts`) separately, matching
+ * web's own two-call pattern. Powers the Feed Post Detail screen (Phase 3 of the Notifications
+ * plan) via `useFeedItemDetail`. */
+export async function fetchFeedItemById(feedId: string): Promise<FeedItem> {
+  const result = await apiClient.get(`${FEED_ENDPOINTS.SINGLE}/${feedId}`).then(res => res.data);
+  return result?.data;
+}
+
 /** Matches `webSrc/hooks/useFeedActions.ts`'s `deleteFeedItem` — `DELETE /feed/delete/:feedId`.
  * Powers the Posts tab's own-post 3-dot menu (View Profile only shows this for the signed-in
  * user's own posts, so no ownership check is needed client-side). */

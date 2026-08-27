@@ -24,7 +24,11 @@ export function useEventMutations() {
   const invalidateSaved = () => queryClient.invalidateQueries({ queryKey: SAVED_EVENTS_QUERY_KEY });
 
   const rsvpMutation = useMutation({
-    mutationFn: submitEventRsvp,
+    // Wrapped (not `mutationFn: submitEventRsvp` directly) — `submitEventRsvp` now takes an
+    // optional second `response` param, which react-query's own mutate-context argument would
+    // otherwise collide with positionally. Always registers "attending" here, matching this
+    // hook's existing one-tap RSVP flow (My Events has no Going/Maybe/Can't-make-it picker).
+    mutationFn: (eventId: string) => submitEventRsvp(eventId),
     onSuccess: () => {
       Toast.show({ type: 'success', text1: "You're registered ✓" });
       invalidateEvents();

@@ -11,10 +11,12 @@ import { FeedSkeleton } from '../components/home/FeedSkeleton';
 import { PostCard } from '../components/home/PostCard';
 import { CommentComposerSheet } from '../components/home/CommentComposerSheet';
 import { JobApplyFormSheet } from '../components/home/JobApplyFormSheet';
+import { RsvpModal, formatRsvpEventDate } from '../components/home/RsvpModal';
 import { useHomeFeed } from '../hooks/useHomeFeed';
 import { useFeedActions } from '../hooks/useFeedActions';
 import { dispatchFeedPrimaryPress } from '../utils/feedPrimaryAction';
 import type { FeedItem } from '../api/feed';
+import type { EventItem } from '../types/home';
 import type { DrawerParamList, MainTabParamList } from '../navigation/types';
 
 /** Ignores scroll jitter smaller than this (a stationary thumb still fires tiny deltas) so the
@@ -59,6 +61,7 @@ function HomeScreen() {
   const feedActions = useFeedActions();
   const [commentTargetId, setCommentTargetId] = useState<string | null>(null);
   const [jobApplyTarget, setJobApplyTarget] = useState<{ jobId: string; screeningQuestions: string[] } | null>(null);
+  const [rsvpTarget, setRsvpTarget] = useState<{ eventId: string; item: EventItem } | null>(null);
 
   const handlePrimaryPress = useCallback(
     (item: FeedItem) =>
@@ -162,7 +165,7 @@ function HomeScreen() {
             onComment={() => setCommentTargetId(item.id)}
             onVote={optionIndex => feedActions.submitPollVote({ pollId: item.item_id, optionIndex, feedId: item.id })}
             onPrimaryPress={() => handlePrimaryPress(item)}
-            onRsvp={() => feedActions.submitRsvp(item.item_id)}
+            onRsvp={() => setRsvpTarget({ eventId: item.item_id, item: item.item as EventItem })}
           />
         )}
         onScroll={handleScroll}
@@ -229,6 +232,18 @@ function HomeScreen() {
           } catch {
             // Toast already shown by the mutation's onError — keep the sheet open to retry.
           }
+        }}
+      />
+
+      <RsvpModal
+        visible={rsvpTarget !== null}
+        eventName={rsvpTarget?.item.title}
+        eventDate={rsvpTarget ? formatRsvpEventDate(rsvpTarget.item) : undefined}
+        eventLocation={rsvpTarget?.item.location ?? undefined}
+        onClose={() => setRsvpTarget(null)}
+        onSubmit={async (response, _guests, _note) => {
+          if (!rsvpTarget) return;
+          await feedActions.submitRsvpAsync(rsvpTarget.eventId, response);
         }}
       />
     </>

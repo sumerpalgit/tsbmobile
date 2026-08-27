@@ -165,4 +165,11 @@ export type AppStackParamList = {
    * screen-owns-lifecycle/wizard-owns-steps split), not one route per step — see the plan at
    * `delightful-seeking-snowglobe.md`. */
   CreateDualProfile: undefined;
+  /** Feed Post Detail — Phase 3 of the plan at `delightful-seeking-snowglobe.md`, the last of
+   * Notifications' 4 real destinations. Matches web's `/dashboard/feed/:feedId`: the tapped post
+   * rendered through the same `PostCard`/`useFeedActions` Home already uses, plus web's own
+   * "related posts of the same type" section beneath it. Reached from a feed-post-type
+   * notification tap (comment/like/deal/community/event/post_recommendation — see
+   * `getNotificationDestination`'s `'feedPost'` case). */
+  FeedPostDetail: { feedId: string };
 };

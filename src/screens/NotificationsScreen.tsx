@@ -4,12 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Bell, Check, ListChecks, Trash2 } from 'lucide-react-native';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '../theme';
 import { SearchBar } from '../components';
 import { NotificationsHeader } from '../components/notifications/NotificationsHeader';
 import { NotificationRow } from '../components/notifications/NotificationRow';
 import { ConfirmDialog } from '../components/events/ConfirmDialog';
+import { ActionSheet, type ActionSheetItem } from '../components/ai-assist/ActionSheet';
 import { useNotificationMutations, useNotificationsList } from '../hooks/useNotifications';
+import { fetchProfileByUsername } from '../api/profile';
 import type { NotificationItem } from '../api/notifications';
 import {
   CATEGORY_LABEL,
@@ -40,6 +43,15 @@ type Block =
   | { kind: 'digestHero'; key: string; summary: string };
 
 function buildBlocks(viewMode: ViewMode, sorted: NotificationItem[], all: NotificationItem[]): Block[] {
+  // Needs-response's "Nothing needs your response" banner and Digest's hero card used to render
+  // even with zero notifications in the active filter, so those two tabs never fell through to
+  // the shared `ListEmptyComponent` view List already uses — the three tabs looked inconsistent
+  // for the same "nothing here" state. Short-circuiting to an empty block list here (same as
+  // List's own natural behavior) makes all three render the identical empty state whenever the
+  // active filter has nothing at all — the banner/hero stay for when there IS data, just none of
+  // it needs a response / is worth flagging, which is a different, legitimate content state.
+  if (sorted.length === 0) return [];
+
   if (viewMode === 'action') {
     const needs = sorted.filter(n => n.action_required);
     const rest = sorted.filter(n => !n.action_required);
@@ -86,18 +98,21 @@ function buildBlocks(viewMode: ViewMode, sorted: NotificationItem[], all: Notifi
 type ConfirmAction = { type: 'markAll' } | { type: 'clearAll' } | { type: 'delete'; id: string };
 
 /** Notifications — ported to match `webSrc/app/dashboard/notifications/page.tsx` exactly (no
- * mobile mockup exists for this screen). Web's left rail (filter categories + Mark all/Clear all)
- * reflows into a horizontal chip row + action row here; its "action"/"digest" view content and
- * `getMessage`/`getUrl`/`timeAgo`/grouping logic are ported verbatim in `utils/notificationDisplay.ts`.
- * `comment`/`like`/`deal`/`community`/`event`/`post_recommendation` (feed post), `message`, and
- * `follow` taps are documented no-ops (mark-read only) until Phases 1–3 of the plan wire their real
- * destinations; `match_*` already navigates to `MyMatches` (today's placeholder) since that route
- * exists now. */
+ * mobile mockup exists for this screen). Web's left rail (filter categories) reflows into a
+ * horizontal chip row here; "Mark all as read"/"Clear all" live in the header's overflow menu
+ * (`ActionSheet`) instead of web's own always-visible-but-disabled buttons, and the search box is
+ * always visible in the body rather than behind a toggle — both per user request, deviating
+ * intentionally from a literal web port for mobile ergonomics. Its "action"/"digest" view content
+ * and `getMessage`/`getUrl`/`timeAgo`/grouping logic are ported verbatim in `utils/notificationDisplay.ts`.
+ * All 4 real destinations are wired now (Phases 1–3): `message` navigates to the Messages tab,
+ * `follow` navigates to the tapped member's Profile, `comment`/`like`/`deal`/`community`/`event`/
+ * `post_recommendation` navigate to `FeedPostDetailScreen` (Phase 3, a new screen — see
+ * `getNotificationDestination`'s `'feedPost'` case), and `match_*` navigates to `MyMatches`
+ * (today's placeholder — the real My Matches feature is Phase 4, explicitly deferred). */
 export default function NotificationsScreen() {
   const { colors, fonts, fontSize, radius, borderWidth } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
 
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -105,6 +120,7 @@ export default function NotificationsScreen() {
   const [category, setCategory] = useState<NotificationCategory>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const { items: all, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } = useNotificationsList(search);
@@ -114,12 +130,6 @@ export default function NotificationsScreen() {
     setSearchInput(value);
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => setSearch(value.trim()), 400);
-  };
-
-  const closeSearch = () => {
-    setSearchOpen(false);
-    setSearchInput('');
-    setSearch('');
   };
 
   const counts = useMemo(() => {
@@ -136,6 +146,31 @@ export default function NotificationsScreen() {
 
   const mainTitle = viewMode === 'action' ? 'Needs response' : viewMode === 'digest' ? 'Smart digest' : CATEGORY_LABEL[category];
 
+  // "Mark all as read"/"Clear all" — moved out of an inline action row into this overflow menu
+  // per user request. Web keeps both buttons always visible and just disables them
+  // (`disabled={counts.unread===0}` / `disabled={clearing || all.length===0}`); `ActionSheet` has
+  // no disabled-row concept, so this follows the app's own established sheet convention instead
+  // (`ConversationOptionsSheet` only pushes "Mark as read" when there's something real to mark) —
+  // an item that can't do anything simply isn't offered.
+  const moreMenuItems: ActionSheetItem[] = [];
+  if (counts.unread > 0) {
+    moreMenuItems.push({
+      key: 'markAll',
+      label: 'Mark all as read',
+      icon: <ListChecks size={17} color={colors.goldDark} strokeWidth={1.8} />,
+      onPress: () => setConfirmAction({ type: 'markAll' }),
+    });
+  }
+  if (all.length > 0) {
+    moreMenuItems.push({
+      key: 'clearAll',
+      label: 'Clear all',
+      icon: <Trash2 size={17} color={colors.danger} strokeWidth={1.8} />,
+      danger: true,
+      onPress: () => setConfirmAction({ type: 'clearAll' }),
+    });
+  }
+
   const handleRefresh = () => {
     setRefreshing(true);
     refetch().finally(() => setRefreshing(false));
@@ -148,10 +183,23 @@ export default function NotificationsScreen() {
       if (!destination) return;
       if (destination.kind === 'myMatches') {
         navigation.navigate('Drawer', { screen: 'MyMatches' });
+      } else if (destination.kind === 'messages') {
+        // Matches web's own `getUrl` exactly — `"message"` notifications resolve to the general
+        // `/dashboard/messages` inbox, not a specific conversation thread (no `openConversation`
+        // param), so this lands on the same Messages tab every other bell/menu entry point does.
+        navigation.navigate('Drawer', { screen: 'Tabs', params: { screen: 'Messages' } });
+      } else if (destination.kind === 'profile') {
+        // `follow` notifications only carry a username, not a full `Profile`/saved-state — same
+        // situation `MessagesScreen.tsx`'s `handleViewProfile` already solved for "View profile"
+        // from a thread: fetch by username, then push `MemberProfile` with `initialSaved: false`
+        // (no Directory saved-contacts context available outside that screen).
+        fetchProfileByUsername(destination.username)
+          .then(profile => navigation.navigate('MemberProfile', { profile, initialSaved: false }))
+          .catch(() => Toast.show({ type: 'error', text1: 'Could not open this profile' }));
+      } else if (destination.kind === 'feedPost') {
+        // comment/like/deal/community/event/post_recommendation — Phase 3's new screen.
+        navigation.navigate('FeedPostDetail', { feedId: destination.feedId });
       }
-      // 'feedPost' / 'messages' / 'profile': no destination screen wired yet (Phases 1–3) — the
-      // mark-read above already happened, matching web's own "mark read, then navigate if there's
-      // somewhere to go" order.
     },
     [mutations, navigation],
   );
@@ -180,11 +228,7 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: colors.pageBg }}>
-      <NotificationsHeader
-        onBack={() => navigation.goBack()}
-        searchOpen={searchOpen}
-        onToggleSearch={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
-      />
+      <NotificationsHeader onBack={() => navigation.goBack()} onMorePress={() => setMoreMenuOpen(true)} />
 
       <FlatList
         data={isLoading && all.length === 0 ? [] : blocks}
@@ -197,11 +241,9 @@ export default function NotificationsScreen() {
         onEndReachedThreshold={0.4}
         ListHeaderComponent={
           <View>
-            {searchOpen && (
-              <View style={styles.searchWrap}>
-                <SearchBar value={searchInput} onChangeText={handleSearchChange} placeholder="Search notifications…" />
-              </View>
-            )}
+            <View style={styles.searchWrap}>
+              <SearchBar value={searchInput} onChangeText={handleSearchChange} placeholder="Search notifications…" />
+            </View>
 
             <FlatList
               horizontal
@@ -234,27 +276,6 @@ export default function NotificationsScreen() {
                 );
               }}
             />
-
-            <View style={styles.actionsRow}>
-              <Pressable
-                onPress={() => setConfirmAction({ type: 'markAll' })}
-                disabled={counts.unread === 0}
-                style={[styles.actionRowButton, { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.md, opacity: counts.unread === 0 ? 0.4 : 1 }]}
-              >
-                <ListChecks size={13} color={colors.ink2} strokeWidth={1.8} />
-                <Text style={[fonts.semibold, styles.actionRowText, { color: colors.ink2 }]}>Mark all as read</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setConfirmAction({ type: 'clearAll' })}
-                disabled={mutations.isClearingAll || all.length === 0}
-                style={[styles.actionRowButton, { borderColor: colors.border, borderWidth: borderWidth.thin, borderRadius: radius.md, opacity: mutations.isClearingAll || all.length === 0 ? 0.4 : 1 }]}
-              >
-                <Trash2 size={13} color={colors.ink2} strokeWidth={1.8} />
-                <Text style={[fonts.semibold, styles.actionRowText, { color: colors.ink2 }]}>
-                  {mutations.isClearingAll ? 'Clearing…' : 'Clear all'}
-                </Text>
-              </Pressable>
-            </View>
 
             <View style={styles.columnHeader}>
               <Text style={[fonts.display, styles.mainTitle, { fontSize: 17, color: colors.ink }]}>{mainTitle}</Text>
@@ -374,6 +395,8 @@ export default function NotificationsScreen() {
         }
       />
 
+      <ActionSheet visible={moreMenuOpen} onClose={() => setMoreMenuOpen(false)} title="Notification options" items={moreMenuItems} />
+
       <ConfirmDialog
         visible={!!confirmAction}
         title={confirmCopy?.title ?? ''}
@@ -420,22 +443,6 @@ const styles = StyleSheet.create({
   },
   chipCountText: {
     fontSize: 9.5,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  actionRowButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  actionRowText: {
-    fontSize: 11.5,
   },
   columnHeader: {
     flexDirection: 'row',
