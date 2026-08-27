@@ -11,6 +11,7 @@ export { default as MemberProfileScreen } from './MemberProfileScreen';
 export { default as ViewProfileScreen } from './ViewProfileScreen';
 export { default as MyResourcesScreen } from './MyResourcesScreen';
 export { default as MyActivitiesScreen } from './MyActivitiesScreen';
+export { default as NotificationsScreen } from './NotificationsScreen';
 export { default as AdManagementScreen } from './AdManagementScreen';
 export { default as AdCampaignDetailScreen } from './AdCampaignDetailScreen';
 export { default as AdInsightsScreen } from './AdInsightsScreen';

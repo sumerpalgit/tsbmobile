@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../theme';
 import { TopBar } from '../components/TopBar';
 import { useMe } from '../hooks/useMe';
+import { useNotificationsUnreadCount } from '../hooks/useNotifications';
 import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
 import { EtaChaptersScreen, MyActivitiesScreen, MyEventsScreen, MyResourcesScreen } from '../screens';
 import MainNavigator from './MainNavigator';
@@ -45,6 +46,7 @@ function DrawerNavigator() {
   // Same source `ProfileScreen`/`DrawerContent` already use for the real logged-in user's photo —
   // this TopBar's own avatar was rendering the generic "U" fallback instead of it (never wired).
   const { data: me } = useMe();
+  const { data: unreadCount } = useNotificationsUnreadCount();
 
   return (
     <Drawer.Navigator
@@ -88,6 +90,7 @@ function DrawerNavigator() {
               onMenuPress={() => navigation.openDrawer()}
               onBellPress={() => stackNavigation.navigate('Notifications')}
               onAvatarPress={() => stackNavigation.navigate('Profile')}
+              unreadCount={unreadCount ?? 0}
               userName={me?.name}
               profileImageUri={me?.profileImg}
               // Home's own mockup header (menu/logo/theme/bell only, no profile icon) excludes the

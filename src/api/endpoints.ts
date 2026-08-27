@@ -251,6 +251,28 @@ export const MY_ACTIVITY_ENDPOINTS = {
   JOB_APPLICATION: '/my-activity/job-application',
 } as const;
 
+/** Notifications — matches `webSrc/actions/notifications.ts` exactly. Ids interpolated at the
+ * call site, same convention as every other id-scoped endpoint in this file. `MATCH_COUNTS` feeds
+ * the Notifications screen's "Matches" filter-chip count (web's own per-match-type breakdown,
+ * used here only for the collapsed total). */
+export const NOTIFICATION_ENDPOINTS = {
+  LIST: '/notifications',
+  UNREAD_COUNT: '/notifications/unread-count',
+  MATCH_COUNTS: '/notifications/match-counts',
+  READ: '/notifications/read',
+  READ_ALL: '/notifications/read-all',
+  BASE: '/notifications',
+} as const;
+
+/** `POST /eta/accept-invite/:notificationId` / `POST /eta/decline-invite/:notificationId` —
+ * matches `webSrc/actions/notifications.ts`'s `acceptEtaInvite`/`declineEtaInvite`. Lives under
+ * `/eta` rather than `/notifications` on the backend (confirmed directly, not a typo) since it's
+ * really an ETA-chapter-membership action triggered from a notification row. */
+export const ETA_INVITE_ENDPOINTS = {
+  ACCEPT: '/eta/accept-invite',
+  DECLINE: '/eta/decline-invite',
+} as const;
+
 export const UPLOAD_ENDPOINTS = {
   IMAGE_UPLOAD: '/upload/image-upload',
   DOCUMENT: '/upload/document',

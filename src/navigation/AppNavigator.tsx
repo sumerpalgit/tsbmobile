@@ -1,7 +1,6 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
-import { ProfileScreen, CreateEventScreen, EventDetailScreen, MemberProfileScreen, ViewProfileScreen, AdManagementScreen, AdCampaignDetailScreen, AdInsightsScreen, AdCampaignEditScreen, CreateAdCampaignScreen, ContributeResourceScreen, PromptLibraryScreen, SettingsHomeScreen, SettingsAccountScreen, SettingsProfileScreen, SettingsMatchingScreen, SettingsNotificationsScreen, SettingsPrivacyScreen, SettingsBillingScreen, SettingsSupportScreen, CreateDualProfileScreen } from '../screens';
+import { NotificationsScreen, ProfileScreen, CreateEventScreen, EventDetailScreen, MemberProfileScreen, ViewProfileScreen, AdManagementScreen, AdCampaignDetailScreen, AdInsightsScreen, AdCampaignEditScreen, CreateAdCampaignScreen, ContributeResourceScreen, PromptLibraryScreen, SettingsHomeScreen, SettingsAccountScreen, SettingsProfileScreen, SettingsMatchingScreen, SettingsNotificationsScreen, SettingsPrivacyScreen, SettingsBillingScreen, SettingsSupportScreen, CreateDualProfileScreen } from '../screens';
 import DrawerNavigator from './DrawerNavigator';
 import { AppStackParamList } from './types';
 
@@ -14,12 +13,6 @@ const Stack = createNativeStackNavigator<AppStackParamList>();
  * and get a back gesture, which is what a phone user expects from the bell and
  * the avatar.
  */
-
-const NotificationsScreen = createPlaceholderScreen({
-  title: 'Notifications',
-  icon: 'bell',
-  phase: 'Phase 6',
-});
 
 function AppNavigator() {
   return (

@@ -8,6 +8,7 @@ import { LogOut } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { useAuth } from '../store/AuthContext';
 import { useMe } from '../hooks/useMe';
+import { useNotificationsUnreadCount } from '../hooks/useNotifications';
 import { normalizeProfile } from '../api/directory';
 import { TopBar } from '../components/TopBar';
 import { IdentityCard } from '../components/profile/IdentityCard';
@@ -41,6 +42,7 @@ function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { data: user, isLoading } = useMe();
+  const { data: unreadCount } = useNotificationsUnreadCount();
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
 
   const pushedContext = navigation.getState()?.type === 'stack';
@@ -55,6 +57,7 @@ function ProfileScreen() {
         onMenuPress={() => (pushedContext ? navigation.goBack() : navigation.dispatch(DrawerActions.openDrawer()))}
         onBellPress={() => navigation.navigate('Notifications')}
         onAvatarPress={() => {}}
+        unreadCount={unreadCount ?? 0}
         showAvatar={false}
       />
 

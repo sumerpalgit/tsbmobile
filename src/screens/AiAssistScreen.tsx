@@ -406,7 +406,7 @@ export default function AiAssistScreen() {
           view="empty"
           onOpenMenu={() => navigation.dispatch(DrawerActions.openDrawer())}
           onOpenHistory={() => setHistoryOpen(true)}
-          onBellPress={() => showToast('3 new notifications', 'info')}
+          onBellPress={() => stackNavigation.navigate('Notifications')}
         />
       ) : (
         <AiHeader
