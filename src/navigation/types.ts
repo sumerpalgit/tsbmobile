@@ -52,7 +52,14 @@ export type MainTabParamList = {
    * conversations list query having resolved by the time this tab is focused. Cleared via
    * `navigation.setParams` once consumed, since tab screens stay mounted and a stale param would
    * otherwise re-fire on the next focus. */
-  Messages: { openConversation?: Pick<Conversation, 'id' | 'name' | 'profileImg' | 'participantId' | 'unreadCount'> } | undefined;
+  Messages:
+    | {
+        openConversation?: Pick<
+          Conversation,
+          'id' | 'name' | 'profileImg' | 'participantId' | 'unreadCount'
+        >;
+      }
+    | undefined;
   Profile: undefined;
 };
 
@@ -165,6 +172,11 @@ export type AppStackParamList = {
    * screen-owns-lifecycle/wizard-owns-steps split), not one route per step — see the plan at
    * `delightful-seeking-snowglobe.md`. */
   CreateDualProfile: undefined;
+  /** Edit Profile — pushed from `ViewProfileScreen`'s "Edit Profile" button. Mobile's stand-in
+   * for web's edit-mode sidebar (`layout.tsx:264-270`), currently listing only Dual Profile
+   * Management; see `EditProfileScreen.tsx` for why the other three web edit pages aren't
+   * duplicated onto it. */
+  EditProfile: undefined;
   /** Feed Post Detail — Phase 3 of the plan at `delightful-seeking-snowglobe.md`, the last of
    * Notifications' 4 real destinations. Matches web's `/dashboard/feed/:feedId`: the tapped post
    * rendered through the same `PostCard`/`useFeedActions` Home already uses, plus web's own

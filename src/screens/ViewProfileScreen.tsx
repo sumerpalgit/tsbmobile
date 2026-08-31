@@ -1,5 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  BackHandler,
+  Image,
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,7 +18,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import LinearGradient from 'react-native-linear-gradient';
 import Toast from 'react-native-toast-message';
-import { ChevronLeft, ExternalLink, MapPin, Pencil, RefreshCw, Star, Users2 } from 'lucide-react-native';
+import {
+  ChevronLeft,
+  ExternalLink,
+  MapPin,
+  Pencil,
+  RefreshCw,
+  Star,
+  Users2,
+} from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { useMe } from '../hooks/useMe';
 import { ME_QUERY_KEY } from '../api/queryKeys';
@@ -93,7 +112,8 @@ const ROLE_TAB_LABELS: Record<string, string> = {
  * Action row's 3rd button mirrors web's own conditional (`my-profile/page.tsx:5038-5059`): "Dual
  * Profile" → `CreateDualProfile` wizard when `profile.dual_id` is unset, "Switch Profile" →
  * `switchDualProfile()` (already-built API wrapper, previously unused) when it's set. "Edit
- * Profile" is temporarily disabled (dimmed, no-op) — see its own inline TODO.
+ * Profile" pushes `EditProfileScreen` (2026-08-31) — it was dimmed and inert before that screen
+ * existed.
  *
  * Outer scroll is `KeyboardAwareScrollView` (2026-08-20 fix, same library/config
  * `OnboardingScreen.tsx`/the Dual Profile wizard already use — `enableOnAndroid`,
@@ -114,13 +134,16 @@ const ROLE_TAB_LABELS: Record<string, string> = {
  */
 function ViewProfileScreen() {
   const { colors, fonts } = useTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const insets = useSafeAreaInsets();
   const { data: user, isLoading } = useMe();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [switching, setSwitching] = useState(false);
-  const [followListMode, setFollowListMode] = useState<'followers' | 'following' | null>(null);
+  const [followListMode, setFollowListMode] = useState<
+    'followers' | 'following' | null
+  >(null);
 
   /** Makes back tab-aware instead of always leaving the screen — previously both the header's back
    * arrow and the Android hardware back button called `navigation.goBack()`/the default pop
@@ -142,7 +165,10 @@ function ViewProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      const sub = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+      const sub = BackHandler.addEventListener(
+        'hardwareBackPress',
+        handleBackPress,
+      );
       return () => sub.remove();
     }, [handleBackPress]),
   );
@@ -154,7 +180,9 @@ function ViewProfileScreen() {
    * the last of 6) would highlight off-screen with no visible feedback. `tabLayouts` is populated by
    * each tab's own `onLayout` below; scrolling is skipped if that tab hasn't measured yet. */
   const tabScrollRef = useRef<ScrollView>(null);
-  const tabLayouts = useRef<Partial<Record<TabKey, { x: number; width: number }>>>({});
+  const tabLayouts = useRef<
+    Partial<Record<TabKey, { x: number; width: number }>>
+  >({});
 
   /** Pull-to-refresh, Role Thesis tab only — per explicit direction ("add seprate for all role").
    * The actual pull gesture lives on the ONE shared outer `KeyboardAwareScrollView` below (every
@@ -174,7 +202,10 @@ function ViewProfileScreen() {
   useEffect(() => {
     const layout = tabLayouts.current[activeTab];
     if (layout) {
-      tabScrollRef.current?.scrollTo({ x: Math.max(0, layout.x - 16), animated: true });
+      tabScrollRef.current?.scrollTo({
+        x: Math.max(0, layout.x - 16),
+        animated: true,
+      });
     }
   }, [activeTab]);
 
@@ -182,26 +213,47 @@ function ViewProfileScreen() {
 
   if (!user || !profile) {
     return (
-      <View style={[styles.loading, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}>
+      <View
+        style={[
+          styles.loading,
+          { backgroundColor: colors.pageBg, paddingTop: insets.top },
+        ]}
+      >
         {isLoading && <ActivityIndicator size="small" color={colors.ink3} />}
       </View>
     );
   }
 
-  const locationLine = [profile.city, profile.state_code].filter(Boolean).join(', ');
+  const locationLine = [profile.city, profile.state_code]
+    .filter(Boolean)
+    .join(', ');
   const hasRating = (profile.total_reviews ?? 0) > 0;
   const filledStars = Math.round(profile.avg_rating ?? 0);
-  const initials = profile.name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
-  const roleTabLabel = profile.role_type ? (ROLE_TAB_LABELS[profile.role_type.trim().toLowerCase()] ?? profile.role_type) : 'Role Thesis';
-  const memberSince = user.created_at ? new Date(user.created_at).getFullYear() : null;
+  const initials = profile.name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(w => w[0])
+    .join('')
+    .toUpperCase();
+  const roleTabLabel = profile.role_type
+    ? ROLE_TAB_LABELS[profile.role_type.trim().toLowerCase()] ??
+      profile.role_type
+    : 'Role Thesis';
+  const memberSince = user.created_at
+    ? new Date(user.created_at).getFullYear()
+    : null;
   /** Matches web's real sub-title line (`my-profile/page.tsx:5076-5078`):
    * `[sub_category, organization_name || firm_name].filter(Boolean).join(" at ")` — was missing
    * entirely on mobile (the organization/firm name was never read at all). `roleProfile` is loosely
    * typed (varies per role, same as `ViewProfileRoleThesisTab`'s own usage below), so read
    * defensively. */
   const roleProfileRecord = (user.roleProfile ?? {}) as Record<string, unknown>;
-  const organizationName = (roleProfileRecord.organization_name ?? roleProfileRecord.firm_name) as string | undefined;
-  const subtitleLine = [profile.sub_category, organizationName].filter(Boolean).join(' at ');
+  const organizationName = (roleProfileRecord.organization_name ??
+    roleProfileRecord.firm_name) as string | undefined;
+  const subtitleLine = [profile.sub_category, organizationName]
+    .filter(Boolean)
+    .join(' at ');
 
   const handleRefreshRoleThesis = async () => {
     setRefreshingRoleThesis(true);
@@ -239,185 +291,313 @@ function ViewProfileScreen() {
   };
 
   const identityBlock = (
-        <View style={{ backgroundColor: colors.surface }}>
-          <View style={styles.cover}>
-            {/* Real cover photo when the user has set one — matches web's own `profile.cover_img`
+    <View style={{ backgroundColor: colors.surface }}>
+      <View style={styles.cover}>
+        {/* Real cover photo when the user has set one — matches web's own `profile.cover_img`
                 (`my-profile/page.tsx:4854`), which this screen previously ignored entirely in favor
                 of an always-on decorative gradient. Read off `user.coverImg` (`api/profile.ts`'s
                 `mapProfileToUser`), not `profile.cover_img` — same Directory-vs-my-profile type
                 split as `followers`/`followings`/`created_at` above; the Directory-scoped `Profile`
                 type doesn't carry this field. Falls back to that same gradient (rather than web's
                 own `/Noprofile.svg`, a web-only static asset) only when no photo is set. */}
-            {user.coverImg ? (
-              <Image source={{ uri: user.coverImg }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-            ) : (
-              <LinearGradient
-                colors={[colors.hero1, colors.hero2, colors.goldDark]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1.2 }}
-                style={StyleSheet.absoluteFillObject}
-              />
-            )}
-            {/* Web's own dark gradient overlay (`linear-gradient(180deg, rgba(15,30,45,.25) 0%,
+        {user.coverImg ? (
+          <Image
+            source={{ uri: user.coverImg }}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode="cover"
+          />
+        ) : (
+          <LinearGradient
+            colors={[colors.hero1, colors.hero2, colors.goldDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1.2 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        )}
+        {/* Web's own dark gradient overlay (`linear-gradient(180deg, rgba(15,30,45,.25) 0%,
                 rgba(15,30,45,.55) 100%)`), applied unconditionally on web regardless of real photo
                 vs. its own default — matched here the same way. */}
-            <LinearGradient colors={['rgba(15,30,45,0.25)', 'rgba(15,30,45,0.55)']} style={StyleSheet.absoluteFillObject} />
-            <View style={[styles.avatarWrap, { borderColor: colors.surface }]}>
-              {profile.profile_img ? (
-                <Image source={{ uri: profile.profile_img }} style={styles.avatarImage} />
-              ) : (
-                <Text style={[fonts.display, styles.avatarInitials]}>{initials}</Text>
-              )}
-            </View>
-            {/* This is the user's own profile — they're definitionally online while viewing it,
-                unlike a real-time presence claim about someone else. */}
-            <View style={[styles.onlineDot, { backgroundColor: colors.success, borderColor: colors.surface }]} />
-          </View>
-
-          <View style={styles.identityBody}>
-            <View style={styles.nameRow}>
-              <Text style={[fonts.display, styles.name, { color: colors.ink }]}>{profile.name}</Text>
-              {!!profile.role_type && (
-                <View style={[styles.roleBadge, { backgroundColor: '#8B6914' }]}>
-                  <Text style={[fonts.bold, styles.roleBadgeText]}>{profile.role_type.toUpperCase()}</Text>
-                </View>
-              )}
-              {/* Web's real second badge (`my-profile/page.tsx:4984-5003`) — was missing entirely,
-                  sub_category previously only ever appeared as plain text below the name. */}
-              {!!profile.sub_category && (
-                <View style={[styles.roleBadge, { backgroundColor: '#BF9019' }]}>
-                  <Text style={[fonts.bold, styles.roleBadgeText]}>{profile.sub_category.toUpperCase()}</Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.subRow}>
-              {!!subtitleLine && (
-                <Text style={[fonts.regular, styles.subText, { color: colors.ink2 }]}>{subtitleLine}</Text>
-              )}
-              {hasRating && (
-                <>
-                  <View style={styles.starsRow}>
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <Star
-                        key={i}
-                        size={13}
-                        color={colors.gold}
-                        fill={i < filledStars ? colors.gold : 'transparent'}
-                        strokeWidth={1.1}
-                      />
-                    ))}
-                  </View>
-                  <Text style={[fonts.bold, styles.ratingValue, { color: colors.ink }]}>
-                    {(profile.avg_rating ?? 0).toFixed(1)}
-                  </Text>
-                </>
-              )}
-            </View>
-
-            <View style={styles.metaRow}>
-              {!!locationLine && (
-                <View style={styles.metaGroup}>
-                  <MapPin size={11} color={colors.ink3} strokeWidth={1.6} />
-                  <Text style={[fonts.regular, styles.metaText, { color: colors.ink3 }]}>{locationLine}</Text>
-                </View>
-              )}
-              {!!profile.linkedin_url && (
-                <Pressable onPress={handleLinkedIn} style={styles.metaGroup}>
-                  <ExternalLink size={11} color={colors.gold} strokeWidth={1.6} />
-                  <Text style={[fonts.regular, styles.metaLink, { color: colors.gold }]}>linkedin.com</Text>
-                </Pressable>
-              )}
-            </View>
-
-            <View style={[styles.statStrip, { borderColor: colors.border, backgroundColor: colors.surface2 }]}>
-              {[
-                { label: 'Followers', value: String(user.followers ?? 0), onPress: () => setFollowListMode('followers') },
-                { label: 'Following', value: String(user.followings ?? 0), onPress: () => setFollowListMode('following') },
-                { label: 'Joined Since', value: memberSince ? String(memberSince) : '—', onPress: undefined },
-              ].map((s, i) => (
-                <Pressable
-                  key={s.label}
-                  onPress={s.onPress}
-                  disabled={!s.onPress}
-                  style={[styles.statCell, i < 2 && { borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: colors.border }]}
-                >
-                  <Text style={[fonts.display, styles.statValue, { color: colors.ink }]}>{s.value}</Text>
-                  <Text style={[fonts.bold, styles.statLabel, { color: colors.ink3 }]}>{s.label.toUpperCase()}</Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <View style={styles.actionRow}>
-              <Pressable
-                onPress={handleLinkedIn}
-                disabled={!profile.linkedin_url}
-                style={[styles.linkedinButton, { opacity: profile.linkedin_url ? 1 : 0.4 }]}
-                accessibilityLabel="LinkedIn"
-              >
-                <Text style={styles.linkedinGlyph}>in</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => navigation.navigate('SettingsProfile')}
-                disabled // TODO: re-enable Edit Profile once its flow is ready for this screen
-                style={({ pressed }) => [styles.actionButton, { borderColor: colors.border, backgroundColor: colors.surface, opacity: 0.4 }, pressed && styles.pressed]}
-              >
-                <Pencil size={13} color={colors.ink} strokeWidth={1.8} />
-                <Text style={[fonts.bold, styles.actionButtonText, { color: colors.ink }]}>Edit Profile</Text>
-              </Pressable>
-              {profile.dual_id ? (
-                <Pressable
-                  onPress={handleSwitchProfile}
-                  disabled={switching}
-                  style={({ pressed }) => [styles.actionButton, { backgroundColor: '#182E43', opacity: switching ? 0.6 : 1 }, pressed && styles.pressed]}
-                >
-                  {switching ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <RefreshCw size={14} color="#fff" strokeWidth={1.8} />
-                  )}
-                  <Text style={[fonts.bold, styles.actionButtonText, { color: '#fff' }]}>Switch Profile</Text>
-                </Pressable>
-              ) : (
-                <Pressable
-                  onPress={() => navigation.navigate('CreateDualProfile')}
-                  style={({ pressed }) => [styles.actionButton, { backgroundColor: '#182E43' }, pressed && styles.pressed]}
-                >
-                  <Users2 size={14} color="#fff" strokeWidth={1.8} />
-                  <Text style={[fonts.bold, styles.actionButtonText, { color: '#fff' }]}>Dual Profile</Text>
-                </Pressable>
-              )}
-            </View>
-          </View>
-
-          <View style={[styles.tabBarWrap, { borderTopColor: colors.border }]}>
-            <ScrollView ref={tabScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
-              {TABS.map(tab => {
-                const active = tab.key === activeTab;
-                const label = tab.key === 'roleThesis' ? roleTabLabel : tab.label;
-                return (
-                  <Pressable
-                    key={tab.key}
-                    onPress={() => setActiveTab(tab.key)}
-                    onLayout={e => {
-                      tabLayouts.current[tab.key] = { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width };
-                    }}
-                    style={[styles.tab, active && { borderBottomColor: colors.gold, borderBottomWidth: 2.5 }]}
-                  >
-                    <Text style={[active ? fonts.bold : fonts.semibold, styles.tabLabel, { color: active ? colors.gold : colors.ink3 }]}>
-                      {label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
+        <LinearGradient
+          colors={['rgba(15,30,45,0.25)', 'rgba(15,30,45,0.55)']}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <View style={[styles.avatarWrap, { borderColor: colors.surface }]}>
+          {profile.profile_img ? (
+            <Image
+              source={{ uri: profile.profile_img }}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <Text style={[fonts.display, styles.avatarInitials]}>
+              {initials}
+            </Text>
+          )}
         </View>
+        {/* This is the user's own profile — they're definitionally online while viewing it,
+                unlike a real-time presence claim about someone else. */}
+        <View
+          style={[
+            styles.onlineDot,
+            { backgroundColor: colors.success, borderColor: colors.surface },
+          ]}
+        />
+      </View>
+
+      <View style={styles.identityBody}>
+        <View style={styles.nameRow}>
+          <Text style={[fonts.display, styles.name, { color: colors.ink }]}>
+            {profile.name}
+          </Text>
+          {!!profile.role_type && (
+            <View style={[styles.roleBadge, { backgroundColor: '#8B6914' }]}>
+              <Text style={[fonts.bold, styles.roleBadgeText]}>
+                {profile.role_type.toUpperCase()}
+              </Text>
+            </View>
+          )}
+          {/* Web's real second badge (`my-profile/page.tsx:4984-5003`) — was missing entirely,
+                  sub_category previously only ever appeared as plain text below the name. */}
+          {!!profile.sub_category && (
+            <View style={[styles.roleBadge, { backgroundColor: '#BF9019' }]}>
+              <Text style={[fonts.bold, styles.roleBadgeText]}>
+                {profile.sub_category.toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.subRow}>
+          {!!subtitleLine && (
+            <Text
+              style={[fonts.regular, styles.subText, { color: colors.ink2 }]}
+            >
+              {subtitleLine}
+            </Text>
+          )}
+          {hasRating && (
+            <>
+              <View style={styles.starsRow}>
+                {Array.from({ length: 5 }, (_, i) => (
+                  <Star
+                    key={i}
+                    size={13}
+                    color={colors.gold}
+                    fill={i < filledStars ? colors.gold : 'transparent'}
+                    strokeWidth={1.1}
+                  />
+                ))}
+              </View>
+              <Text
+                style={[fonts.bold, styles.ratingValue, { color: colors.ink }]}
+              >
+                {(profile.avg_rating ?? 0).toFixed(1)}
+              </Text>
+            </>
+          )}
+        </View>
+
+        <View style={styles.metaRow}>
+          {!!locationLine && (
+            <View style={styles.metaGroup}>
+              <MapPin size={11} color={colors.ink3} strokeWidth={1.6} />
+              <Text
+                style={[fonts.regular, styles.metaText, { color: colors.ink3 }]}
+              >
+                {locationLine}
+              </Text>
+            </View>
+          )}
+          {!!profile.linkedin_url && (
+            <Pressable onPress={handleLinkedIn} style={styles.metaGroup}>
+              <ExternalLink size={11} color={colors.gold} strokeWidth={1.6} />
+              <Text
+                style={[fonts.regular, styles.metaLink, { color: colors.gold }]}
+              >
+                linkedin.com
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
+        <View
+          style={[
+            styles.statStrip,
+            { borderColor: colors.border, backgroundColor: colors.surface2 },
+          ]}
+        >
+          {[
+            {
+              label: 'Followers',
+              value: String(user.followers ?? 0),
+              onPress: () => setFollowListMode('followers'),
+            },
+            {
+              label: 'Following',
+              value: String(user.followings ?? 0),
+              onPress: () => setFollowListMode('following'),
+            },
+            {
+              label: 'Joined Since',
+              value: memberSince ? String(memberSince) : '—',
+              onPress: undefined,
+            },
+          ].map((s, i) => (
+            <Pressable
+              key={s.label}
+              onPress={s.onPress}
+              disabled={!s.onPress}
+              style={[
+                styles.statCell,
+                i < 2 && {
+                  borderRightWidth: StyleSheet.hairlineWidth,
+                  borderRightColor: colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[fonts.display, styles.statValue, { color: colors.ink }]}
+              >
+                {s.value}
+              </Text>
+              <Text
+                style={[fonts.bold, styles.statLabel, { color: colors.ink3 }]}
+              >
+                {s.label.toUpperCase()}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={styles.actionRow}>
+          <Pressable
+            onPress={handleLinkedIn}
+            disabled={!profile.linkedin_url}
+            style={[
+              styles.linkedinButton,
+              { opacity: profile.linkedin_url ? 1 : 0.4 },
+            ]}
+            accessibilityLabel="LinkedIn"
+          >
+            <Text style={styles.linkedinGlyph}>in</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => navigation.navigate('EditProfile')}
+            style={({ pressed }) => [
+              styles.actionButton,
+              { borderColor: colors.border, backgroundColor: colors.surface },
+              pressed && styles.pressed,
+            ]}
+          >
+            <Pencil size={13} color={colors.ink} strokeWidth={1.8} />
+            <Text
+              style={[
+                fonts.bold,
+                styles.actionButtonText,
+                { color: colors.ink },
+              ]}
+            >
+              Edit Profile
+            </Text>
+          </Pressable>
+          {profile.dual_id ? (
+            <Pressable
+              onPress={handleSwitchProfile}
+              disabled={switching}
+              style={({ pressed }) => [
+                styles.actionButton,
+                { backgroundColor: '#182E43', opacity: switching ? 0.6 : 1 },
+                pressed && styles.pressed,
+              ]}
+            >
+              {switching ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <RefreshCw size={14} color="#fff" strokeWidth={1.8} />
+              )}
+              <Text
+                style={[fonts.bold, styles.actionButtonText, { color: '#fff' }]}
+              >
+                Switch Profile
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => navigation.navigate('CreateDualProfile')}
+              style={({ pressed }) => [
+                styles.actionButton,
+                { backgroundColor: '#182E43' },
+                pressed && styles.pressed,
+              ]}
+            >
+              <Users2 size={14} color="#fff" strokeWidth={1.8} />
+              <Text
+                style={[fonts.bold, styles.actionButtonText, { color: '#fff' }]}
+              >
+                Dual Profile
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
+
+      <View style={[styles.tabBarWrap, { borderTopColor: colors.border }]}>
+        <ScrollView
+          ref={tabScrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabBar}
+        >
+          {TABS.map(tab => {
+            const active = tab.key === activeTab;
+            const label = tab.key === 'roleThesis' ? roleTabLabel : tab.label;
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => setActiveTab(tab.key)}
+                onLayout={e => {
+                  tabLayouts.current[tab.key] = {
+                    x: e.nativeEvent.layout.x,
+                    width: e.nativeEvent.layout.width,
+                  };
+                }}
+                style={[
+                  styles.tab,
+                  active && {
+                    borderBottomColor: colors.gold,
+                    borderBottomWidth: 2.5,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    active ? fonts.bold : fonts.semibold,
+                    styles.tabLabel,
+                    { color: active ? colors.gold : colors.ink3 },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+    </View>
   );
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.pageBg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+    <View
+      style={[
+        styles.screen,
+        { backgroundColor: colors.pageBg, paddingTop: insets.top },
+      ]}
+    >
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: colors.surface, borderBottomColor: colors.border },
+        ]}
+      >
         <Pressable
           onPress={() => {
             if (!handleBackPress()) navigation.goBack();
@@ -427,7 +607,11 @@ function ViewProfileScreen() {
         >
           <ChevronLeft size={22} color={colors.ink} strokeWidth={1.8} />
         </Pressable>
-        <Text style={[fonts.display, styles.headerTitle, { color: colors.ink }]}>View Profile</Text>
+        <Text
+          style={[fonts.display, styles.headerTitle, { color: colors.ink }]}
+        >
+          View Profile
+        </Text>
       </View>
 
       {activeTab === 'posts' ? (
@@ -435,7 +619,10 @@ function ViewProfileScreen() {
         // every other tab renders inside — nesting a `FlatList` inside a `ScrollView` breaks
         // virtualization, so it replaces the scroll container entirely for this tab instead,
         // taking `identityBlock` as its own `ListHeaderComponent`.
-        <ViewProfilePostsTab username={profile.username} listHeaderComponent={identityBlock} />
+        <ViewProfilePostsTab
+          username={profile.username}
+          listHeaderComponent={identityBlock}
+        />
       ) : (
         <KeyboardAwareScrollView
           // Forces a fresh mount (and so a scroll position reset to the top) on every tab switch —
@@ -453,7 +640,12 @@ function ViewProfileScreen() {
           keyboardOpeningTime={0}
           refreshControl={
             activeTab === 'roleThesis' ? (
-              <RefreshControl refreshing={refreshingRoleThesis} onRefresh={handleRefreshRoleThesis} tintColor={colors.gold} colors={[colors.gold]} />
+              <RefreshControl
+                refreshing={refreshingRoleThesis}
+                onRefresh={handleRefreshRoleThesis}
+                tintColor={colors.gold}
+                colors={[colors.gold]}
+              />
             ) : undefined
           }
         >
@@ -472,10 +664,17 @@ function ViewProfileScreen() {
           ) : activeTab === 'analytics' ? (
             <ViewProfileAnalyticsTab />
           ) : activeTab === 'roleThesis' ? (
-            <ViewProfileRoleThesisTab ref={roleThesisRef} profile={profile} roleProfile={user.roleProfile} userId={user.id} />
+            <ViewProfileRoleThesisTab
+              ref={roleThesisRef}
+              profile={profile}
+              roleProfile={user.roleProfile}
+              userId={user.id}
+            />
           ) : (
             <View style={styles.comingSoon}>
-              <Text style={[fonts.semibold, { color: colors.ink3 }]}>More is coming here in a future update.</Text>
+              <Text style={[fonts.semibold, { color: colors.ink3 }]}>
+                More is coming here in a future update.
+              </Text>
             </View>
           )}
         </KeyboardAwareScrollView>
@@ -502,7 +701,12 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headerButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  headerButton: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: { fontSize: 21, letterSpacing: -0.4 },
   cover: { height: 104 },
   avatarWrap: {
@@ -530,15 +734,32 @@ const styles = StyleSheet.create({
     borderWidth: 2.5,
   },
   identityBody: { paddingTop: 34, paddingHorizontal: 16, paddingBottom: 14 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   name: { fontSize: 22, letterSpacing: -0.3 },
   roleBadge: { paddingHorizontal: 5, paddingVertical: 3, borderRadius: 3 },
   roleBadgeText: { fontSize: 8.5, letterSpacing: 0.5, color: '#fff' },
-  subRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 5 },
+  subRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 5,
+  },
   subText: { fontSize: 12.5 },
   starsRow: { flexDirection: 'row', gap: 1.5 },
   ratingValue: { fontSize: 12.5 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 13, marginTop: 8 },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 13,
+    marginTop: 8,
+  },
   metaGroup: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { fontSize: 11.5 },
   metaLink: { fontSize: 11.5 },
@@ -581,9 +802,18 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.7 },
   tabBarWrap: { borderTopWidth: StyleSheet.hairlineWidth },
   tabBar: { paddingHorizontal: 10 },
-  tab: { height: 46, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
+  tab: {
+    height: 46,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   tabLabel: { fontSize: 13 },
-  comingSoon: { paddingVertical: 60, alignItems: 'center', paddingHorizontal: 30 },
+  comingSoon: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
 });
 
 export default ViewProfileScreen;

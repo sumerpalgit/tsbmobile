@@ -28,6 +28,7 @@ export { default as SettingsPrivacyScreen } from './SettingsPrivacyScreen';
 export { default as SettingsBillingScreen } from './SettingsBillingScreen';
 export { default as SettingsSupportScreen } from './SettingsSupportScreen';
 export { default as CreateDualProfileScreen } from './CreateDualProfileScreen';
+export { default as EditProfileScreen } from './EditProfileScreen';
 export { default as FeedPostDetailScreen } from './FeedPostDetailScreen';
 export {
   PlaceholderScreen,

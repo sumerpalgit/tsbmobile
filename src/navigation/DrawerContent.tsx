@@ -25,9 +25,20 @@ import type { AppStackParamList } from './types';
  * No footer/upsell card otherwise — not part of the app.
  */
 
-export function DrawerContent(props: DrawerContentComponentProps) {
+export function DrawerContent({
+  onSuggestFeature,
+  ...props
+}: DrawerContentComponentProps & { onSuggestFeature: () => void }) {
   const { navigation, state } = props;
-  const { colors, fonts, fontSize, spacing, radius, borderWidth, letterSpacing } = useTheme();
+  const {
+    colors,
+    fonts,
+    fontSize,
+    spacing,
+    radius,
+    borderWidth,
+    letterSpacing,
+  } = useTheme();
   const insets = useSafeAreaInsets();
   const { data: me } = useMe();
   const { logout } = useAuth();
@@ -42,7 +53,9 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   // tab (always showing whichever tab was active when the drawer content last remounted, not
   // the one actually open) — this utility reads the right, live source instead.
   const activeTabName =
-    activeRouteName === 'Tabs' ? getFocusedRouteNameFromRoute(state.routes[state.index]) : undefined;
+    activeRouteName === 'Tabs'
+      ? getFocusedRouteNameFromRoute(state.routes[state.index])
+      : undefined;
 
   const profile = me?.profile as Record<string, unknown> | undefined;
   const roleType = String(profile?.roleType ?? profile?.role_type ?? '').trim();
@@ -61,20 +74,34 @@ export function DrawerContent(props: DrawerContentComponentProps) {
       >
         <Avatar name={me?.name} imageUri={me?.profileImg} size={44} />
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={[fonts.bold, { fontSize: fontSize.subtitle, color: colors.ink }]} numberOfLines={1}>
+          <Text
+            style={[
+              fonts.bold,
+              { fontSize: fontSize.subtitle, color: colors.ink },
+            ]}
+            numberOfLines={1}
+          >
             {me?.name || 'Your Account'}
           </Text>
           {!!roleType && (
             <View
               style={[
                 styles.roleBadge,
-                { backgroundColor: colors.chip, borderRadius: radius.sm, marginTop: spacing.xxs },
+                {
+                  backgroundColor: colors.chip,
+                  borderRadius: radius.sm,
+                  marginTop: spacing.xxs,
+                },
               ]}
             >
               <Text
                 style={[
                   fonts.bold,
-                  { fontSize: fontSize.badge, color: colors.goldDark, letterSpacing: letterSpacing.wide },
+                  {
+                    fontSize: fontSize.badge,
+                    color: colors.goldDark,
+                    letterSpacing: letterSpacing.wide,
+                  },
                 ]}
               >
                 {roleType.toUpperCase()}
@@ -127,7 +154,9 @@ export function DrawerContent(props: DrawerContentComponentProps) {
                 icon={item.icon}
                 isActive={false}
                 onPress={() => {
-                  navigation.getParent<NativeStackNavigationProp<AppStackParamList>>()?.navigate(item.name);
+                  navigation
+                    .getParent<NativeStackNavigationProp<AppStackParamList>>()
+                    ?.navigate(item.name);
                   navigation.closeDrawer();
                 }}
               />
@@ -149,16 +178,49 @@ export function DrawerContent(props: DrawerContentComponentProps) {
       <View
         style={[
           styles.footer,
-          { paddingHorizontal: spacing.sm, borderTopColor: colors.borderSoft, borderTopWidth: borderWidth.thin },
+          {
+            paddingHorizontal: spacing.sm,
+            borderTopColor: colors.borderSoft,
+            borderTopWidth: borderWidth.thin,
+          },
         ]}
       >
         <Pressable
+          onPress={() => {
+            navigation.closeDrawer();
+            onSuggestFeature();
+          }}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.row,
+            { backgroundColor: pressed ? colors.cream : 'transparent' },
+          ]}
+        >
+          <Icon name="lightbulb" size={21} color={colors.goldDark} />
+          <Text
+            style={[fonts.bold, { fontSize: fontSize.ui, color: colors.ink }]}
+            numberOfLines={1}
+          >
+            Suggest a Feature
+          </Text>
+        </Pressable>
+
+        <Pressable
           onPress={() => setSignOutConfirmOpen(true)}
           accessibilityRole="button"
-          style={({ pressed }) => [styles.row, { backgroundColor: pressed ? colors.cream : 'transparent' }]}
+          style={({ pressed }) => [
+            styles.row,
+            { backgroundColor: pressed ? colors.cream : 'transparent' },
+          ]}
         >
           <LogOut size={21} color={colors.danger} strokeWidth={1.8} />
-          <Text style={[fonts.bold, { fontSize: fontSize.ui, color: colors.danger }]} numberOfLines={1}>
+          <Text
+            style={[
+              fonts.bold,
+              { fontSize: fontSize.ui, color: colors.danger },
+            ]}
+            numberOfLines={1}
+          >
             Sign out
           </Text>
         </Pressable>
@@ -172,7 +234,11 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         message="You'll need to sign in again to access your account."
         confirmLabel="Sign out"
         destructive
-        onConfirm={() => { setSignOutConfirmOpen(false); navigation.closeDrawer(); logout(); }}
+        onConfirm={() => {
+          setSignOutConfirmOpen(false);
+          navigation.closeDrawer();
+          logout();
+        }}
         onCancel={() => setSignOutConfirmOpen(false)}
       />
     </View>
@@ -205,12 +271,18 @@ function MenuRow({
       accessibilityState={{ selected: isActive }}
       style={({ pressed }) => [
         styles.row,
-        { backgroundColor: pressed && !isActive ? colors.cream : backgroundColor },
+        {
+          backgroundColor:
+            pressed && !isActive ? colors.cream : backgroundColor,
+        },
       ]}
     >
       <Icon name={icon} size={21} color={colors.goldDark} />
       <Text
-        style={[isActive ? textStyles.navItemActive : textStyles.navItem, { color: colors.ink }]}
+        style={[
+          isActive ? textStyles.navItemActive : textStyles.navItem,
+          { color: colors.ink },
+        ]}
         numberOfLines={1}
       >
         {label}

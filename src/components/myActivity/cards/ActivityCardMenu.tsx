@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { Eye, EyeOff, Flag, Link2, Trash2, UserCheck, UserPlus } from 'lucide-react-native';
 import { WEB_BASE_URL } from '@env';
@@ -9,14 +11,16 @@ import { BottomSheet } from '../../BottomSheet';
 import { ConfirmDialog } from '../../events/ConfirmDialog';
 import { deleteFeedItem, hideFeedItem, reportFeedItem } from '../../../api/feed';
 import { fetchFollowStatus, toggleFollow } from '../../../api/follow';
+import type { AppStackParamList } from '../../../navigation/types';
 
 /** The 3-dot card menu — matches web's real `MiniCardMenu.tsx` (View full post/Copy link/Follow-
  * Unfollow/Hide/Delete-or-Report), which was missing entirely from My Activity's mini-cards.
  * Follows the same shell/copy `PostCardMenuSheet.tsx` (View Profile's own-post-only version)
  * already established, extended with the Follow/Unfollow and Report branches that page didn't
- * need (it only ever shows the signed-in user's own posts). "View full post" has no destination
- * screen anywhere in this app yet — a toast stub, same convention `PostCardMenuSheet.tsx` already
- * uses, not a guess. */
+ * need (it only ever shows the signed-in user's own posts). "View full post" pushes
+ * `FeedPostDetailScreen` — it was a "coming soon" toast stub while no post-detail screen existed
+ * anywhere in the app; that screen landed later (Notifications Phase 3) and Notifications has
+ * been routing into it since, so this menu just needed pointing at the same destination. */
 export function ActivityCardMenu({
   visible,
   feedId,
@@ -37,6 +41,7 @@ export function ActivityCardMenu({
   onDeleted: () => void;
 }) {
   const { colors } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -52,7 +57,7 @@ export function ActivityCardMenu({
 
   const handleViewPost = () => {
     onClose();
-    Toast.show({ type: 'info', text1: 'Post details coming soon' });
+    navigation.navigate('FeedPostDetail', { feedId });
   };
 
   const handleCopyLink = () => {

@@ -1,6 +1,31 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { NotificationsScreen, ProfileScreen, CreateEventScreen, EventDetailScreen, MemberProfileScreen, ViewProfileScreen, AdManagementScreen, AdCampaignDetailScreen, AdInsightsScreen, AdCampaignEditScreen, CreateAdCampaignScreen, ContributeResourceScreen, PromptLibraryScreen, SettingsHomeScreen, SettingsAccountScreen, SettingsProfileScreen, SettingsMatchingScreen, SettingsNotificationsScreen, SettingsPrivacyScreen, SettingsBillingScreen, SettingsSupportScreen, CreateDualProfileScreen, FeedPostDetailScreen } from '../screens';
+import {
+  NotificationsScreen,
+  ProfileScreen,
+  CreateEventScreen,
+  EventDetailScreen,
+  MemberProfileScreen,
+  ViewProfileScreen,
+  AdManagementScreen,
+  AdCampaignDetailScreen,
+  AdInsightsScreen,
+  AdCampaignEditScreen,
+  CreateAdCampaignScreen,
+  ContributeResourceScreen,
+  PromptLibraryScreen,
+  SettingsHomeScreen,
+  SettingsAccountScreen,
+  SettingsProfileScreen,
+  SettingsMatchingScreen,
+  SettingsNotificationsScreen,
+  SettingsPrivacyScreen,
+  SettingsBillingScreen,
+  SettingsSupportScreen,
+  CreateDualProfileScreen,
+  EditProfileScreen,
+  FeedPostDetailScreen,
+} from '../screens';
 import DrawerNavigator from './DrawerNavigator';
 import { AppStackParamList } from './types';
 
@@ -25,21 +50,40 @@ function AppNavigator() {
       <Stack.Screen name="MemberProfile" component={MemberProfileScreen} />
       <Stack.Screen name="ViewProfile" component={ViewProfileScreen} />
       <Stack.Screen name="AdManagement" component={AdManagementScreen} />
-      <Stack.Screen name="AdCampaignDetail" component={AdCampaignDetailScreen} />
+      <Stack.Screen
+        name="AdCampaignDetail"
+        component={AdCampaignDetailScreen}
+      />
       <Stack.Screen name="AdInsights" component={AdInsightsScreen} />
       <Stack.Screen name="AdCampaignEdit" component={AdCampaignEditScreen} />
-      <Stack.Screen name="CreateAdCampaign" component={CreateAdCampaignScreen} />
-      <Stack.Screen name="ContributeResource" component={ContributeResourceScreen} />
+      <Stack.Screen
+        name="CreateAdCampaign"
+        component={CreateAdCampaignScreen}
+      />
+      <Stack.Screen
+        name="ContributeResource"
+        component={ContributeResourceScreen}
+      />
       <Stack.Screen name="PromptLibrary" component={PromptLibraryScreen} />
       <Stack.Screen name="SettingsHome" component={SettingsHomeScreen} />
       <Stack.Screen name="SettingsAccount" component={SettingsAccountScreen} />
       <Stack.Screen name="SettingsProfile" component={SettingsProfileScreen} />
-      <Stack.Screen name="SettingsMatching" component={SettingsMatchingScreen} />
-      <Stack.Screen name="SettingsNotifications" component={SettingsNotificationsScreen} />
+      <Stack.Screen
+        name="SettingsMatching"
+        component={SettingsMatchingScreen}
+      />
+      <Stack.Screen
+        name="SettingsNotifications"
+        component={SettingsNotificationsScreen}
+      />
       <Stack.Screen name="SettingsPrivacy" component={SettingsPrivacyScreen} />
       <Stack.Screen name="SettingsBilling" component={SettingsBillingScreen} />
       <Stack.Screen name="SettingsSupport" component={SettingsSupportScreen} />
-      <Stack.Screen name="CreateDualProfile" component={CreateDualProfileScreen} />
+      <Stack.Screen
+        name="CreateDualProfile"
+        component={CreateDualProfileScreen}
+      />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="FeedPostDetail" component={FeedPostDetailScreen} />
     </Stack.Navigator>
   );

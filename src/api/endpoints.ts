@@ -445,3 +445,10 @@ export const ROLE_THESIS_ENDPOINTS = {
   OPERATOR_THESIS_COMPLETION: '/profile/operator-thesis/completion',
   SIMILAR: '/profile',
 } as const;
+
+/** "Suggest a Feature" — web's `SuggestFeatureModal` (`webSrc/app/dashboard/layout.tsx:23`) posts
+ * to `${NEXT_PUBLIC_API_URL}/api/feature-suggestions` with body `{suggestion}`. `apiClient`'s
+ * `baseURL` already carries the `/api` prefix, so only the path below is needed here. */
+export const FEEDBACK_ENDPOINTS = {
+  FEATURE_SUGGESTIONS: '/feature-suggestions',
+} as const;

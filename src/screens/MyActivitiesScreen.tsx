@@ -1,8 +1,22 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
-import { Heart, MessageCircle, FileText, MousePointerClick, RefreshCw } from 'lucide-react-native';
+import {
+  Heart,
+  MessageCircle,
+  FileText,
+  MousePointerClick,
+  RefreshCw,
+} from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { useMe } from '../hooks/useMe';
 import { useMyActivityTab, useMyActivityStats } from '../hooks/useMyActivity';
@@ -26,7 +40,11 @@ import { JobApplyFormSheet } from '../components/home/JobApplyFormSheet';
 import type { ActivityTab, MyActivityFeedItem } from '../api/myActivity';
 import type { DrawerParamList } from '../navigation/types';
 
-type TabDef = { key: ActivityTab; label: string; countKey: 'liked' | 'commented' | 'received' | 'sent' };
+type TabDef = {
+  key: ActivityTab;
+  label: string;
+  countKey: 'liked' | 'commented' | 'received' | 'sent';
+};
 
 /** Order/labels match `webSrc/app/dashboard/my-activities/page.tsx`'s own `tab` array exactly.
  * No icons — the mockup's tab pills are plain text (`tsbTabsRow`), confirmed against a real
@@ -39,7 +57,10 @@ const TABS: TabDef[] = [
 ];
 
 /** Exact copy from web's per-tab `EmptyState`. */
-const EMPTY_COPY: Record<ActivityTab, { title: string; body: string; Icon: typeof Heart }> = {
+const EMPTY_COPY: Record<
+  ActivityTab,
+  { title: string; body: string; Icon: typeof Heart }
+> = {
   'my-posts': {
     title: 'No requests received yet',
     body: "When others send NDA or PPM requests on your posts, they'll appear here.",
@@ -65,8 +86,9 @@ const EMPTY_COPY: Record<ActivityTab, { title: string; body: string; Icon: typeo
 /**
  * My Activity — read-side screen shell (Phase 1). Functionality from
  * `webSrc/app/dashboard/my-activities/page.tsx` + its `components/activity/*`, UI chrome from the
- * mockup. "View Requests"/"View My Request" (the my-posts/interacted-posts status bars) toast
- * "Coming soon" for now — Phase 2/3 build the screens they'll navigate to.
+ * mockup. "View Requests"/"View My Request" (the my-posts/interacted-posts status bars) each open
+ * a real request-detail sheet — `RequestsSheet`/`SentRequestSheet`, built in Phases 2/3; they were
+ * "Coming soon" toasts only while those sheets didn't exist yet.
  */
 export default function MyActivitiesScreen() {
   const { colors, spacing } = useTheme();
@@ -74,26 +96,38 @@ export default function MyActivitiesScreen() {
   const { data: me } = useMe();
 
   const [activeTab, setActiveTab] = useState<ActivityTab>('liked-posts');
-  const [filters, setFilters] = useState<ActivityFilters>(DEFAULT_ACTIVITY_FILTERS);
+  const [filters, setFilters] = useState<ActivityFilters>(
+    DEFAULT_ACTIVITY_FILTERS,
+  );
   const [commentTargetId, setCommentTargetId] = useState<string | null>(null);
-  const [jobApplyTarget, setJobApplyTarget] = useState<{ jobId: string; screeningQuestions: string[] } | null>(null);
+  const [jobApplyTarget, setJobApplyTarget] = useState<{
+    jobId: string;
+    screeningQuestions: string[];
+  } | null>(null);
   // Hidden/deleted via the card's own 3-dot menu — removed from view immediately, scoped to this
   // screen's own session (matches web's own `tsb:hidepost` handling: client-side only, no global
   // hidden-ids fetch built here — see `ActivityCardMenu.tsx`'s doc comment).
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
-  const removeFromView = (feedId: string) => setRemovedIds(prev => new Set(prev).add(feedId));
+  const removeFromView = (feedId: string) =>
+    setRemovedIds(prev => new Set(prev).add(feedId));
   // "View Requests" (my-posts) / "View My Request" (interacted-posts) each open a request-detail
   // sheet for that post. Stored as just the id (not the item snapshot) so the sheet re-derives
   // fresh `interaction_details`/`recent_requesters` after a send-NDA/send-CIM/decline/withdraw/
   // sign mutation invalidates and refetches the tab — otherwise it'd keep showing the pre-action
   // status until closed and reopened.
-  const [requestsSheetFeedId, setRequestsSheetFeedId] = useState<string | null>(null);
-  const [sentRequestSheetFeedId, setSentRequestSheetFeedId] = useState<string | null>(null);
+  const [requestsSheetFeedId, setRequestsSheetFeedId] = useState<string | null>(
+    null,
+  );
+  const [sentRequestSheetFeedId, setSentRequestSheetFeedId] = useState<
+    string | null
+  >(null);
 
   const statsQuery = useMyActivityStats();
   const tabQuery = useMyActivityTab(activeTab);
-  const requestsSheetItem = tabQuery.items.find(i => i.id === requestsSheetFeedId) ?? null;
-  const sentRequestSheetItem = tabQuery.items.find(i => i.id === sentRequestSheetFeedId) ?? null;
+  const requestsSheetItem =
+    tabQuery.items.find(i => i.id === requestsSheetFeedId) ?? null;
+  const sentRequestSheetItem =
+    tabQuery.items.find(i => i.id === sentRequestSheetFeedId) ?? null;
   const feedActions = useFeedActions();
 
   // Refetches the active tab on every focus (drawer screens stay mounted across menu
@@ -106,7 +140,12 @@ export default function MyActivitiesScreen() {
     }, [activeTab]),
   );
 
-  const counts = statsQuery.data?.counts ?? { liked: 0, commented: 0, received: 0, sent: 0 };
+  const counts = statsQuery.data?.counts ?? {
+    liked: 0,
+    commented: 0,
+    received: 0,
+    sent: 0,
+  };
   const stats = statsQuery.data?.stats ?? null;
   const visibleItems = tabQuery.items.filter(item => !removedIds.has(item.id));
   const filteredItems = applyActivityFilters(visibleItems, filters, activeTab);
@@ -115,7 +154,9 @@ export default function MyActivitiesScreen() {
   const items =
     filters.sort === 'popular'
       ? [...filteredItems].sort(
-          (a, b) => (tabQuery.engagements[b.id]?.likes.count ?? 0) - (tabQuery.engagements[a.id]?.likes.count ?? 0),
+          (a, b) =>
+            (tabQuery.engagements[b.id]?.likes.count ?? 0) -
+            (tabQuery.engagements[a.id]?.likes.count ?? 0),
         )
       : filteredItems;
 
@@ -124,12 +165,17 @@ export default function MyActivitiesScreen() {
   // "8" on first open and silently grew to "18" once the user scrolled into page 2, which is
   // wrong. Falls back to the loaded+filtered count only once a filter/search is actually active,
   // since there's no server endpoint for "total matching this filter" to show instead.
-  const hasActiveFilters = filters.search.trim() !== '' || countActiveActivityFilters(filters) > 0;
-  const resultsCount = hasActiveFilters ? items.length : counts[TABS.find(t => t.key === activeTab)!.countKey];
+  const hasActiveFilters =
+    filters.search.trim() !== '' || countActiveActivityFilters(filters) > 0;
+  const resultsCount = hasActiveFilters
+    ? items.length
+    : counts[TABS.find(t => t.key === activeTab)!.countKey];
 
   const emptyCopy = EMPTY_COPY[activeTab];
-  const showEmpty = !tabQuery.isLoading && !tabQuery.isError && items.length === 0;
-  const showError = !tabQuery.isLoading && tabQuery.isError && tabQuery.items.length === 0;
+  const showEmpty =
+    !tabQuery.isLoading && !tabQuery.isError && items.length === 0;
+  const showError =
+    !tabQuery.isLoading && tabQuery.isError && tabQuery.items.length === 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.pageBg }}>
@@ -142,7 +188,9 @@ export default function MyActivitiesScreen() {
         keyExtractor={item => item.id}
         renderItem={({ item }) => {
           const onViewRequestsOrRequest =
-            activeTab === 'my-posts' ? () => setRequestsSheetFeedId(item.id) : () => setSentRequestSheetFeedId(item.id);
+            activeTab === 'my-posts'
+              ? () => setRequestsSheetFeedId(item.id)
+              : () => setSentRequestSheetFeedId(item.id);
           return (
             <View style={{ paddingHorizontal: spacing.md }}>
               <ActivityMiniCard
@@ -154,8 +202,18 @@ export default function MyActivitiesScreen() {
                 onComment={() => setCommentTargetId(item.id)}
                 onViewRequests={onViewRequestsOrRequest}
                 onViewRequest={onViewRequestsOrRequest}
-                requestDealNda={() => feedActions.requestDealNdaAsync({ dealId: item.item_id, feedId: item.id })}
-                requestPpm={() => feedActions.requestPpmAsync({ searchCapitalId: item.item_id, feedId: item.id })}
+                requestDealNda={() =>
+                  feedActions.requestDealNdaAsync({
+                    dealId: item.item_id,
+                    feedId: item.id,
+                  })
+                }
+                requestPpm={() =>
+                  feedActions.requestPpmAsync({
+                    searchCapitalId: item.item_id,
+                    feedId: item.id,
+                  })
+                }
                 handleInvestorCornerAction={() =>
                   feedActions.handleInvestorCornerActionAsync({
                     item: item.item as any,
@@ -164,11 +222,25 @@ export default function MyActivitiesScreen() {
                   })
                 }
                 submitRsvp={() => feedActions.submitRsvpAsync(item.item_id)}
-                submitPollVote={optionIndex => feedActions.submitPollVote({ pollId: item.item_id, optionIndex, feedId: item.id })}
-                openJobApply={() =>
-                  setJobApplyTarget({ jobId: item.item_id, screeningQuestions: (item.item as any).screening_questions ?? [] })
+                submitPollVote={optionIndex =>
+                  feedActions.submitPollVote({
+                    pollId: item.item_id,
+                    optionIndex,
+                    feedId: item.id,
+                  })
                 }
-                statusBarSlot={buildStatusBarSlot(activeTab, item, onViewRequestsOrRequest)}
+                openJobApply={() =>
+                  setJobApplyTarget({
+                    jobId: item.item_id,
+                    screeningQuestions:
+                      (item.item as any).screening_questions ?? [],
+                  })
+                }
+                statusBarSlot={buildStatusBarSlot(
+                  activeTab,
+                  item,
+                  onViewRequestsOrRequest,
+                )}
                 onHide={() => removeFromView(item.id)}
                 onDeleted={() => removeFromView(item.id)}
               />
@@ -176,7 +248,8 @@ export default function MyActivitiesScreen() {
           );
         }}
         onEndReached={() => {
-          if (tabQuery.hasNextPage && !tabQuery.isFetchingNextPage) tabQuery.fetchNextPage();
+          if (tabQuery.hasNextPage && !tabQuery.isFetchingNextPage)
+            tabQuery.fetchNextPage();
         }}
         onEndReachedThreshold={0.4}
         ListEmptyComponent={
@@ -186,7 +259,11 @@ export default function MyActivitiesScreen() {
             ) : showError ? (
               <ErrorState onRetry={() => tabQuery.refetch()} />
             ) : showEmpty ? (
-              <EmptyState title={emptyCopy.title} body={emptyCopy.body} Icon={emptyCopy.Icon} />
+              <EmptyState
+                title={emptyCopy.title}
+                body={emptyCopy.body}
+                Icon={emptyCopy.Icon}
+              />
             ) : null}
           </View>
         }
@@ -196,15 +273,25 @@ export default function MyActivitiesScreen() {
               <ActivityIndicator color={colors.gold} />
             </View>
           ) : !tabQuery.hasNextPage && items.length > 0 ? (
-            <Text style={[styles.endOfList, { color: colors.ink3 }]}>You've reached the end</Text>
+            <Text style={[styles.endOfList, { color: colors.ink3 }]}>
+              You've reached the end
+            </Text>
           ) : null
         }
         ListHeaderComponent={
           <View>
-            <ActivityHero activeTab={activeTab} tabStats={stats} tabCounts={counts} />
+            <ActivityHero
+              activeTab={activeTab}
+              tabStats={stats}
+              tabCounts={counts}
+            />
 
             <View style={{ gap: spacing.md, padding: spacing.md }}>
-              <TabRow activeTab={activeTab} counts={counts} onChange={setActiveTab} />
+              <TabRow
+                activeTab={activeTab}
+                counts={counts}
+                onChange={setActiveTab}
+              />
 
               <ActivityFilterPanel
                 activeTab={activeTab}
@@ -229,9 +316,17 @@ export default function MyActivitiesScreen() {
         }}
       />
 
-      <RequestsSheet visible={requestsSheetFeedId !== null} item={requestsSheetItem} onClose={() => setRequestsSheetFeedId(null)} />
+      <RequestsSheet
+        visible={requestsSheetFeedId !== null}
+        item={requestsSheetItem}
+        onClose={() => setRequestsSheetFeedId(null)}
+      />
 
-      <SentRequestSheet visible={sentRequestSheetFeedId !== null} item={sentRequestSheetItem} onClose={() => setSentRequestSheetFeedId(null)} />
+      <SentRequestSheet
+        visible={sentRequestSheetFeedId !== null}
+        item={sentRequestSheetItem}
+        onClose={() => setSentRequestSheetFeedId(null)}
+      />
 
       <JobApplyFormSheet
         visible={jobApplyTarget !== null}
@@ -268,7 +363,11 @@ function TabRow({
   const { colors, fonts } = useTheme();
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.tabRow}
+    >
       {TABS.map(tab => {
         const selected = tab.key === activeTab;
         const showDot = tab.key === 'my-posts' && counts.received > 0;
@@ -280,13 +379,28 @@ function TabRow({
               styles.tabPill,
               selected
                 ? { backgroundColor: colors.accentSolid }
-                : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth },
+                : {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    borderWidth: StyleSheet.hairlineWidth,
+                  },
             ]}
           >
-            <Text style={[fonts.bold, styles.tabLabel, { color: selected ? '#fff' : colors.ink2 }]} numberOfLines={1}>
+            <Text
+              style={[
+                fonts.bold,
+                styles.tabLabel,
+                { color: selected ? '#fff' : colors.ink2 },
+              ]}
+              numberOfLines={1}
+            >
               {tab.label}
             </Text>
-            {showDot && <View style={[styles.tabDot, { backgroundColor: colors.goldLight }]} />}
+            {showDot && (
+              <View
+                style={[styles.tabDot, { backgroundColor: colors.goldLight }]}
+              />
+            )}
           </Pressable>
         );
       })}
@@ -294,13 +408,25 @@ function TabRow({
   );
 }
 
-function EmptyState({ title, body, Icon }: { title: string; body: string; Icon: typeof Heart }) {
+function EmptyState({
+  title,
+  body,
+  Icon,
+}: {
+  title: string;
+  body: string;
+  Icon: typeof Heart;
+}) {
   const { colors, fonts } = useTheme();
   return (
     <View style={[styles.stateBox, { borderColor: colors.border }]}>
       <Icon size={26} color={colors.ink3} strokeWidth={1.5} />
-      <Text style={[fonts.bold, styles.stateTitle, { color: colors.ink }]}>{title}</Text>
-      <Text style={[fonts.regular, styles.stateBody, { color: colors.ink3 }]}>{body}</Text>
+      <Text style={[fonts.bold, styles.stateTitle, { color: colors.ink }]}>
+        {title}
+      </Text>
+      <Text style={[fonts.regular, styles.stateBody, { color: colors.ink3 }]}>
+        {body}
+      </Text>
     </View>
   );
 }
@@ -310,11 +436,20 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <View style={[styles.stateBox, { borderColor: colors.border }]}>
       <RefreshCw size={24} color={colors.ink3} strokeWidth={1.5} />
-      <Text style={[fonts.bold, styles.stateTitle, { color: colors.ink }]}>Couldn't load your activity</Text>
-      <Text style={[fonts.regular, styles.stateBody, { color: colors.ink3 }]}>
-        The request timed out or the server didn't respond. Your data is safe — please try again.
+      <Text style={[fonts.bold, styles.stateTitle, { color: colors.ink }]}>
+        Couldn't load your activity
       </Text>
-      <Pressable onPress={onRetry} style={[styles.retryButton, { backgroundColor: colors.gold, borderRadius: radius.lg }]}>
+      <Text style={[fonts.regular, styles.stateBody, { color: colors.ink3 }]}>
+        The request timed out or the server didn't respond. Your data is safe —
+        please try again.
+      </Text>
+      <Pressable
+        onPress={onRetry}
+        style={[
+          styles.retryButton,
+          { backgroundColor: colors.gold, borderRadius: radius.lg },
+        ]}
+      >
         <Text style={[fonts.bold, styles.retryText]}>Retry</Text>
       </Pressable>
     </View>

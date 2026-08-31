@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { Eye, EyeOff, Link2, Trash2 } from 'lucide-react-native';
 import { useTheme } from '../../../theme';
 import { BottomSheet } from '../../BottomSheet';
 import { ConfirmDialog } from '../../events/ConfirmDialog';
 import { deleteFeedItem } from '../../../api/feed';
+import type { AppStackParamList } from '../../../navigation/types';
 
 /**
  * Own-post 3-dot menu — matches web's `MiniCardMenu.tsx` functionally, scoped down to what
@@ -15,9 +18,10 @@ import { deleteFeedItem } from '../../../api/feed';
  * Follow/Unfollow (gated non-owner) and Report (web's own `isOwner ? Delete : Report` branch)
  * never apply and are omitted rather than built unreachable.
  *
- * "View full post" has no real destination yet — no single-post detail screen exists anywhere in
- * this app — shown as a toast stub rather than silently dropped, same convention as other
- * not-yet-built destinations in this app (e.g. Profile menu items before they were real).
+ * "View full post" pushes `FeedPostDetailScreen` — it was a "coming soon" toast stub while no
+ * single-post detail screen existed anywhere in this app; that screen landed later
+ * (Notifications Phase 3) and Notifications has been routing into it since, so this menu just
+ * needed pointing at the same destination.
  * "Copy link" and "Delete post" are both real, matching web's `DELETE /feed/delete/:feedId`
  * exactly. "Hide this post" is real but client-side-only/session-only, matching web's own
  * `tsb:hidepost` event (no backend persistence on web either).
@@ -36,12 +40,13 @@ export function PostCardMenuSheet({
   onDeleted: () => void;
 }) {
   const { colors } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const handleViewPost = () => {
     onClose();
-    Toast.show({ type: 'info', text1: 'Post details coming soon' });
+    navigation.navigate('FeedPostDetail', { feedId });
   };
 
   const handleCopyLink = () => {

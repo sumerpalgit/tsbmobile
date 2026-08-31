@@ -149,17 +149,6 @@ android {
             }
         }
     }
-    lint {
-        // AGP runs `lintVitalAnalyzeRelease` on every release build, in-process inside the
-        // Gradle daemon. Across ~600 node_modules packages it exhausts metaspace and adds
-        // minutes to the build, while flagging essentially nothing actionable in a React
-        // Native app (the Java/Kotlin surface here is the RN template plus autolinked
-        // libraries we don't own). Skip it for release; `./gradlew lint` still runs on demand.
-        checkReleaseBuilds false
-        // Never let a lint finding abort a release build even if lint is run explicitly.
-        abortOnError false
-    }
-
     packagingOptions {
         // Modern AGP defaults to storing native libraries uncompressed in the APK (faster
         // install, bigger download). For internal team-shared APKs the download size matters

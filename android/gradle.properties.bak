@@ -10,11 +10,7 @@
 # Specifies the JVM arguments used for the daemon process.
 # The setting is particularly useful for tweaking memory settings.
 # Default value: -Xmx512m -XX:MaxMetaspaceSize=256m
-# R8 (minifyRelease) and lint both run inside the Gradle daemon JVM, and a full
-# clean release build runs them back-to-back in one process with ~600 node_modules
-# worth of classes loaded. 2g heap / 512m metaspace is not enough for that: R8 dies
-# with "Compilation failed to complete" and lint with "OutOfMemoryError: Metaspace".
-org.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
 
 # When configured, Gradle will run in incubating parallel mode.
 # This option should only be used with decoupled projects. More details, visit
