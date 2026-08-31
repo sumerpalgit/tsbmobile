@@ -5,7 +5,13 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { AppState, AppStateStatus, StatusBar, StyleSheet, View } from 'react-native';
+import {
+  AppState,
+  AppStateStatus,
+  StatusBar,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider, focusManager } from '@tanstack/react-query';
@@ -16,11 +22,17 @@ import { AuthProvider, useAuth } from './src/store/AuthContext';
 import { SocketProvider } from './src/store/SocketContext';
 import { ThemeProvider, useTheme } from './src/theme';
 import { queryClient } from './src/config/queryClient';
+import { usePush } from './src/services/push';
 
 function AppContent() {
   const { colors, isDark, isThemeLoaded } = useTheme();
   const { isAuthLoaded } = useAuth();
   const [isSplashVisible, setSplashVisible] = useState(true);
+
+  // Push notifications: creates the Android channel, registers the foreground/tap handlers, and
+  // (once signed in) requests permission and logs the FCM token. Lives here rather than in
+  // `App` because it reads `useAuth`, which is only available below `AuthProvider`.
+  usePush();
 
   useEffect(() => {
     const timer = setTimeout(() => setSplashVisible(false), 2000);
@@ -40,7 +52,10 @@ function AppContent() {
         match their (fixed-navy) top background, overriding this one for as
         long as they're mounted.
       */}
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.surface}
+      />
       {showSplash ? <SplashScreen /> : <RootNavigator />}
     </View>
   );

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from './client';
+import { rotateTokenForProfileSwitch } from '../services/push/token';
 import { DUAL_PROFILE_ENDPOINTS } from './endpoints';
 
 /** Thin wrappers over `DUAL_PROFILE_ENDPOINTS` — matches
@@ -50,7 +51,9 @@ export type DualCheckResponse = {
 /** `GET /dual-profile/dual-check` — `isDualIdNull: false` means the account already has a dual
  * profile. */
 export async function checkDualProfile(): Promise<DualCheckResponse> {
-  const data = await apiClient.get(DUAL_PROFILE_ENDPOINTS.DUAL_CHECK).then(res => res.data);
+  const data = await apiClient
+    .get(DUAL_PROFILE_ENDPOINTS.DUAL_CHECK)
+    .then(res => res.data);
   return { isDualIdNull: data?.is_dual_id_null ?? true };
 }
 
@@ -63,13 +66,23 @@ export async function deleteDualProfile() {
   return data;
 }
 
-/** `POST /dual-profile/switch` — flips which profile (primary/dual) is active. Not called
- * anywhere yet in this build — built ahead of the profile-switcher UI (a separate, unbuilt
- * feature, see the plan's scope note) so that future work doesn't need to touch this file again. */
+/** `POST /dual-profile/switch` — flips which profile (primary/dual) is active. Called from
+ * `ViewProfileScreen`'s `handleSwitchProfile`.
+ *
+ * Also rotates the FCM push token. Worth spelling out because it's counter-intuitive: an FCM
+ * token belongs to the app INSTALL, not the user account, so switching profile rotates the JWT
+ * here but would otherwise leave the device carrying the push identity of the profile just left.
+ * Rotating keeps the two in step. Only `switch` does this — `createDualProfile`/`deleteDualProfile`
+ * don't change which identity is active.
+ *
+ * Fire-and-forget by design: the switch has already succeeded by this point, and a failed token
+ * rotation must not surface to the user as a failed switch. `rotateTokenForProfileSwitch` swallows
+ * its own errors and logs them. */
 export async function switchDualProfile() {
   const data = await apiClient
     .post<DualProfileMutationResponse>(DUAL_PROFILE_ENDPOINTS.SWITCH)
     .then(res => res.data);
   await applyRotatedToken(data);
+  rotateTokenForProfileSwitch();
   return data;
 }

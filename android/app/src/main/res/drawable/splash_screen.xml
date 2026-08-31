@@ -4,6 +4,18 @@
   app process starting and the JS bundle mounting SplashScreen.tsx. Matches
   it exactly (same navy fill, same icon) so the two don't visibly flash
   between different screens on cold start.
+
+  COUPLED TO SplashScreen.tsx: that screen renders its icon at 190dp with
+  `borderRadius: 56`, so splash_icon.png is pre-rounded at the same ratio
+  (56/190 of its width = 151px on the 512px asset). It was originally a flat
+  square, which made the native screen visibly differ from the JS one on cold
+  start — a sharp-cornered tile followed by a rounded one.
+
+  Android drawable XML can't mask a bitmap with rounded corners (a <shape>
+  can't contain a <bitmap>), so the rounding is baked into the PNG rather
+  than expressed here. If SplashScreen.tsx's borderRadius or size ever
+  changes, the asset must be regenerated to match — changing this file alone
+  will not do it.
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splashBackground" />

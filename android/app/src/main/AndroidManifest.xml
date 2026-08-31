@@ -1,6 +1,11 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Mandatory from Android 13 (API 33) onward, and this app targets 36: without it the
+         system silently drops every notification. It is a *runtime* permission, so declaring
+         it here is only half the job — `services/push/permissions.ts` must also prompt. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
       android:name=".MainApplication"
@@ -34,5 +39,26 @@
             <data android:scheme="tsb" />
         </intent-filter>
       </activity>
+
+      <!-- FCM defaults for notifications the system tray renders itself (background/quit
+           delivery). The channel id must stay in sync with `ANDROID_CHANNEL_ID` in
+           `src/services/push/constants.ts`, which notifee uses for the foreground
+           notifications we render by hand — otherwise the two arrive in different channels
+           and the user sees two separate toggles in Android settings.
+
+           The icon is the existing launcher asset rather than a dedicated notification icon.
+           Android renders notification icons as a silhouette, so a full-colour launcher shows
+           as a white square on some versions; swapping in a proper transparent-background
+           mono icon is a small design task, deliberately not invented here. -->
+      <!-- `tools:replace` is required: @react-native-firebase/messaging's own manifest already
+           declares this same meta-data with an EMPTY value, and the merger refuses to pick a
+           winner on its own. Without it the build fails at :app:processDebugMainManifest. -->
+      <meta-data
+        android:name="com.google.firebase.messaging.default_notification_channel_id"
+        android:value="tsb_default_v2"
+        tools:replace="android:value" />
+      <meta-data
+        android:name="com.google.firebase.messaging.default_notification_icon"
+        android:resource="@mipmap/ic_launcher" />
     </application>
 </manifest>

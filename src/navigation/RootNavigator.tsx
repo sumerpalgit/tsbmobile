@@ -5,11 +5,13 @@ import {
   DefaultTheme,
   LinkingOptions,
   NavigationContainer,
+  NavigationContainerRef,
   Theme as NavTheme,
 } from '@react-navigation/native';
 import { useTheme } from '../theme';
 import { useAuth } from '../store/AuthContext';
 import { isLinkedInSignInInFlight } from '../screens/auth/linkedInSignInState';
+import { navigationRef } from './navigationRef';
 import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
 import { AuthStackParamList } from './types';
@@ -47,7 +49,8 @@ const linking: LinkingOptions<AuthStackParamList> = {
   // cold-start deep link) passes through untouched.
   subscribe(listener) {
     const sub = Linking.addEventListener('url', ({ url }) => {
-      if (url.includes('linkedin-callback') && isLinkedInSignInInFlight()) return;
+      if (url.includes('linkedin-callback') && isLinkedInSignInInFlight())
+        return;
       listener(url);
     });
     return () => sub.remove();
@@ -78,7 +81,20 @@ function RootNavigator() {
   };
 
   return (
-    <NavigationContainer theme={navigationTheme} linking={linking}>
+    /* `navigationRef` is typed to `AppStackParamList` — the routes push taps navigate into —
+       while `linking` is typed to `AuthStackParamList`, the logged-out deep links. The container
+       has one generic and can only satisfy one of them, so the ref is cast at this single
+       attachment point rather than weakening `navigationRef`'s own type, which is what gives
+       `navigateFromPush` its route-name and param checking. */
+    <NavigationContainer
+      ref={
+        navigationRef as unknown as React.Ref<
+          NavigationContainerRef<AuthStackParamList>
+        >
+      }
+      theme={navigationTheme}
+      linking={linking}
+    >
       {isAuthenticated ? <AppNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );

@@ -43,6 +43,10 @@ const styles = StyleSheet.create({
     // let that size be configured, so this screen matches it instead.
     width: 190,
     height: 190,
+    // Also baked into android/.../drawable-xxxhdpi/splash_icon.png at the same
+    // 56/190 ratio — that asset is the native window background shown just
+    // before this screen mounts, and a mismatch reads as two different splash
+    // screens on cold start. Change one, regenerate the other.
     borderRadius: 56,
   },
   tagline: {

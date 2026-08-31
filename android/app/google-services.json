@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1015226779834",
+    "project_id": "the-search-bridge-36ebe",
+    "storage_bucket": "the-search-bridge-36ebe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1015226779834:android:b2a3aea6ba2f26422d5a83",
+        "android_client_info": {
+          "package_name": "com.tsb"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyATlPHPS3_ZD59FODiSqgmx1kFWhZBPyO0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

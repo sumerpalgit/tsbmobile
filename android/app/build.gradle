@@ -1,6 +1,9 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+// Must come after com.android.application. Reads android/app/google-services.json —
+// the build fails with a clear error if that file is missing.
+apply plugin: "com.google.gms.google-services"
 
 /**
  * Release signing credentials — kept out of this file (and out of git; see
