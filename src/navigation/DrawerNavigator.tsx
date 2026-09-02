@@ -9,11 +9,11 @@ import { useTheme } from '../theme';
 import { TopBar } from '../components/TopBar';
 import { useMe } from '../hooks/useMe';
 import { useNotificationsUnreadCount } from '../hooks/useNotifications';
-import { createPlaceholderScreen } from '../screens/PlaceholderScreen';
 import {
   EtaChaptersScreen,
   MyActivitiesScreen,
   MyEventsScreen,
+  MyMatchesScreen,
   MyResourcesScreen,
 } from '../screens';
 import MainNavigator from './MainNavigator';
@@ -36,11 +36,7 @@ const SCREENS: Record<
   React.ComponentType
 > = {
   EtaChapters: EtaChaptersScreen,
-  MyMatches: createPlaceholderScreen({
-    title: 'My Matches',
-    icon: 'matches',
-    phase: 'Phase 5',
-  }),
+  MyMatches: MyMatchesScreen,
   MyActivities: MyActivitiesScreen,
   MyEvents: MyEventsScreen,
   MyResources: MyResourcesScreen,

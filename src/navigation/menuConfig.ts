@@ -61,13 +61,7 @@ export const DRAWER_ITEMS: DrawerItem[] = [
   { kind: 'tab', name: 'Directory', label: 'Directory', icon: 'directory' },
   { kind: 'screen', name: 'EtaChapters', label: 'ETA Chapters', icon: 'etaChapters' },
   { kind: 'tab', name: 'AiAssist', label: 'AI Assist', icon: 'aiAssist' },
-  {
-    kind: 'screen',
-    name: 'MyMatches',
-    label: 'My Matches',
-    icon: 'matches',
-    phase: 'Phase 5',
-  },
+  { kind: 'screen', name: 'MyMatches', label: 'My Matches', icon: 'matches' },
   { kind: 'tab', name: 'Messages', label: 'Messages', icon: 'messages' },
   {
     kind: 'screen',

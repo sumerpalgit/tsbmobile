@@ -322,6 +322,11 @@ export const AI_ENDPOINTS = {
   MESSAGES: '/ai/messages',
   UPLOAD_DOCUMENT: '/ai/documents/upload',
   GENERATE_STREAM: '/ai/generate-stream',
+  /** My Matches' AI message drafting — web's `fetchAiMessageCredits` / `draftMatchMessage`
+   * (`webSrc/actions/my-matches.ts:207,211`). A separate credit pool from AI Assist's chat, which
+   * has no credit concept at all. */
+  MESSAGE_DRAFT_CREDITS: '/ai/message-draft-credits',
+  DRAFT_MATCH_MESSAGE: '/ai/draft-match-message',
 } as const;
 
 /** Ids interpolated at the call site (`${CHAT_ENDPOINTS.CONVERSATIONS}/${id}/messages`), same
@@ -444,6 +449,41 @@ export const ROLE_THESIS_ENDPOINTS = {
   /** Matches web's `fetchOperatorThesisCompletion` (`GET /profile/operator-thesis/completion`). */
   OPERATOR_THESIS_COMPLETION: '/profile/operator-thesis/completion',
   SIMILAR: '/profile',
+} as const;
+
+/** My Matches — matches `webSrc/actions/my-matches.ts`. Every id-scoped route interpolates at the
+ * call site (`${MATCHMAKING_ENDPOINTS.PASS}/${matchmakingId}`), same convention as
+ * `CHAT_ENDPOINTS`/`ADS_ENDPOINTS` above.
+ *
+ * `CHANGE_STATUS`/`CHANGE_STATUS_FALSE` take a trailing field segment as well —
+ * `${CHANGE_STATUS}/${id}/profile_interest` sets it true, `${CHANGE_STATUS_FALSE}/${id}/...` sets
+ * it false. There is no single toggle route; true and false are genuinely different paths.
+ *
+ * `MY_COMBINED` is one call serving two of the three tabs: its response carries both
+ * `matchmaking[]` ("Where I'm a Fit") and `user_posts[]` ("From My Posts"). Passing
+ * `?include_passed=true` returns passed rows too — the only query param in the whole feature. */
+export const MATCHMAKING_ENDPOINTS = {
+  MY_COMBINED: '/matchmaking/my-combined',
+  SUGGESTED: '/matchmaking/suggested',
+  SUGGESTED_PASSED: '/matchmaking/suggested/passed',
+  SUGGESTED_RUN: '/matchmaking/suggested/run',
+  REFRESH_ANALYSIS: '/matchmaking/refresh-analysis',
+  CHANGE_STATUS: '/matchmaking/change-status',
+  CHANGE_STATUS_FALSE: '/matchmaking/change-status-false',
+  PASS: '/matchmaking/pass',
+  UNDO_PASS: '/matchmaking/undo-pass',
+  DELETE: '/matchmaking/delete',
+  DELETE_CREATOR: '/matchmaking/delete-creator',
+  NDA_SENT: '/matchmaking/nda-sent',
+  FEED: '/matchmaking/feed',
+} as const;
+
+/** My Matches' own settings (`GET`/`PUT /match-settings`) — web's `fetchMatchSettings`/
+ * `saveMatchSettings`. **Not** the same surface as `SETTINGS_ENDPOINTS.MATCHING`
+ * (`/settings/matching`), which backs the Settings > Matching screen's audience/behaviour
+ * preferences. These two are separate backend resources with different shapes; don't merge them. */
+export const MATCH_SETTINGS_ENDPOINTS = {
+  BASE: '/match-settings',
 } as const;
 
 /** "Suggest a Feature" — web's `SuggestFeatureModal` (`webSrc/app/dashboard/layout.tsx:23`) posts

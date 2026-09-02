@@ -30,3 +30,20 @@ export const NOTIFICATIONS_MATCH_COUNTS_QUERY_KEY = ['notificationsMatchCounts']
  * page of that list. `useFeedActions.ts`'s `invalidateFeed()` invalidates this broad prefix too,
  * so a like/comment/etc. made from this screen refreshes it the same way Home/My Activity do. */
 export const FEED_ITEM_DETAIL_QUERY_KEY = ['feedItemDetail'] as const;
+
+/** My Matches. One cache entry serves TWO tabs — `GET /matchmaking/my-combined` returns
+ * `matchmaking[]` ("Where I'm a Fit") and `user_posts[]` ("From My Posts") in a single response,
+ * and web fetches it once for both (`page.tsx:121`); splitting it would double the request for no
+ * gain. None of these paginate — the whole feature has no page/limit/cursor param anywhere — so
+ * they back plain `useQuery` calls, unlike `MY_ACTIVITY_QUERY_KEY` above. */
+export const MY_MATCHES_COMBINED_QUERY_KEY = ['myMatchesCombined'] as const;
+export const MY_MATCHES_SUGGESTED_QUERY_KEY = ['myMatchesSuggested'] as const;
+export const MY_MATCHES_PASSED_FEED_QUERY_KEY = ['myMatchesPassedFeed'] as const;
+export const MY_MATCHES_PASSED_SUGGESTED_QUERY_KEY = ['myMatchesPassedSuggested'] as const;
+/** Keyed further by feed id at the call site (`[...MY_MATCHES_FEED_QUERY_KEY, feedId]`), same
+ * convention as `FEED_ITEM_DETAIL_QUERY_KEY` above. */
+export const MY_MATCHES_FEED_QUERY_KEY = ['myMatchesFeed'] as const;
+/** `GET /match-settings` — My Matches' own settings resource, NOT Settings > Matching
+ * (`/settings/matching`), which is a different backend shape behind `SettingsMatchingScreen`. */
+export const MATCH_SETTINGS_QUERY_KEY = ['matchSettings'] as const;
+export const AI_MESSAGE_CREDITS_QUERY_KEY = ['aiMessageCredits'] as const;

@@ -30,6 +30,7 @@ export { default as SettingsSupportScreen } from './SettingsSupportScreen';
 export { default as CreateDualProfileScreen } from './CreateDualProfileScreen';
 export { default as EditProfileScreen } from './EditProfileScreen';
 export { default as FeedPostDetailScreen } from './FeedPostDetailScreen';
+export { default as MyMatchesScreen } from './MyMatchesScreen';
 export {
   PlaceholderScreen,
   createPlaceholderScreen,
